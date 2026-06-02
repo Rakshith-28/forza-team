@@ -10,6 +10,21 @@ Forza Team is a **multi-tenant soccer club management platform**. It stores
 **minors' personal data**, so child-safety and tenant isolation are
 architectural requirements, not features.
 
+## Working agreement
+
+These rules apply to every session in this repo:
+
+1. **Do exactly what's asked — nothing more.** No unrequested features,
+   refactors, files, or "improvements." If extra work seems needed, ask first.
+2. **Don't loop or repeat work.** If an approach fails twice, stop and report
+   it rather than retrying variations. Don't re-verify what's already confirmed.
+3. **When stuck or a command hangs, stop and say so plainly** — which command,
+   the exact error, and what's needed to proceed. No silent churning.
+4. **Commit at logical checkpoints** (after each completed sub-task / working
+   milestone) with a short, clear message — don't leave everything uncommitted
+   until the end. Only commit working, coherent states. **Never commit `.env`
+   or secrets.**
+
 ## Status
 
 Phase 0 (Foundation) is complete. Next: Phase 1 (identity, auth & RBAC). See
