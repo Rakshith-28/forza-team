@@ -56,6 +56,8 @@ npm run db:studio    # Prisma Studio
 
 CI runs `lint`, `typecheck`, and `build` on every PR (`.github/workflows/ci.yml`).
 
+For a **named** migration use `npx prisma migrate dev --name <x>` directly — `npm run db:migrate -- --name <x>` swallows the flag and hangs on the interactive prompt.
+
 ### Node version
 
 Prisma 7 supports **Node 20.19+, 22.12+, or 24+** — odd-numbered releases like

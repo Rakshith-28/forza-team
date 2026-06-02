@@ -1,23 +1,1232 @@
 // Forza Team — Prisma schema
 //
-// Prisma 7: the new `prisma-client` generator (TypeScript, ESM, no Rust
-// engine). The generated client is emitted into src/db/generated (gitignored)
-// and re-exported through the singleton in src/db/client.ts.
+// Ported from docs/soccer_club_database_schema.md (51 tables), organized by the
+// domain modules in docs/BUILD_PLAN.md §2. Module ownership is marked with
+// banner comments; modules talk through services, never across table internals.
 //
-// Models are intentionally NOT defined yet. Phase 0 only stands up the
-// connection + tooling. The 51-table domain schema is ported in module-by-
-// module starting in Phase 1 (see @docs/BUILD_PLAN.md §6). Every tenant-owned
-// model MUST carry a `clubId` column — that rule is enforced in the data
-// layer, but it starts here in the schema.
+// Engineering decisions (faithful to the spec + BUILD_PLAN):
+//   • Enum-like columns are controlled strings (`String @db.VarChar(n)`), not
+//     Prisma enums — values are validated in the service layer / Zod.
+//   • Audit + actor columns (created_by, updated_by, deleted_by, and the various
+//     *_by_user_id references) are scalar UUIDs, NOT relations. This avoids ~20
+//     ambiguous back-relations on User; "who did this" is resolved in the app.
+//   • Identity edges that the row is *about* (user_id, sender_user_id) ARE
+//     relations, since RBAC and queries traverse them.
+//   • PKs: UUID via gen_random_uuid(). Timestamps: timestamptz. Money: numeric.
+//   • snake_case table/column names preserved via @map / @@map.
+//   • CHECK constraints from the spec (date ranges, non-negative money, weight
+//     totals) are NOT expressible in Prisma schema; they are enforced in the
+//     service layer per spec §10/§11.
+//   • updated_at mirrors the spec (DEFAULT now()); it is set by the service
+//     layer on write (no @updatedAt, matching the SQL which has no trigger).
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/db/generated"
+  provider        = "prisma-client"
+  output          = "../src/db/generated"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  // Prisma 7: connection URLs live in prisma.config.ts (the CLI uses
-  // DIRECT_URL for migrations); the runtime client is given DATABASE_URL
-  // via a driver adapter in src/db/client.ts.
+  provider   = "postgresql"
+  extensions = [citext]
+}
+
+// =============================================================================
+// MODULE: identity — users, roles, sessions (Better Auth glue)            §7.1–7.5
+// =============================================================================
+
+model User {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String    @unique @db.Citext
+  passwordHash    String    @map("password_hash")
+  firstName       String    @map("first_name") @db.VarChar(100)
+  lastName        String    @map("last_name") @db.VarChar(100)
+  phone           String?   @db.VarChar(30)
+  isEmailVerified Boolean   @default(false) @map("is_email_verified")
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
+  status          String    @default("ACTIVE") @db.VarChar(50)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  roleAssignments        UserRoleAssignment[]
+  teamCoachRoles         TeamCoach[]
+  parentProfiles         Parent[]
+  chatMemberships        ChatMember[]
+  messagesSent           Message[]
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
+  passwordResetTokens    PasswordResetToken[]
+
+  @@index([status])
+  @@map("users")
+}
+
+model Role {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String  @unique @db.VarChar(50)
+  name        String  @db.VarChar(100)
+  description String?
+
+  assignments UserRoleAssignment[]
+
+  @@map("roles")
+}
+
+model UserRoleAssignment {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  roleId    String    @map("role_id") @db.Uuid
+  clubId    String?   @map("club_id") @db.Uuid
+  teamId    String?   @map("team_id") @db.Uuid
+  isPrimary Boolean   @default(false) @map("is_primary")
+  status    String    @default("ACTIVE") @db.VarChar(50)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  user User  @relation(fields: [userId], references: [id])
+  role Role  @relation(fields: [roleId], references: [id])
+  club Club? @relation(fields: [clubId], references: [id])
+  team Team? @relation(fields: [teamId], references: [id])
+
+  @@index([userId])
+  @@index([clubId])
+  @@index([teamId])
+  @@index([roleId])
+  @@map("user_role_assignments")
+}
+
+model Invitation {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId           String?   @map("club_id") @db.Uuid
+  email            String    @db.Citext
+  roleCode         String    @map("role_code") @db.VarChar(50)
+  teamId           String?   @map("team_id") @db.Uuid
+  tokenHash        String    @map("token_hash")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  acceptedAt       DateTime? @map("accepted_at") @db.Timestamptz(6)
+  acceptedByUserId String?   @map("accepted_by_user_id") @db.Uuid
+  status           String    @default("PENDING") @db.VarChar(50)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy        String?   @map("created_by") @db.Uuid
+
+  club Club? @relation(fields: [clubId], references: [id])
+  team Team? @relation(fields: [teamId], references: [id])
+
+  @@index([email])
+  @@index([clubId])
+  @@index([status])
+  @@map("invitations")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("password_reset_tokens")
+}
+
+// =============================================================================
+// MODULE: clubs — clubs, settings, seasons, teams, coaches               §7.6–7.10
+// =============================================================================
+
+model Club {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String    @db.VarChar(200)
+  shortCode      String    @unique @map("short_code") @db.VarChar(50)
+  logoUrl        String?   @map("logo_url")
+  primaryColor   String?   @map("primary_color") @db.VarChar(20)
+  secondaryColor String?   @map("secondary_color") @db.VarChar(20)
+  addressLine1   String?   @map("address_line1") @db.VarChar(200)
+  addressLine2   String?   @map("address_line2") @db.VarChar(200)
+  city           String?   @db.VarChar(100)
+  state          String?   @db.VarChar(100)
+  postalCode     String?   @map("postal_code") @db.VarChar(20)
+  country        String?   @db.VarChar(100)
+  phone          String?   @db.VarChar(30)
+  website        String?
+  timezone       String    @default("America/New_York") @db.VarChar(100)
+  status         String    @default("ACTIVE") @db.VarChar(50)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+
+  settings                ClubSetting?
+  seasons                 Season[]
+  teams                   Team[]
+  userRoleAssignments     UserRoleAssignment[]
+  invitations             Invitation[]
+  teamCoaches             TeamCoach[]
+  players                 Player[]
+  playerTeamMemberships   PlayerTeamMembership[]
+  parents                 Parent[]
+  playerParentLinks       PlayerParentLink[]
+  files                   File[]
+  announcements           Announcement[]
+  chats                   Chat[]
+  events                  Event[]
+  eventRsvps              EventRsvp[]
+  attendanceRecords       AttendanceRecord[]
+  registrationPrograms    RegistrationProgram[]
+  registrationForms       RegistrationForm[]
+  registrationSubmissions RegistrationSubmission[]
+  familyAccounts          FamilyAccount[]
+  discounts               Discount[]
+  invoices                Invoice[]
+  payments                Payment[]
+  refunds                 Refund[]
+  waivers                 Waiver[]
+  waiverAcceptances       WaiverAcceptance[]
+  evaluationTemplates     EvaluationTemplate[]
+  positionWeightProfiles  PositionWeightProfile[]
+  evaluationCycles        EvaluationCycle[]
+  playerEvaluations       PlayerEvaluation[]
+  developmentGoals        DevelopmentGoal[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+
+  @@index([status])
+  @@index([name])
+  @@map("clubs")
+}
+
+model ClubSetting {
+  id                             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId                         String   @unique @map("club_id") @db.Uuid
+  allowParentToParentChat        Boolean  @default(false) @map("allow_parent_to_parent_chat")
+  allowParentChildEvaluationView Boolean  @default(false) @map("allow_parent_child_evaluation_view")
+  showPlayerPhotosToParents      Boolean  @default(true) @map("show_player_photos_to_parents")
+  enableAiFeatures               Boolean  @default(true) @map("enable_ai_features")
+  enableSmsNotifications         Boolean  @default(false) @map("enable_sms_notifications")
+  defaultCurrency                String   @default("USD") @map("default_currency") @db.VarChar(10)
+  attendanceTrackingEnabled      Boolean  @default(true) @map("attendance_tracking_enabled")
+  registrationEnabled            Boolean  @default(true) @map("registration_enabled")
+  billingEnabled                 Boolean  @default(true) @map("billing_enabled")
+  createdAt                      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  club Club @relation(fields: [clubId], references: [id])
+
+  @@map("club_settings")
+}
+
+model Season {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId    String   @map("club_id") @db.Uuid
+  name      String   @db.VarChar(150)
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  status    String   @default("ACTIVE") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  club                  Club                   @relation(fields: [clubId], references: [id])
+  teams                 Team[]
+  playerTeamMemberships PlayerTeamMembership[]
+  registrationPrograms  RegistrationProgram[]
+  evaluationCycles      EvaluationCycle[]
+
+  @@index([clubId])
+  @@index([status])
+  @@map("seasons")
+}
+
+model Team {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId             String    @map("club_id") @db.Uuid
+  seasonId           String?   @map("season_id") @db.Uuid
+  name               String    @db.VarChar(150)
+  teamCode           String    @map("team_code") @db.VarChar(50)
+  ageGroup           String?   @map("age_group") @db.VarChar(50)
+  division           String?   @db.VarChar(100)
+  competitiveLevel   String?   @map("competitive_level") @db.VarChar(100)
+  status             String    @default("ACTIVE") @db.VarChar(50)
+  primaryCoachUserId String?   @map("primary_coach_user_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy          String?   @map("created_by") @db.Uuid
+  updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy          String?   @map("updated_by") @db.Uuid
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy          String?   @map("deleted_by") @db.Uuid
+
+  club                  Club                   @relation(fields: [clubId], references: [id])
+  season                Season?                @relation(fields: [seasonId], references: [id])
+  userRoleAssignments   UserRoleAssignment[]
+  invitations           Invitation[]
+  teamCoaches           TeamCoach[]
+  playerTeamMemberships PlayerTeamMembership[]
+  announcements         Announcement[]
+  chats                 Chat[]
+  events                Event[]
+  evaluationCycles      EvaluationCycle[]
+  playerEvaluations     PlayerEvaluation[]
+  developmentGoals      DevelopmentGoal[]
+
+  @@unique([clubId, teamCode], name: "uq_teams_club_team_code")
+  @@index([clubId])
+  @@index([seasonId])
+  @@index([status])
+  @@map("teams")
+}
+
+model TeamCoach {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId    String   @map("club_id") @db.Uuid
+  teamId    String   @map("team_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleType  String   @map("role_type") @db.VarChar(50)
+  status    String   @default("ACTIVE") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid
+
+  club Club @relation(fields: [clubId], references: [id])
+  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+  @@index([clubId])
+  @@index([teamId])
+  @@index([userId])
+  @@map("team_coaches")
+}
+
+// =============================================================================
+// MODULE: roster — players, memberships, parents, linkage               §7.11–7.14
+// =============================================================================
+
+model Player {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId                String    @map("club_id") @db.Uuid
+  firstName             String    @map("first_name") @db.VarChar(100)
+  lastName              String    @map("last_name") @db.VarChar(100)
+  preferredName         String?   @map("preferred_name") @db.VarChar(100)
+  dateOfBirth           DateTime? @map("date_of_birth") @db.Date
+  photoUrl              String?   @map("photo_url")
+  jerseyNumber          String?   @map("jersey_number") @db.VarChar(20)
+  primaryPosition       String?   @map("primary_position") @db.VarChar(50)
+  secondaryPosition     String?   @map("secondary_position") @db.VarChar(50)
+  medicalNotes          String?   @map("medical_notes")
+  allergyNotes          String?   @map("allergy_notes")
+  emergencyContactName  String?   @map("emergency_contact_name") @db.VarChar(200)
+  emergencyContactPhone String?   @map("emergency_contact_phone") @db.VarChar(30)
+  status                String    @default("ACTIVE") @db.VarChar(50)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy             String?   @map("created_by") @db.Uuid
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy             String?   @map("updated_by") @db.Uuid
+  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy             String?   @map("deleted_by") @db.Uuid
+
+  club                    Club                     @relation(fields: [clubId], references: [id])
+  teamMemberships         PlayerTeamMembership[]
+  parentLinks             PlayerParentLink[]
+  eventRsvps              EventRsvp[]
+  attendanceRecords       AttendanceRecord[]
+  registrationSubmissions RegistrationSubmission[]
+  invoices                Invoice[]
+  waiverAcceptances       WaiverAcceptance[]
+  evaluations             PlayerEvaluation[]
+  developmentGoals        DevelopmentGoal[]
+
+  @@index([clubId])
+  @@index([status])
+  @@index([lastName, firstName])
+  @@index([primaryPosition])
+  @@map("players")
+}
+
+model PlayerTeamMembership {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId    String    @map("club_id") @db.Uuid
+  playerId  String    @map("player_id") @db.Uuid
+  teamId    String    @map("team_id") @db.Uuid
+  seasonId  String?   @map("season_id") @db.Uuid
+  status    String    @default("ACTIVE") @db.VarChar(50)
+  joinedAt  DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  leftAt    DateTime? @map("left_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+
+  club   Club    @relation(fields: [clubId], references: [id])
+  player Player  @relation(fields: [playerId], references: [id])
+  team   Team    @relation(fields: [teamId], references: [id])
+  season Season? @relation(fields: [seasonId], references: [id])
+
+  @@unique([playerId, teamId, seasonId], name: "uq_player_team_memberships")
+  @@index([clubId])
+  @@index([teamId])
+  @@index([playerId])
+  @@map("player_team_memberships")
+}
+
+model Parent {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId                 String   @map("club_id") @db.Uuid
+  userId                 String   @map("user_id") @db.Uuid
+  firstName              String   @map("first_name") @db.VarChar(100)
+  lastName               String   @map("last_name") @db.VarChar(100)
+  email                  String   @db.Citext
+  phone                  String?  @db.VarChar(30)
+  secondaryPhone         String?  @map("secondary_phone") @db.VarChar(30)
+  preferredContactMethod String?  @map("preferred_contact_method") @db.VarChar(30)
+  addressLine1           String?  @map("address_line1") @db.VarChar(200)
+  addressLine2           String?  @map("address_line2") @db.VarChar(200)
+  city                   String?  @db.VarChar(100)
+  state                  String?  @db.VarChar(100)
+  postalCode             String?  @map("postal_code") @db.VarChar(20)
+  status                 String   @default("ACTIVE") @db.VarChar(50)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy              String?  @map("created_by") @db.Uuid
+  updatedAt              DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy              String?  @map("updated_by") @db.Uuid
+
+  club                    Club               @relation(fields: [clubId], references: [id])
+  user                    User               @relation(fields: [userId], references: [id])
+  playerLinks             PlayerParentLink[]
+  familyAccountsAsPrimary FamilyAccount[]
+  invoices                Invoice[]
+
+  @@unique([clubId, userId], name: "uq_parents_club_user")
+  @@index([clubId])
+  @@index([userId])
+  @@index([email])
+  @@map("parents")
+}
+
+model PlayerParentLink {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId            String   @map("club_id") @db.Uuid
+  playerId          String   @map("player_id") @db.Uuid
+  parentId          String   @map("parent_id") @db.Uuid
+  relationshipType  String   @map("relationship_type") @db.VarChar(50)
+  isPrimaryGuardian Boolean  @default(false) @map("is_primary_guardian")
+  canPickup         Boolean  @default(false) @map("can_pickup")
+  canPay            Boolean  @default(true) @map("can_pay")
+  status            String   @default("ACTIVE") @db.VarChar(50)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy         String?  @map("created_by") @db.Uuid
+
+  club   Club   @relation(fields: [clubId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+  parent Parent @relation(fields: [parentId], references: [id])
+
+  @@unique([playerId, parentId], name: "uq_player_parent_link")
+  @@index([clubId])
+  @@index([playerId])
+  @@index([parentId])
+  @@map("player_parent_links")
+}
+
+// =============================================================================
+// MODULE: comms — files, announcements, chats, messages                 §7.15–7.20
+// =============================================================================
+
+model File {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId       String   @map("club_id") @db.Uuid
+  ownerUserId  String?  @map("owner_user_id") @db.Uuid
+  storageKey   String   @map("storage_key")
+  originalName String   @map("original_name") @db.VarChar(255)
+  mimeType     String   @map("mime_type") @db.VarChar(150)
+  sizeBytes    BigInt   @map("size_bytes")
+  purpose      String   @db.VarChar(100)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  club               Club                @relation(fields: [clubId], references: [id])
+  messageAttachments MessageAttachment[]
+  eventAttachments   EventAttachment[]
+
+  @@index([clubId])
+  @@index([purpose])
+  @@map("files")
+}
+
+model Announcement {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId       String    @map("club_id") @db.Uuid
+  teamId       String?   @map("team_id") @db.Uuid
+  title        String    @db.VarChar(250)
+  body         String
+  audienceType String    @map("audience_type") @db.VarChar(50)
+  publishedAt  DateTime? @map("published_at") @db.Timestamptz(6)
+  status       String    @default("DRAFT") @db.VarChar(50)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?   @map("updated_by") @db.Uuid
+
+  club Club  @relation(fields: [clubId], references: [id])
+  team Team? @relation(fields: [teamId], references: [id])
+
+  @@index([clubId])
+  @@index([teamId])
+  @@index([status])
+  @@index([publishedAt(sort: Desc)])
+  @@map("announcements")
+}
+
+model Chat {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId    String   @map("club_id") @db.Uuid
+  teamId    String?  @map("team_id") @db.Uuid
+  chatType  String   @map("chat_type") @db.VarChar(50)
+  title     String?  @db.VarChar(200)
+  status    String   @default("ACTIVE") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid
+
+  club     Club         @relation(fields: [clubId], references: [id])
+  team     Team?        @relation(fields: [teamId], references: [id])
+  members  ChatMember[]
+  messages Message[]
+
+  @@index([clubId])
+  @@index([teamId])
+  @@index([chatType])
+  @@map("chats")
+}
+
+model ChatMember {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatId     String    @map("chat_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  memberRole String?   @map("member_role") @db.VarChar(50)
+  joinedAt   DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  mutedUntil DateTime? @map("muted_until") @db.Timestamptz(6)
+  status     String    @default("ACTIVE") @db.VarChar(50)
+
+  chat Chat @relation(fields: [chatId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([chatId, userId])
+  @@index([chatId])
+  @@index([userId])
+  @@map("chat_members")
+}
+
+model Message {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatId           String    @map("chat_id") @db.Uuid
+  senderUserId     String    @map("sender_user_id") @db.Uuid
+  body             String
+  messageType      String    @default("TEXT") @map("message_type") @db.VarChar(50)
+  replyToMessageId String?   @map("reply_to_message_id") @db.Uuid
+  editedAt         DateTime? @map("edited_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  chat        Chat                @relation(fields: [chatId], references: [id])
+  sender      User                @relation(fields: [senderUserId], references: [id])
+  replyTo     Message?            @relation("MessageReplies", fields: [replyToMessageId], references: [id])
+  replies     Message[]           @relation("MessageReplies")
+  attachments MessageAttachment[]
+
+  @@index([chatId, createdAt(sort: Desc)])
+  @@index([senderUserId])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId String @map("message_id") @db.Uuid
+  fileId    String @map("file_id") @db.Uuid
+
+  message Message @relation(fields: [messageId], references: [id])
+  file    File    @relation(fields: [fileId], references: [id])
+
+  @@unique([messageId, fileId])
+  @@map("message_attachments")
+}
+
+// =============================================================================
+// MODULE: schedule — events, RSVP, attendance                           §7.21–7.24
+// =============================================================================
+
+model Event {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId       String    @map("club_id") @db.Uuid
+  teamId       String?   @map("team_id") @db.Uuid
+  eventType    String    @map("event_type") @db.VarChar(50)
+  title        String    @db.VarChar(200)
+  description  String?
+  startAt      DateTime  @map("start_at") @db.Timestamptz(6)
+  endAt        DateTime  @map("end_at") @db.Timestamptz(6)
+  timezone     String    @db.VarChar(100)
+  locationName String?   @map("location_name") @db.VarChar(200)
+  addressLine1 String?   @map("address_line1") @db.VarChar(200)
+  city         String?   @db.VarChar(100)
+  state        String?   @db.VarChar(100)
+  postalCode   String?   @map("postal_code") @db.VarChar(20)
+  opponentName String?   @map("opponent_name") @db.VarChar(200)
+  homeAway     String?   @map("home_away") @db.VarChar(20)
+  arrivalTime  DateTime? @map("arrival_time") @db.Timestamptz(6)
+  uniformNotes String?   @map("uniform_notes")
+  status       String    @default("SCHEDULED") @db.VarChar(50)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?   @map("updated_by") @db.Uuid
+
+  club              Club               @relation(fields: [clubId], references: [id])
+  team              Team?              @relation(fields: [teamId], references: [id])
+  attachments       EventAttachment[]
+  rsvps             EventRsvp[]
+  attendanceRecords AttendanceRecord[]
+
+  @@index([clubId])
+  @@index([teamId])
+  @@index([startAt])
+  @@index([status])
+  @@map("events")
+}
+
+model EventAttachment {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId String @map("event_id") @db.Uuid
+  fileId  String @map("file_id") @db.Uuid
+
+  event Event @relation(fields: [eventId], references: [id])
+  file  File  @relation(fields: [fileId], references: [id])
+
+  @@unique([eventId, fileId])
+  @@map("event_attachments")
+}
+
+model EventRsvp {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId            String   @map("club_id") @db.Uuid
+  eventId           String   @map("event_id") @db.Uuid
+  playerId          String   @map("player_id") @db.Uuid
+  respondedByUserId String   @map("responded_by_user_id") @db.Uuid
+  responseStatus    String   @map("response_status") @db.VarChar(50)
+  comment           String?
+  respondedAt       DateTime @default(now()) @map("responded_at") @db.Timestamptz(6)
+
+  club   Club   @relation(fields: [clubId], references: [id])
+  event  Event  @relation(fields: [eventId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([eventId, playerId], name: "uq_event_rsvp")
+  @@index([clubId])
+  @@index([eventId])
+  @@index([playerId])
+  @@map("event_rsvps")
+}
+
+model AttendanceRecord {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId           String   @map("club_id") @db.Uuid
+  eventId          String   @map("event_id") @db.Uuid
+  playerId         String   @map("player_id") @db.Uuid
+  recordedByUserId String   @map("recorded_by_user_id") @db.Uuid
+  attendanceStatus String   @map("attendance_status") @db.VarChar(50)
+  notes            String?
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  club   Club   @relation(fields: [clubId], references: [id])
+  event  Event  @relation(fields: [eventId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([eventId, playerId], name: "uq_attendance_record")
+  @@index([clubId])
+  @@index([eventId])
+  @@index([playerId])
+  @@map("attendance_records")
+}
+
+// =============================================================================
+// Registration, billing & waivers — Phase 2+ (deferred per MVP scope)   §7.25–7.39
+// Not a BUILD_PLAN §2 module; modeled now so the schema is complete.
+// =============================================================================
+
+model RegistrationProgram {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId      String   @map("club_id") @db.Uuid
+  seasonId    String?  @map("season_id") @db.Uuid
+  name        String   @db.VarChar(200)
+  description String?
+  opensAt     DateTime @map("opens_at") @db.Timestamptz(6)
+  closesAt    DateTime @map("closes_at") @db.Timestamptz(6)
+  status      String   @default("ACTIVE") @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  club        Club                     @relation(fields: [clubId], references: [id])
+  season      Season?                  @relation(fields: [seasonId], references: [id])
+  forms       RegistrationForm[]
+  submissions RegistrationSubmission[]
+
+  @@index([clubId])
+  @@index([seasonId])
+  @@index([status])
+  @@map("registration_programs")
+}
+
+model RegistrationForm {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId                String   @map("club_id") @db.Uuid
+  registrationProgramId String   @map("registration_program_id") @db.Uuid
+  name                  String   @db.VarChar(200)
+  version               Int
+  schemaJson            Json     @map("schema_json")
+  status                String   @default("ACTIVE") @db.VarChar(50)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy             String?  @map("created_by") @db.Uuid
+  updatedAt             DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy             String?  @map("updated_by") @db.Uuid
+
+  club        Club                     @relation(fields: [clubId], references: [id])
+  program     RegistrationProgram      @relation(fields: [registrationProgramId], references: [id])
+  submissions RegistrationSubmission[]
+
+  @@unique([registrationProgramId, version], name: "uq_registration_forms_program_version")
+  @@index([clubId])
+  @@index([registrationProgramId])
+  @@map("registration_forms")
+}
+
+model RegistrationSubmission {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId                String    @map("club_id") @db.Uuid
+  registrationProgramId String    @map("registration_program_id") @db.Uuid
+  formId                String    @map("form_id") @db.Uuid
+  playerId              String    @map("player_id") @db.Uuid
+  submittedByUserId     String    @map("submitted_by_user_id") @db.Uuid
+  status                String    @default("DRAFT") @db.VarChar(50)
+  submittedAt           DateTime? @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt            DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy            String?   @map("reviewed_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  club    Club                 @relation(fields: [clubId], references: [id])
+  program RegistrationProgram  @relation(fields: [registrationProgramId], references: [id])
+  form    RegistrationForm     @relation(fields: [formId], references: [id])
+  player  Player               @relation(fields: [playerId], references: [id])
+  answers RegistrationAnswer[]
+
+  @@index([clubId])
+  @@index([registrationProgramId])
+  @@index([playerId])
+  @@index([status])
+  @@map("registration_submissions")
+}
+
+model RegistrationAnswer {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submissionId   String   @map("submission_id") @db.Uuid
+  fieldKey       String   @map("field_key") @db.VarChar(150)
+  fieldValueJson Json     @map("field_value_json")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  submission RegistrationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@index([fieldKey])
+  @@map("registration_answers")
+}
+
+model FamilyAccount {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId          String   @map("club_id") @db.Uuid
+  accountName     String   @map("account_name") @db.VarChar(200)
+  primaryParentId String?  @map("primary_parent_id") @db.Uuid
+  status          String   @default("ACTIVE") @db.VarChar(50)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?  @map("created_by") @db.Uuid
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy       String?  @map("updated_by") @db.Uuid
+
+  club          Club      @relation(fields: [clubId], references: [id])
+  primaryParent Parent?   @relation(fields: [primaryParentId], references: [id])
+  invoices      Invoice[]
+
+  @@map("family_accounts")
+}
+
+model Discount {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId       String    @map("club_id") @db.Uuid
+  code         String?   @db.VarChar(50)
+  name         String    @db.VarChar(150)
+  description  String?
+  discountType String    @map("discount_type") @db.VarChar(50)
+  amount       Decimal   @db.Decimal(12, 2)
+  isActive     Boolean   @default(true) @map("is_active")
+  startsAt     DateTime? @map("starts_at") @db.Timestamptz(6)
+  endsAt       DateTime? @map("ends_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+
+  club Club @relation(fields: [clubId], references: [id])
+
+  @@map("discounts")
+}
+
+model Invoice {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId          String    @map("club_id") @db.Uuid
+  familyAccountId String?   @map("family_account_id") @db.Uuid
+  parentId        String?   @map("parent_id") @db.Uuid
+  playerId        String?   @map("player_id") @db.Uuid
+  invoiceNumber   String    @map("invoice_number") @db.VarChar(50)
+  currency        String    @default("USD") @db.VarChar(10)
+  subtotalAmount  Decimal   @default(0) @map("subtotal_amount") @db.Decimal(12, 2)
+  discountAmount  Decimal   @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  taxAmount       Decimal   @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  totalAmount     Decimal   @default(0) @map("total_amount") @db.Decimal(12, 2)
+  amountPaid      Decimal   @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  amountDue       Decimal   @default(0) @map("amount_due") @db.Decimal(12, 2)
+  dueDate         DateTime? @map("due_date") @db.Date
+  status          String    @default("OPEN") @db.VarChar(50)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy       String?   @map("updated_by") @db.Uuid
+
+  club          Club           @relation(fields: [clubId], references: [id])
+  familyAccount FamilyAccount? @relation(fields: [familyAccountId], references: [id])
+  parent        Parent?        @relation(fields: [parentId], references: [id])
+  player        Player?        @relation(fields: [playerId], references: [id])
+  items         InvoiceItem[]
+  payments      Payment[]
+  paymentPlans  PaymentPlan[]
+
+  @@unique([clubId, invoiceNumber], name: "uq_invoices_club_invoice_number")
+  @@index([clubId])
+  @@index([parentId])
+  @@index([familyAccountId])
+  @@index([playerId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  description String   @db.VarChar(255)
+  quantity    Decimal  @default(1) @db.Decimal(10, 2)
+  unitAmount  Decimal  @map("unit_amount") @db.Decimal(12, 2)
+  lineTotal   Decimal  @map("line_total") @db.Decimal(12, 2)
+  category    String?  @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId              String    @map("club_id") @db.Uuid
+  invoiceId           String    @map("invoice_id") @db.Uuid
+  provider            String    @db.VarChar(100)
+  providerPaymentId   String?   @map("provider_payment_id") @db.VarChar(255)
+  amount              Decimal   @db.Decimal(12, 2)
+  currency            String    @default("USD") @db.VarChar(10)
+  status              String    @default("PENDING") @db.VarChar(50)
+  paidAt              DateTime? @map("paid_at") @db.Timestamptz(6)
+  recordedByUserId    String?   @map("recorded_by_user_id") @db.Uuid
+  providerPayloadJson Json?     @map("provider_payload_json")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  club    Club     @relation(fields: [clubId], references: [id])
+  invoice Invoice  @relation(fields: [invoiceId], references: [id])
+  refunds Refund[]
+
+  @@index([clubId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([providerPaymentId])
+  @@map("payments")
+}
+
+model PaymentPlan {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId String   @map("invoice_id") @db.Uuid
+  planName  String   @map("plan_name") @db.VarChar(150)
+  status    String   @default("ACTIVE") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid
+
+  invoice      Invoice                  @relation(fields: [invoiceId], references: [id])
+  installments PaymentPlanInstallment[]
+
+  @@map("payment_plans")
+}
+
+model PaymentPlanInstallment {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentPlanId String    @map("payment_plan_id") @db.Uuid
+  dueDate       DateTime  @map("due_date") @db.Date
+  amount        Decimal   @db.Decimal(12, 2)
+  status        String    @default("PENDING") @db.VarChar(50)
+  paidAt        DateTime? @map("paid_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  paymentPlan PaymentPlan @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
+
+  @@index([paymentPlanId])
+  @@index([dueDate])
+  @@map("payment_plan_installments")
+}
+
+model Refund {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId           String    @map("club_id") @db.Uuid
+  paymentId        String    @map("payment_id") @db.Uuid
+  amount           Decimal   @db.Decimal(12, 2)
+  reason           String?
+  providerRefundId String?   @map("provider_refund_id") @db.VarChar(255)
+  status           String    @default("PENDING") @db.VarChar(50)
+  refundedAt       DateTime? @map("refunded_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy        String?   @map("created_by") @db.Uuid
+
+  club    Club    @relation(fields: [clubId], references: [id])
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@map("refunds")
+}
+
+model Waiver {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId     String   @map("club_id") @db.Uuid
+  name       String   @db.VarChar(200)
+  waiverType String   @map("waiver_type") @db.VarChar(50)
+  status     String   @default("ACTIVE") @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy  String?  @map("created_by") @db.Uuid
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy  String?  @map("updated_by") @db.Uuid
+
+  club     Club            @relation(fields: [clubId], references: [id])
+  versions WaiverVersion[]
+
+  @@index([clubId])
+  @@index([waiverType])
+  @@map("waivers")
+}
+
+model WaiverVersion {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  waiverId        String    @map("waiver_id") @db.Uuid
+  versionNumber   Int       @map("version_number")
+  contentMarkdown String?   @map("content_markdown")
+  contentHtml     String?   @map("content_html")
+  effectiveAt     DateTime  @map("effective_at") @db.Timestamptz(6)
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+
+  waiver      Waiver             @relation(fields: [waiverId], references: [id], onDelete: Cascade)
+  acceptances WaiverAcceptance[]
+
+  @@unique([waiverId, versionNumber], name: "uq_waiver_versions")
+  @@index([waiverId])
+  @@map("waiver_versions")
+}
+
+model WaiverAcceptance {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId                 String   @map("club_id") @db.Uuid
+  waiverVersionId        String   @map("waiver_version_id") @db.Uuid
+  playerId               String   @map("player_id") @db.Uuid
+  acceptedByUserId       String   @map("accepted_by_user_id") @db.Uuid
+  acceptedAt             DateTime @default(now()) @map("accepted_at") @db.Timestamptz(6)
+  ipAddress              String?  @map("ip_address") @db.Inet
+  userAgent              String?  @map("user_agent")
+  acceptedCopyStorageKey String?  @map("accepted_copy_storage_key")
+
+  club          Club          @relation(fields: [clubId], references: [id])
+  waiverVersion WaiverVersion @relation(fields: [waiverVersionId], references: [id])
+  player        Player        @relation(fields: [playerId], references: [id])
+
+  @@unique([waiverVersionId, playerId], name: "uq_waiver_acceptance")
+  @@index([clubId])
+  @@index([playerId])
+  @@map("waiver_acceptances")
+}
+
+// =============================================================================
+// MODULE: evaluations — templates, criteria, weights, cycles, scores    §7.40–7.48
+// =============================================================================
+
+model EvaluationTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId      String   @map("club_id") @db.Uuid
+  name        String   @db.VarChar(150)
+  description String?
+  status      String   @default("ACTIVE") @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  club                   Club                    @relation(fields: [clubId], references: [id])
+  criteria               EvaluationCriterion[]
+  positionWeightProfiles PositionWeightProfile[]
+  playerEvaluations      PlayerEvaluation[]
+
+  @@map("evaluation_templates")
+}
+
+model EvaluationCriterion {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateId String   @map("template_id") @db.Uuid
+  code       String   @db.VarChar(100)
+  label      String   @db.VarChar(150)
+  sortOrder  Int      @map("sort_order")
+  minScore   Decimal  @default(0) @map("min_score") @db.Decimal(5, 2)
+  maxScore   Decimal  @default(10) @map("max_score") @db.Decimal(5, 2)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  template         EvaluationTemplate          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  weightItems      PositionWeightProfileItem[]
+  evaluationScores PlayerEvaluationScore[]
+
+  @@unique([templateId, code], name: "uq_evaluation_criteria_template_code")
+  @@map("evaluation_criteria")
+}
+
+model PositionWeightProfile {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId        String    @map("club_id") @db.Uuid
+  templateId    String    @map("template_id") @db.Uuid
+  positionCode  String    @map("position_code") @db.VarChar(50)
+  totalWeight   Decimal   @default(0) @map("total_weight") @db.Decimal(8, 2)
+  isDefault     Boolean   @default(false) @map("is_default")
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy     String?   @map("updated_by") @db.Uuid
+
+  club     Club                        @relation(fields: [clubId], references: [id])
+  template EvaluationTemplate          @relation(fields: [templateId], references: [id])
+  items    PositionWeightProfileItem[]
+
+  @@unique([clubId, templateId, positionCode, effectiveFrom], name: "uq_position_weight_profiles")
+  @@index([clubId])
+  @@index([templateId])
+  @@index([positionCode])
+  @@map("position_weight_profiles")
+}
+
+model PositionWeightProfileItem {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId   String  @map("profile_id") @db.Uuid
+  criterionId String  @map("criterion_id") @db.Uuid
+  weight      Decimal @db.Decimal(8, 2)
+
+  profile   PositionWeightProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  criterion EvaluationCriterion   @relation(fields: [criterionId], references: [id])
+
+  @@unique([profileId, criterionId], name: "uq_position_weight_profile_item")
+  @@map("position_weight_profile_items")
+}
+
+model EvaluationCycle {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId    String   @map("club_id") @db.Uuid
+  teamId    String?  @map("team_id") @db.Uuid
+  seasonId  String?  @map("season_id") @db.Uuid
+  name      String   @db.VarChar(150)
+  cycleType String   @map("cycle_type") @db.VarChar(50)
+  startsAt  DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt    DateTime @map("ends_at") @db.Timestamptz(6)
+  status    String   @default("ACTIVE") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  club              Club               @relation(fields: [clubId], references: [id])
+  team              Team?              @relation(fields: [teamId], references: [id])
+  season            Season?            @relation(fields: [seasonId], references: [id])
+  playerEvaluations PlayerEvaluation[]
+
+  @@index([clubId])
+  @@index([teamId])
+  @@index([seasonId])
+  @@map("evaluation_cycles")
+}
+
+model PlayerEvaluation {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId             String   @map("club_id") @db.Uuid
+  teamId             String   @map("team_id") @db.Uuid
+  playerId           String   @map("player_id") @db.Uuid
+  evaluationCycleId  String   @map("evaluation_cycle_id") @db.Uuid
+  templateId         String   @map("template_id") @db.Uuid
+  positionCode       String   @map("position_code") @db.VarChar(50)
+  overallScore       Decimal  @map("overall_score") @db.Decimal(8, 2)
+  rankInScope        Int?     @map("rank_in_scope")
+  bucketLabel        String?  @map("bucket_label") @db.VarChar(50)
+  summaryComment     String?  @map("summary_comment")
+  coachOnlyNotes     String?  @map("coach_only_notes")
+  parentVisibleNotes String?  @map("parent_visible_notes")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy          String?  @map("created_by") @db.Uuid
+  updatedAt          DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy          String?  @map("updated_by") @db.Uuid
+
+  club            Club                    @relation(fields: [clubId], references: [id])
+  team            Team                    @relation(fields: [teamId], references: [id])
+  player          Player                  @relation(fields: [playerId], references: [id])
+  evaluationCycle EvaluationCycle         @relation(fields: [evaluationCycleId], references: [id])
+  template        EvaluationTemplate      @relation(fields: [templateId], references: [id])
+  scores          PlayerEvaluationScore[]
+
+  @@unique([playerId, evaluationCycleId, templateId], name: "uq_player_evaluations")
+  @@index([clubId])
+  @@index([teamId])
+  @@index([playerId])
+  @@index([evaluationCycleId])
+  @@index([overallScore(sort: Desc)])
+  @@map("player_evaluations")
+}
+
+model PlayerEvaluationScore {
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  playerEvaluationId String  @map("player_evaluation_id") @db.Uuid
+  criterionId        String  @map("criterion_id") @db.Uuid
+  rawScore           Decimal @map("raw_score") @db.Decimal(8, 2)
+  weightedScore      Decimal @map("weighted_score") @db.Decimal(8, 2)
+
+  playerEvaluation PlayerEvaluation    @relation(fields: [playerEvaluationId], references: [id], onDelete: Cascade)
+  criterion        EvaluationCriterion @relation(fields: [criterionId], references: [id])
+
+  @@unique([playerEvaluationId, criterionId], name: "uq_player_evaluation_score")
+  @@index([playerEvaluationId])
+  @@index([criterionId])
+  @@map("player_evaluation_scores")
+}
+
+model DevelopmentGoal {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId      String    @map("club_id") @db.Uuid
+  playerId    String    @map("player_id") @db.Uuid
+  teamId      String?   @map("team_id") @db.Uuid
+  title       String    @db.VarChar(200)
+  description String?
+  category    String?   @db.VarChar(100)
+  status      String    @default("OPEN") @db.VarChar(50)
+  visibility  String    @default("COACH_ONLY") @db.VarChar(50)
+  targetDate  DateTime? @map("target_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy   String?   @map("updated_by") @db.Uuid
+
+  club    Club                    @relation(fields: [clubId], references: [id])
+  player  Player                  @relation(fields: [playerId], references: [id])
+  team    Team?                   @relation(fields: [teamId], references: [id])
+  updates DevelopmentGoalUpdate[]
+
+  @@index([clubId])
+  @@index([playerId])
+  @@index([status])
+  @@map("development_goals")
+}
+
+model DevelopmentGoalUpdate {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  goalId         String   @map("goal_id") @db.Uuid
+  progressStatus String   @map("progress_status") @db.VarChar(50)
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?  @map("created_by") @db.Uuid
+
+  goal DevelopmentGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@map("development_goal_updates")
+}
+
+// =============================================================================
+// Platform: notifications & audit (cross-cutting / reporting)           §7.49–7.51
+// =============================================================================
+
+model Notification {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  clubId          String?   @map("club_id") @db.Uuid
+  type            String    @db.VarChar(100)
+  title           String    @db.VarChar(200)
+  body            String?
+  payloadJson     Json?     @map("payload_json")
+  deliveryChannel String    @map("delivery_channel") @db.VarChar(30)
+  status          String    @default("PENDING") @db.VarChar(50)
+  scheduledAt     DateTime? @map("scheduled_at") @db.Timestamptz(6)
+  sentAt          DateTime? @map("sent_at") @db.Timestamptz(6)
+  readAt          DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User  @relation(fields: [userId], references: [id])
+  club Club? @relation(fields: [clubId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id                               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                           String   @unique @map("user_id") @db.Uuid
+  emailEnabled                     Boolean  @default(true) @map("email_enabled")
+  pushEnabled                      Boolean  @default(true) @map("push_enabled")
+  smsEnabled                       Boolean  @default(false) @map("sms_enabled")
+  chatNotificationsEnabled         Boolean  @default(true) @map("chat_notifications_enabled")
+  announcementNotificationsEnabled Boolean  @default(true) @map("announcement_notifications_enabled")
+  billingNotificationsEnabled      Boolean  @default(true) @map("billing_notifications_enabled")
+  scheduleNotificationsEnabled     Boolean  @default(true) @map("schedule_notifications_enabled")
+  createdAt                        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                        DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notification_preferences")
+}
+
+model AuditLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId       String?  @map("club_id") @db.Uuid
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  action       String   @db.VarChar(150)
+  resourceType String   @map("resource_type") @db.VarChar(100)
+  resourceId   String?  @map("resource_id") @db.Uuid
+  metadataJson Json?    @map("metadata_json")
+  ipAddress    String?  @map("ip_address") @db.Inet
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  club Club? @relation(fields: [clubId], references: [id])
+
+  @@index([clubId])
+  @@index([actorUserId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
 }
