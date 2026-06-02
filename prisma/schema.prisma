@@ -1,0 +1,23 @@
+// Forza Team — Prisma schema
+//
+// Prisma 7: the new `prisma-client` generator (TypeScript, ESM, no Rust
+// engine). The generated client is emitted into src/db/generated (gitignored)
+// and re-exported through the singleton in src/db/client.ts.
+//
+// Models are intentionally NOT defined yet. Phase 0 only stands up the
+// connection + tooling. The 51-table domain schema is ported in module-by-
+// module starting in Phase 1 (see @docs/BUILD_PLAN.md §6). Every tenant-owned
+// model MUST carry a `clubId` column — that rule is enforced in the data
+// layer, but it starts here in the schema.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/db/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Prisma 7: connection URLs live in prisma.config.ts (the CLI uses
+  // DIRECT_URL for migrations); the runtime client is given DATABASE_URL
+  // via a driver adapter in src/db/client.ts.
+}

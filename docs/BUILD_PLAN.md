@@ -36,7 +36,7 @@ identity vendor holding child records).
 | Rate limiting | **Upstash Redis** (`@upstash/ratelimit`) | Auth routes are **not** rate-limited by default — this is required, not optional. |
 | Error monitoring | **Sentry** | Server + client. |
 | Hosting | **Vercel** | Matches the framework; Neon branching pairs with preview deploys. |
-| Package manager | **pnpm** | Fast, disk-efficient, the create-next-app default. |
+| Package manager | **npm** | Standard, zero-setup, ships with Node; lockfile committed as `package-lock.json`. |
 
 ### Decision note — ORM (resolved: Prisma 7)
 
@@ -182,7 +182,7 @@ Each phase ends with something deployable and testable. Tackle them in order;
 don't start a phase until the prior one is green in CI.
 
 ### Phase 0 — Foundation
-- `create-next-app` (TS, Tailwind, ESLint, App Router, Turbopack, pnpm).
+- `create-next-app` (TS, Tailwind, ESLint, App Router, Turbopack, npm).
 - Prisma 7 + Neon wired; env validation; singleton client; structured logger.
 - shadcn/ui installed and themed (Stage A + B design tokens).
 - CI: lint + typecheck + test + build. Health-check endpoint.
