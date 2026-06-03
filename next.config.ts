@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Keep server-only packages external (required at runtime, not bundled).
+  // Better Auth statically references its built-in Kysely adapter + optional
+  // DB drivers, which Turbopack cannot bundle cleanly; externalizing them
+  // (and the Prisma driver) avoids that.
+  serverExternalPackages: ["better-auth", "kysely", "pg", "@prisma/adapter-pg"],
 };
 
 export default nextConfig;

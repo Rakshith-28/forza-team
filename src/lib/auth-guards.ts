@@ -25,13 +25,21 @@ export async function requireUser() {
   return session;
 }
 
-/** Require an authenticated user WITH a resolved authorization context. */
-export async function requireAuthContext(): Promise<AuthContext> {
+type SessionResult = NonNullable<Awaited<ReturnType<typeof getSession>>>;
+
+/** Require an authenticated user AND their resolved authorization context. */
+export async function requireUserAndContext(): Promise<{ session: SessionResult; ctx: AuthContext }> {
   const session = await requireUser();
   const activeClubId =
     session.session.activeClubId ?? (await resolveActiveClubId(session.user.id));
   const ctx = await loadAuthContext(session.user.id, activeClubId);
   if (!ctx) redirect("/no-access");
+  return { session, ctx };
+}
+
+/** Require an authenticated user WITH a resolved authorization context. */
+export async function requireAuthContext(): Promise<AuthContext> {
+  const { ctx } = await requireUserAndContext();
   return ctx;
 }
 
