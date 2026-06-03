@@ -37,7 +37,7 @@ export async function loadAuthContext(
 ): Promise<AuthContext | null> {
   const assignments = await prisma.userRoleAssignment.findMany({
     where: { userId, status: "ACTIVE" },
-    select: { clubId: true, role: { select: { code: true } } },
+    select: { clubId: true, teamId: true, role: { select: { code: true } } },
   });
   if (assignments.length === 0) return null;
 
@@ -62,12 +62,16 @@ export async function loadAuthContext(
   if (rolesInClub.length === 0) return null;
   const role = rolesInClub.sort((a, b) => ROLE_PRIORITY[b] - ROLE_PRIORITY[a])[0];
 
-  // COACH scope: assigned teams + the players on them.
+  // COACH scope: assigned teams = team_coaches OR a scoped role assignment
+  // (matrix §11). Take the union of both sources.
   const coachTeams = await prisma.teamCoach.findMany({
     where: { userId, clubId: activeClubId, status: "ACTIVE" },
     select: { teamId: true },
   });
-  const coachTeamIds = coachTeams.map((t) => t.teamId);
+  const assignmentTeamIds = assignments
+    .filter((a) => a.role.code === "COACH" && a.clubId === activeClubId && a.teamId != null)
+    .map((a) => a.teamId as string);
+  const coachTeamIds = unique([...coachTeams.map((t) => t.teamId), ...assignmentTeamIds]);
   const coachTeamPlayerIds = coachTeamIds.length
     ? unique(
         (
