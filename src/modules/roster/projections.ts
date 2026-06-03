@@ -54,3 +54,64 @@ export function parentSafePlayer(player: PlayerLike, options: ParentSafeOptions 
 export function parentSafeRoster(players: PlayerLike[], options: ParentSafeOptions = {}): SafePlayer[] {
   return players.map((p) => parentSafePlayer(p, options));
 }
+
+/**
+ * OWN-child view (RBAC matrix §6.6). A parent sees the full guardian-relevant
+ * record for a child they are linked to — name, DOB, positions, status, photo,
+ * and the medical/emergency fields a guardian legitimately owns. Coach/internal
+ * fields and audit columns are intentionally not part of this shape.
+ */
+export interface OwnChildLike {
+  id: string;
+  firstName: string;
+  lastName: string;
+  preferredName: string | null;
+  dateOfBirth: Date | null;
+  photoUrl: string | null;
+  jerseyNumber: string | null;
+  primaryPosition: string | null;
+  secondaryPosition: string | null;
+  medicalNotes: string | null;
+  allergyNotes: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  status: string;
+}
+
+export interface OwnChild {
+  id: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  preferredName: string | null;
+  dateOfBirth: string | null; // ISO date (yyyy-mm-dd)
+  photoUrl: string | null;
+  jerseyNumber: string | null;
+  primaryPosition: string | null;
+  secondaryPosition: string | null;
+  medicalNotes: string | null;
+  allergyNotes: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  status: string;
+}
+
+export function ownChildView(player: OwnChildLike): OwnChild {
+  return {
+    id: player.id,
+    firstName: player.firstName,
+    lastName: player.lastName,
+    displayName: player.preferredName ?? `${player.firstName} ${player.lastName}`,
+    preferredName: player.preferredName,
+    dateOfBirth: player.dateOfBirth ? player.dateOfBirth.toISOString().slice(0, 10) : null,
+    photoUrl: player.photoUrl,
+    jerseyNumber: player.jerseyNumber,
+    primaryPosition: player.primaryPosition,
+    secondaryPosition: player.secondaryPosition,
+    medicalNotes: player.medicalNotes,
+    allergyNotes: player.allergyNotes,
+    emergencyContactName: player.emergencyContactName,
+    emergencyContactPhone: player.emergencyContactPhone,
+    status: player.status,
+  };
+}

@@ -1,0 +1,594 @@
+import "server-only";
+
+import { prisma } from "@/db/client";
+import { Prisma } from "@/db/generated/client";
+import { recordAudit, recordAuditStandalone } from "@/lib/audit";
+import {
+  assertCan,
+  assertChildScope,
+  assertClubScope,
+  assertTeamScope,
+  ForbiddenError,
+  type AuthContext,
+} from "@/lib/rbac";
+import { createInvitation } from "@/modules/identity/invitations";
+import {
+  ownChildView,
+  parentSafeRoster,
+  type OwnChild,
+  type SafePlayer,
+} from "@/modules/roster/projections";
+import {
+  PARENT_EDITABLE_PLAYER_FIELDS,
+  type AddMembershipInput,
+  type CreatePlayerInput,
+  type InviteParentInput,
+  type LinkParentInput,
+  type ParentUpdatePlayerInput,
+  type UpdateParentInput,
+  type UpdatePlayerInput,
+} from "@/modules/roster/schemas";
+
+/**
+ * Roster module service layer — the AUTHORITATIVE place for authorization,
+ * tenant scoping, the child-safety projections, and audit for players, parents,
+ * parent↔child links, and team memberships (BUILD_PLAN §2, RBAC matrix §6.6–6.8).
+ *
+ * Every function takes the caller's resolved AuthContext and asserts permission
+ * + scope BEFORE touching tenant data. Cross-tenant and cross-child access throw
+ * ForbiddenError by construction; parents only ever receive safe/own-child
+ * projections — restricted fields never leave this layer.
+ */
+
+/** Raised on a uniqueness conflict (duplicate link / membership). */
+export class ConflictError extends Error {
+  readonly code = "CONFLICT";
+  constructor(message: string) {
+    super(message);
+    this.name = "ConflictError";
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+/** Active club for a non-system caller; throws if there's no tenant context. */
+function requireActiveClub(ctx: AuthContext): string {
+  if (!ctx.activeClubId) throw new ForbiddenError("No active club in context");
+  return ctx.activeClubId;
+}
+
+// ===========================================================================
+// Players — full (admin / coach within scope)
+// ===========================================================================
+
+/** Full club/team roster. Admin = whole club; Coach = assigned-team players. */
+export async function listPlayers(
+  ctx: AuthContext,
+  clubId: string,
+  opts: { teamId?: string } = {},
+) {
+  assertCan(ctx, "roster.view_full", { clubId, teamId: opts.teamId });
+
+  const where: Prisma.PlayerWhereInput = { clubId, deletedAt: null };
+
+  if (opts.teamId) {
+    // A specific team's roster — coaches must be assigned to it.
+    assertTeamScope(ctx, { clubId, teamId: opts.teamId });
+    where.teamMemberships = { some: { teamId: opts.teamId, status: "ACTIVE" } };
+  } else if (ctx.role === "COACH") {
+    // Club-wide list, but a coach only ever sees their assigned-team players.
+    where.id = { in: ctx.coachTeamPlayerIds };
+  }
+
+  return prisma.player.findMany({
+    where,
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    include: {
+      teamMemberships: {
+        where: { status: "ACTIVE" },
+        include: { team: { select: { id: true, name: true } } },
+      },
+    },
+  });
+}
+
+/** Full player record + memberships + parent links. Admin / assigned coach only. */
+export async function getPlayer(ctx: AuthContext, playerId: string) {
+  const player = await prisma.player.findFirst({
+    where: { id: playerId, deletedAt: null },
+    include: {
+      teamMemberships: {
+        where: { status: "ACTIVE" },
+        include: { team: { select: { id: true, name: true } }, season: { select: { id: true, name: true } } },
+      },
+      parentLinks: {
+        where: { status: "ACTIVE" },
+        include: {
+          parent: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+        },
+      },
+    },
+  });
+  if (!player) return null;
+  assertCan(ctx, "roster.view_full", { clubId: player.clubId, playerId });
+  return player;
+}
+
+async function assertTeamInClub(teamId: string, clubId: string): Promise<void> {
+  const team = await prisma.team.findFirst({ where: { id: teamId, clubId, deletedAt: null }, select: { id: true } });
+  if (!team) throw new ForbiddenError("Team does not belong to this club");
+}
+
+export async function createPlayer(ctx: AuthContext, clubId: string, input: CreatePlayerInput) {
+  // A COACH may only create players placed on one of their assigned teams.
+  if (ctx.role === "COACH" && !input.initialTeamId) {
+    throw new ForbiddenError("Coaches must place the player on one of their teams");
+  }
+  assertCan(ctx, "players.create", { clubId, teamId: input.initialTeamId ?? undefined });
+  if (input.initialTeamId) await assertTeamInClub(input.initialTeamId, clubId);
+
+  return prisma.$transaction(async (tx) => {
+    const player = await tx.player.create({
+      data: {
+        clubId,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        preferredName: input.preferredName ?? null,
+        dateOfBirth: input.dateOfBirth ?? null,
+        jerseyNumber: input.jerseyNumber ?? null,
+        primaryPosition: input.primaryPosition ?? null,
+        secondaryPosition: input.secondaryPosition ?? null,
+        photoUrl: input.photoUrl ?? null,
+        medicalNotes: input.medicalNotes ?? null,
+        allergyNotes: input.allergyNotes ?? null,
+        emergencyContactName: input.emergencyContactName ?? null,
+        emergencyContactPhone: input.emergencyContactPhone ?? null,
+        createdBy: ctx.userId,
+      },
+    });
+    if (input.initialTeamId) {
+      await tx.playerTeamMembership.create({
+        data: {
+          clubId,
+          playerId: player.id,
+          teamId: input.initialTeamId,
+          seasonId: input.initialSeasonId ?? null,
+          status: "ACTIVE",
+          createdBy: ctx.userId,
+        },
+      });
+    }
+    await recordAudit(tx, {
+      action: "player.create",
+      resourceType: "player",
+      resourceId: player.id,
+      clubId,
+      actorUserId: ctx.userId,
+      metadata: { initialTeamId: input.initialTeamId ?? null },
+    });
+    return player;
+  });
+}
+
+export async function updatePlayer(ctx: AuthContext, playerId: string, input: UpdatePlayerInput) {
+  const player = await prisma.player.findFirst({ where: { id: playerId, deletedAt: null } });
+  if (!player) throw new ForbiddenError("Player not found");
+  assertCan(ctx, "players.edit_full", { clubId: player.clubId, playerId });
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.player.update({
+      where: { id: playerId },
+      data: {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        preferredName: input.preferredName ?? null,
+        dateOfBirth: input.dateOfBirth ?? null,
+        jerseyNumber: input.jerseyNumber ?? null,
+        primaryPosition: input.primaryPosition ?? null,
+        secondaryPosition: input.secondaryPosition ?? null,
+        photoUrl: input.photoUrl ?? null,
+        medicalNotes: input.medicalNotes ?? null,
+        allergyNotes: input.allergyNotes ?? null,
+        emergencyContactName: input.emergencyContactName ?? null,
+        emergencyContactPhone: input.emergencyContactPhone ?? null,
+        status: input.status,
+        updatedAt: new Date(),
+        updatedBy: ctx.userId,
+      },
+    });
+    await recordAudit(tx, {
+      action: "player.update",
+      resourceType: "player",
+      resourceId: playerId,
+      clubId: player.clubId,
+      actorUserId: ctx.userId,
+    });
+    return updated;
+  });
+}
+
+export async function archivePlayer(ctx: AuthContext, playerId: string) {
+  const player = await prisma.player.findFirst({ where: { id: playerId, deletedAt: null } });
+  if (!player) throw new ForbiddenError("Player not found");
+  assertCan(ctx, "players.edit_full", { clubId: player.clubId, playerId });
+
+  return prisma.$transaction(async (tx) => {
+    const archived = await tx.player.update({
+      where: { id: playerId },
+      data: { status: "ARCHIVED", deletedAt: new Date(), deletedBy: ctx.userId, updatedAt: new Date(), updatedBy: ctx.userId },
+    });
+    await recordAudit(tx, {
+      action: "player.archive",
+      resourceType: "player",
+      resourceId: playerId,
+      clubId: player.clubId,
+      actorUserId: ctx.userId,
+    });
+    return archived;
+  });
+}
+
+// ===========================================================================
+// Team memberships (admin = club; coach = assigned teams)
+// ===========================================================================
+
+export async function addPlayerToTeam(ctx: AuthContext, input: AddMembershipInput) {
+  const player = await prisma.player.findFirst({
+    where: { id: input.playerId, deletedAt: null },
+    select: { clubId: true },
+  });
+  if (!player) throw new ForbiddenError("Player not found");
+  assertTeamScope(ctx, { clubId: player.clubId, teamId: input.teamId });
+  await assertTeamInClub(input.teamId, player.clubId);
+  if (input.seasonId) {
+    const season = await prisma.season.findFirst({
+      where: { id: input.seasonId, clubId: player.clubId },
+      select: { id: true },
+    });
+    if (!season) throw new ForbiddenError("Season does not belong to this club");
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const membership = await tx.playerTeamMembership.create({
+        data: {
+          clubId: player.clubId,
+          playerId: input.playerId,
+          teamId: input.teamId,
+          seasonId: input.seasonId ?? null,
+          status: "ACTIVE",
+          createdBy: ctx.userId,
+        },
+      });
+      await recordAudit(tx, {
+        action: "membership.add",
+        resourceType: "player_team_membership",
+        resourceId: membership.id,
+        clubId: player.clubId,
+        actorUserId: ctx.userId,
+        metadata: { playerId: input.playerId, teamId: input.teamId, seasonId: input.seasonId ?? null },
+      });
+      return membership;
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new ConflictError("Player is already on that team for the season");
+    throw error;
+  }
+}
+
+export async function removePlayerFromTeam(ctx: AuthContext, membershipId: string) {
+  const membership = await prisma.playerTeamMembership.findUnique({ where: { id: membershipId } });
+  if (!membership) throw new ForbiddenError("Membership not found");
+  assertTeamScope(ctx, { clubId: membership.clubId, teamId: membership.teamId });
+
+  return prisma.$transaction(async (tx) => {
+    const removed = await tx.playerTeamMembership.update({
+      where: { id: membershipId },
+      data: { status: "INACTIVE", leftAt: new Date() },
+    });
+    await recordAudit(tx, {
+      action: "membership.remove",
+      resourceType: "player_team_membership",
+      resourceId: membershipId,
+      clubId: membership.clubId,
+      actorUserId: ctx.userId,
+      metadata: { playerId: membership.playerId, teamId: membership.teamId },
+    });
+    return removed;
+  });
+}
+
+// ===========================================================================
+// Parents (admin manage; parents may edit only their own profile)
+// ===========================================================================
+
+export async function listParents(ctx: AuthContext, clubId: string) {
+  assertCan(ctx, "parents.manage", { clubId });
+  return prisma.parent.findMany({
+    where: { clubId, status: "ACTIVE" },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    include: { _count: { select: { playerLinks: { where: { status: "ACTIVE" } } } } },
+  });
+}
+
+export async function listPendingParentInvitations(ctx: AuthContext, clubId: string) {
+  assertCan(ctx, "parents.manage", { clubId });
+  return prisma.invitation.findMany({
+    where: { clubId, roleCode: "PARENT", status: "PENDING" },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, email: true, createdAt: true, expiresAt: true },
+  });
+}
+
+export async function inviteParent(ctx: AuthContext, clubId: string, input: InviteParentInput) {
+  assertCan(ctx, "parents.manage", { clubId });
+  const invitation = await createInvitation({
+    clubId,
+    email: input.email,
+    roleCode: "PARENT",
+    invitedByUserId: ctx.userId,
+  });
+  await recordAuditStandalone({
+    action: "parent.invite",
+    resourceType: "invitation",
+    resourceId: invitation.id,
+    clubId,
+    actorUserId: ctx.userId,
+    metadata: { roleCode: "PARENT", email: input.email },
+  });
+  return invitation;
+}
+
+export async function getParent(ctx: AuthContext, parentId: string) {
+  const parent = await prisma.parent.findFirst({
+    where: { id: parentId, status: "ACTIVE" },
+    include: {
+      user: { select: { id: true, email: true, name: true } },
+      playerLinks: {
+        where: { status: "ACTIVE" },
+        include: { player: { select: { id: true, firstName: true, lastName: true, preferredName: true } } },
+      },
+    },
+  });
+  if (!parent) return null;
+  // Admin can view any parent in the club; a parent may view only their own.
+  if (!(parent.userId === ctx.userId)) assertCan(ctx, "parents.manage", { clubId: parent.clubId });
+  else assertClubScope(ctx, parent.clubId);
+  return parent;
+}
+
+/** The signed-in parent's own business profile in the active club. */
+export async function getOwnParentProfile(ctx: AuthContext) {
+  if (ctx.role !== "PARENT") throw new ForbiddenError("Only a parent has a parent profile");
+  const clubId = requireActiveClub(ctx);
+  return prisma.parent.findFirst({
+    where: { userId: ctx.userId, clubId, status: "ACTIVE" },
+  });
+}
+
+export async function updateParent(ctx: AuthContext, parentId: string, input: UpdateParentInput) {
+  const parent = await prisma.parent.findFirst({ where: { id: parentId, status: "ACTIVE" } });
+  if (!parent) throw new ForbiddenError("Parent not found");
+  // A parent may edit only their own profile; admins may edit any in their club.
+  if (parent.userId !== ctx.userId) assertCan(ctx, "parents.manage", { clubId: parent.clubId });
+  else assertClubScope(ctx, parent.clubId);
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.parent.update({
+      where: { id: parentId },
+      data: {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        phone: input.phone ?? null,
+        secondaryPhone: input.secondaryPhone ?? null,
+        preferredContactMethod: input.preferredContactMethod ?? null,
+        addressLine1: input.addressLine1 ?? null,
+        addressLine2: input.addressLine2 ?? null,
+        city: input.city ?? null,
+        state: input.state ?? null,
+        postalCode: input.postalCode ?? null,
+        updatedAt: new Date(),
+        updatedBy: ctx.userId,
+      },
+    });
+    await recordAudit(tx, {
+      action: "parent.update",
+      resourceType: "parent",
+      resourceId: parentId,
+      clubId: parent.clubId,
+      actorUserId: ctx.userId,
+    });
+    return updated;
+  });
+}
+
+// ===========================================================================
+// Parent ↔ player links (sensitive — admin only by default; always audited)
+// ===========================================================================
+
+export async function linkParentToPlayer(ctx: AuthContext, input: LinkParentInput) {
+  const [player, parent] = await Promise.all([
+    prisma.player.findFirst({ where: { id: input.playerId, deletedAt: null }, select: { clubId: true } }),
+    prisma.parent.findFirst({ where: { id: input.parentId, status: "ACTIVE" }, select: { clubId: true } }),
+  ]);
+  if (!player) throw new ForbiddenError("Player not found");
+  if (!parent) throw new ForbiddenError("Parent not found");
+  // Linking is a CLUB-admin action (matrix §6.7); coaches do not link by default.
+  assertCan(ctx, "parents.manage", { clubId: player.clubId });
+  if (parent.clubId !== player.clubId) throw new ForbiddenError("Parent and player belong to different clubs");
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const link = await tx.playerParentLink.create({
+        data: {
+          clubId: player.clubId,
+          playerId: input.playerId,
+          parentId: input.parentId,
+          relationshipType: input.relationshipType,
+          isPrimaryGuardian: input.isPrimaryGuardian ?? false,
+          canPickup: input.canPickup ?? false,
+          canPay: input.canPay ?? true,
+          status: "ACTIVE",
+          createdBy: ctx.userId,
+        },
+      });
+      await recordAudit(tx, {
+        action: "child.link",
+        resourceType: "player_parent_link",
+        resourceId: link.id,
+        clubId: player.clubId,
+        actorUserId: ctx.userId,
+        metadata: { playerId: input.playerId, parentId: input.parentId, relationshipType: input.relationshipType },
+      });
+      return link;
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new ConflictError("This parent is already linked to this player");
+    throw error;
+  }
+}
+
+export async function unlinkParentFromPlayer(ctx: AuthContext, linkId: string) {
+  const link = await prisma.playerParentLink.findUnique({ where: { id: linkId } });
+  if (!link) throw new ForbiddenError("Link not found");
+  assertCan(ctx, "parents.manage", { clubId: link.clubId });
+
+  return prisma.$transaction(async (tx) => {
+    const removed = await tx.playerParentLink.update({
+      where: { id: linkId },
+      data: { status: "INACTIVE" },
+    });
+    await recordAudit(tx, {
+      action: "child.unlink",
+      resourceType: "player_parent_link",
+      resourceId: linkId,
+      clubId: link.clubId,
+      actorUserId: ctx.userId,
+      metadata: { playerId: link.playerId, parentId: link.parentId },
+    });
+    return removed;
+  });
+}
+
+// ===========================================================================
+// Parent-facing reads (own children + SAFE team roster)
+// ===========================================================================
+
+/** All children linked to the signed-in parent, in the approved own-child view. */
+export async function listLinkedChildren(ctx: AuthContext): Promise<
+  Array<OwnChild & { teams: { id: string; name: string }[] }>
+> {
+  if (ctx.linkedPlayerIds.length === 0) return [];
+  const players = await prisma.player.findMany({
+    where: { id: { in: ctx.linkedPlayerIds }, deletedAt: null },
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+    include: {
+      teamMemberships: {
+        where: { status: "ACTIVE" },
+        include: { team: { select: { id: true, name: true } } },
+      },
+    },
+  });
+  return players.map((p) => ({
+    ...ownChildView(p),
+    teams: p.teamMemberships.map((m) => ({ id: m.team.id, name: m.team.name })),
+  }));
+}
+
+/** A single linked child in the approved own-child view (guarded by child scope). */
+export async function getOwnChild(
+  ctx: AuthContext,
+  playerId: string,
+): Promise<(OwnChild & { teams: { id: string; name: string }[] }) | null> {
+  // Pure linkage guard first — a parent can never reach another family's child.
+  assertChildScope(ctx, { clubId: requireActiveClub(ctx), playerId });
+  const player = await prisma.player.findFirst({
+    where: { id: playerId, deletedAt: null },
+    include: {
+      teamMemberships: {
+        where: { status: "ACTIVE" },
+        include: { team: { select: { id: true, name: true } } },
+      },
+    },
+  });
+  if (!player) return null;
+  return { ...ownChildView(player), teams: player.teamMemberships.map((m) => ({ id: m.team.id, name: m.team.name })) };
+}
+
+/**
+ * Parent edit of OWN linked child — approved fields only. The linkage is
+ * asserted purely (before any DB read), then ONLY the whitelisted fields are
+ * applied; anything else is dropped server-side regardless of input.
+ */
+export async function updateOwnChild(ctx: AuthContext, playerId: string, input: ParentUpdatePlayerInput) {
+  assertChildScope(ctx, { clubId: requireActiveClub(ctx), playerId });
+
+  // Build the update strictly from the whitelist — never from arbitrary keys.
+  const data: Prisma.PlayerUpdateInput = {};
+  for (const field of PARENT_EDITABLE_PLAYER_FIELDS) {
+    if (field in input) {
+      data[field] = (input as Record<string, unknown>)[field] as never;
+    }
+  }
+
+  const player = await prisma.player.findFirst({ where: { id: playerId, deletedAt: null }, select: { clubId: true } });
+  if (!player) throw new ForbiddenError("Player not found");
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.player.update({
+      where: { id: playerId },
+      data: { ...data, updatedAt: new Date(), updatedBy: ctx.userId },
+    });
+    await recordAudit(tx, {
+      action: "child.update_by_parent",
+      resourceType: "player",
+      resourceId: playerId,
+      clubId: player.clubId,
+      actorUserId: ctx.userId,
+      metadata: { fields: Object.keys(data) },
+    });
+    return updated;
+  });
+}
+
+/**
+ * SAFE roster of a team the parent's linked child is on (matrix §6.8). The team
+ * must be one of the parent's child-team contexts; every player is run through
+ * the parent-safe projection so restricted PII never leaves the server.
+ */
+export async function listSafeTeamRoster(ctx: AuthContext, teamId: string): Promise<SafePlayer[]> {
+  const clubId = requireActiveClub(ctx);
+  // A parent may only view rosters of teams their children belong to.
+  if (ctx.role === "PARENT" && !ctx.childTeamIds.includes(teamId)) {
+    throw new ForbiddenError("Team is outside your children's roster scope");
+  }
+  assertClubScope(ctx, clubId);
+
+  const [setting, memberships] = await Promise.all([
+    prisma.clubSetting.findUnique({ where: { clubId }, select: { showPlayerPhotosToParents: true } }),
+    prisma.playerTeamMembership.findMany({
+      where: { teamId, clubId, status: "ACTIVE" },
+      select: {
+        player: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            preferredName: true,
+            jerseyNumber: true,
+            primaryPosition: true,
+            photoUrl: true,
+          },
+        },
+      },
+      orderBy: { player: { lastName: "asc" } },
+    }),
+  ]);
+
+  return parentSafeRoster(
+    memberships.map((m) => m.player),
+    { showPhotos: setting?.showPlayerPhotosToParents ?? false },
+  );
+}

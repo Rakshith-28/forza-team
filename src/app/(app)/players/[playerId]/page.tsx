@@ -1,0 +1,176 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireRole } from "@/lib/auth-guards";
+import { can } from "@/lib/rbac";
+import { listTeams } from "@/modules/clubs/service";
+import { archivePlayerAction, removeMembershipAction } from "@/modules/roster/actions";
+import { getPlayer } from "@/modules/roster/service";
+
+import { StatusBadge } from "../../seasons/season-forms";
+import { AddMembershipForm, PlayerEditSection } from "./player-detail-client";
+
+function fmtDate(d: Date | null): string {
+  return d ? d.toISOString().slice(0, 10) : "—";
+}
+
+export default async function PlayerDetailPage({ params }: { params: Promise<{ playerId: string }> }) {
+  const { playerId } = await params;
+  const ctx = await requireRole("MASTER_ADMIN", "CLUB_ADMIN", "COACH");
+
+  const player = await getPlayer(ctx, playerId);
+  if (!player) notFound();
+
+  const canEdit = can(ctx, "players.edit_full", { clubId: player.clubId, playerId });
+  const teams = canEdit ? await listTeams(ctx, player.clubId) : [];
+  const memberTeamIds = new Set(player.teamMemberships.map((m) => m.teamId));
+  const addableTeams = teams
+    .filter((t) => t.status !== "ARCHIVED" && !memberTeamIds.has(t.id))
+    .map((t) => ({ id: t.id, name: t.name }));
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <Link href="/players" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+        ← All players
+      </Link>
+
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">
+            {player.firstName} {player.lastName}
+            {player.preferredName ? (
+              <span className="ml-2 text-xl text-muted-foreground">&ldquo;{player.preferredName}&rdquo;</span>
+            ) : null}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {player.jerseyNumber ? `#${player.jerseyNumber}` : "No number"}
+            {player.primaryPosition ? ` · ${player.primaryPosition}` : ""}
+            {player.secondaryPosition ? ` / ${player.secondaryPosition}` : ""}
+            {` · DOB ${fmtDate(player.dateOfBirth)}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusBadge status={player.status} />
+          {canEdit ? <PlayerEditSection player={toEditData(player)} /> : null}
+        </div>
+      </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="font-sport text-base">Sensitive details</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+          <Detail label="Emergency contact" value={player.emergencyContactName} />
+          <Detail label="Emergency phone" value={player.emergencyContactPhone} />
+          <Detail label="Medical notes" value={player.medicalNotes} />
+          <Detail label="Allergy notes" value={player.allergyNotes} />
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="font-sport text-base">Teams</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {player.teamMemberships.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Not on any team yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {player.teamMemberships.map((m) => (
+                <li key={m.id} className="flex items-center justify-between gap-4 rounded-lg border bg-card p-3">
+                  <div>
+                    <p className="font-medium text-foreground">{m.team.name}</p>
+                    {m.season ? (
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">{m.season.name}</p>
+                    ) : null}
+                  </div>
+                  {canEdit ? (
+                    <form action={removeMembershipAction}>
+                      <input type="hidden" name="playerId" value={player.id} />
+                      <input type="hidden" name="membershipId" value={m.id} />
+                      <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
+                        Remove
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {canEdit ? (
+            <div className="border-t pt-4">
+              <AddMembershipForm playerId={player.id} teams={addableTeams} />
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="font-sport text-base">Linked parents / guardians</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {player.parentLinks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No parents linked yet. Link a parent from the{" "}
+              <Link href="/parents" className="underline underline-offset-4">
+                Parents
+              </Link>{" "}
+              page.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {player.parentLinks.map((l) => (
+                <li key={l.id} className="rounded-lg border bg-card p-3">
+                  <Link href={`/parents/${l.parent.id}`} className="font-medium text-foreground hover:underline">
+                    {l.parent.firstName} {l.parent.lastName}
+                  </Link>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{l.relationshipType}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {canEdit && player.status !== "ARCHIVED" ? (
+        <form action={archivePlayerAction} className="mt-6">
+          <input type="hidden" name="playerId" value={player.id} />
+          <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
+            Archive this player
+          </button>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+type PlayerRecord = NonNullable<Awaited<ReturnType<typeof getPlayer>>>;
+
+function toEditData(p: PlayerRecord) {
+  return {
+    id: p.id,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    preferredName: p.preferredName,
+    dateOfBirth: p.dateOfBirth ? p.dateOfBirth.toISOString().slice(0, 10) : null,
+    jerseyNumber: p.jerseyNumber,
+    primaryPosition: p.primaryPosition,
+    secondaryPosition: p.secondaryPosition,
+    emergencyContactName: p.emergencyContactName,
+    emergencyContactPhone: p.emergencyContactPhone,
+    medicalNotes: p.medicalNotes,
+    allergyNotes: p.allergyNotes,
+    status: p.status,
+  };
+}
+
+function Detail({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-foreground">{value || "—"}</p>
+    </div>
+  );
+}

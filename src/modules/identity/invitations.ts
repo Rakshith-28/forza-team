@@ -131,8 +131,8 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
   const role = await prisma.role.findUnique({ where: { code: invitation.roleCode } });
   if (!role) return { ok: false, error: "invalid" };
 
-  await prisma.$transaction([
-    prisma.userRoleAssignment.create({
+  await prisma.$transaction(async (tx) => {
+    await tx.userRoleAssignment.create({
       data: {
         userId,
         roleId: role.id,
@@ -142,12 +142,29 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
         status: "ACTIVE",
         createdBy: invitation.createdBy,
       },
-    }),
-    prisma.invitation.update({
+    });
+    // A PARENT invite also provisions the parent business profile (parents.user_id
+    // is required, so the profile can only exist once the login is created). The
+    // admin can then link children to this profile (roster module, Phase 3).
+    if (invitation.roleCode === "PARENT" && invitation.clubId) {
+      await tx.parent.create({
+        data: {
+          clubId: invitation.clubId,
+          userId,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: invitation.email,
+          phone: input.phone ?? null,
+          status: "ACTIVE",
+          createdBy: invitation.createdBy,
+        },
+      });
+    }
+    await tx.invitation.update({
       where: { id: invitation.id },
       data: { status: "ACCEPTED", acceptedAt: new Date(), acceptedByUserId: userId },
-    }),
-  ]);
+    });
+  });
 
   logger.info("invitation accepted", { invitationId: invitation.id, userId });
   return { ok: true, userId };

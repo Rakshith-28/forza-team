@@ -21,8 +21,8 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Dashboard", href: "/dashboard/club" },
     { label: "Seasons", href: "/seasons" },
     { label: "Teams", href: "/teams" },
-    { label: "Players" },
-    { label: "Parents" },
+    { label: "Players", href: "/players" },
+    { label: "Parents", href: "/parents" },
     { label: "Coaches" },
     { label: "Schedule" },
     { label: "Attendance" },
@@ -36,7 +36,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
   ],
   COACH: [
     { label: "Dashboard", href: "/dashboard/coach" },
-    { label: "Team Roster" },
+    { label: "Team Roster", href: "/players" },
     { label: "Schedule" },
     { label: "Attendance" },
     { label: "Chat" },
@@ -47,7 +47,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
   ],
   PARENT: [
     { label: "My Kids", href: "/dashboard/parent" },
-    { label: "Child Profile" },
+    { label: "Child Profiles", href: "/dashboard/parent" },
     { label: "Schedule" },
     { label: "Team Roster" },
     { label: "Chat" },
