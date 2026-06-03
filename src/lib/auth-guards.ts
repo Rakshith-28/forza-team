@@ -53,6 +53,19 @@ export async function requireRole(...roles: Role[]): Promise<AuthContext> {
   return ctx;
 }
 
+/**
+ * Resolve the caller's AuthContext for a route handler WITHOUT redirecting —
+ * returns null when there's no session or no usable context, so the handler can
+ * answer with a proper HTTP status (used by /api JSON + file proxy endpoints).
+ */
+export async function getApiContext(): Promise<AuthContext | null> {
+  const session = await getSession();
+  if (!session) return null;
+  const activeClubId =
+    session.session.activeClubId ?? (await resolveActiveClubId(session.user.id));
+  return loadAuthContext(session.user.id, activeClubId);
+}
+
 /** For server actions / route handlers: returns 403-style error instead of redirect. */
 export async function requireRoleOrThrow(...roles: Role[]): Promise<AuthContext> {
   const ctx = await requireAuthContext();

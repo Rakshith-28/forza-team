@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PhotoUpload } from "@/components/app/photo-upload";
 import { requireRole } from "@/lib/auth-guards";
 import { getOwnChild, listLinkedChildren } from "@/modules/roster/service";
 
@@ -65,6 +66,23 @@ export default async function ChildProfilePage({ params }: { params: Promise<{ p
           />
         </div>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="font-sport text-base">Photo</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          {child.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={child.photoUrl} alt="" className="h-20 w-20 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-2xl font-bold text-secondary-foreground">
+              {child.displayName.slice(0, 1)}
+            </span>
+          )}
+          <PhotoUpload playerId={child.id} />
+        </CardContent>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader>

@@ -77,16 +77,32 @@ export const PERMISSIONS = {
   "development.view_own_child": { PARENT: "CHILD" },
 
   // Announcements (§6.10)
+  "announcements.view": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM", PARENT: "CHILD" },
   "announcements.publish_club": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
   "announcements.publish_team": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
 
-  // Chat (§6.11) — parents may post in their linked child's team chat
+  // Chat (§6.11) — parents may read/post in their linked child's team chat
+  "chat.view_team": {
+    MASTER_ADMIN: "SYSTEM",
+    CLUB_ADMIN: "CLUB",
+    COACH: "TEAM",
+    PARENT: "CHILD",
+  },
   "chat.send_team": {
     MASTER_ADMIN: "SYSTEM",
     CLUB_ADMIN: "CLUB",
     COACH: "TEAM",
     PARENT: "CHILD",
   },
+  // Admin/coach may moderate (delete) messages within their scope.
+  "chat.moderate_team": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
+
+  // Files / documents (§6.9) — club-shared docs + player photos + chat files.
+  // Club documents are club-wide, so members view at CLUB scope; managing them
+  // (upload/delete) stays with admins. Team-scoped sharing rides on team chat
+  // attachments; player photos reuse the Phase 3 player-edit permissions.
+  "documents.view": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "CLUB", PARENT: "CLUB" },
+  "documents.manage_club": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
 
   // Reports (§6.21)
   "reports.view_club": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },

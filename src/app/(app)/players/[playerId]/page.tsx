@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PhotoUpload } from "@/components/app/photo-upload";
 import { requireRole } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
@@ -55,6 +56,23 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
           {canEdit ? <PlayerEditSection player={toEditData(player)} /> : null}
         </div>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="font-sport text-base">Photo</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          {player.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={player.photoUrl} alt="" className="h-20 w-20 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-2xl font-bold text-secondary-foreground">
+              {player.firstName.slice(0, 1)}
+            </span>
+          )}
+          {canEdit ? <PhotoUpload playerId={player.id} /> : null}
+        </CardContent>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader>
