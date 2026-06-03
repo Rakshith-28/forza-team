@@ -1,4 +1,4 @@
-import { ArrowUpRight, Star } from "lucide-react";
+import { ArrowUpRight, Star, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,9 +31,6 @@ export interface PlayerCardProps extends React.ComponentProps<"div"> {
   evaluateHref?: string;
 }
 
-const PHOTO_BG =
-  "radial-gradient(120% 80% at 50% 120%, rgba(30,158,90,.18), transparent 60%), linear-gradient(180deg,#EEF3EF,#E2EAE4)";
-
 export function PlayerCard({
   player,
   viewProfileHref = "#",
@@ -52,30 +49,28 @@ export function PlayerCard({
       )}
       {...props}
     >
-      {/* Photo slot — jersey number top-left over a light photo area. */}
-      <div
-        className="relative flex h-[230px] items-end justify-center overflow-hidden"
-        style={{ background: PHOTO_BG }}
-      >
+      {/* Photo slot — light token surface with a subtle green wash; jersey
+          number top-left. All colors are tokens (no hardcoded values). */}
+      <div className="relative flex h-[230px] items-center justify-center overflow-hidden bg-secondary">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-primary/10 to-transparent" />
+        {player.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary remote photo, no fixed dimensions
+          <img src={player.photoUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <User className="size-28 text-muted-foreground/30" strokeWidth={1.25} />
+        )}
         {player.jerseyNumber ? (
           <span className="absolute left-[18px] top-[14px] font-display text-[34px] leading-none text-primary">
             {player.jerseyNumber}
           </span>
         ) : null}
-
-        {player.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- arbitrary remote photo, no fixed dimensions
-          <img src={player.photoUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="relative h-[200px] w-[150px] rounded-t-[90px] bg-gradient-to-b from-[#BFD2C6] to-[#9DB7A8] saturate-[.7]">
-            <span className="absolute left-1/2 top-6 size-16 -translate-x-1/2 rounded-full bg-[#AEC3B6]" />
-          </div>
-        )}
       </div>
 
       {/* Body */}
       <div className="flex flex-1 flex-col px-5 pb-5 pt-[18px]">
-        <h3 className="font-sport text-[22px] font-bold leading-tight">{player.name}</h3>
+        <h3 className="font-sport text-[22px] font-bold leading-tight text-foreground">
+          {player.name}
+        </h3>
 
         <div className="mt-[7px] flex items-center gap-2 font-body text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
           {player.position ? <span>{player.position}</span> : null}
@@ -93,8 +88,8 @@ export function PlayerCard({
         {player.stats && player.stats.length > 0 ? (
           <div className="my-[18px] grid grid-cols-3 gap-2">
             {player.stats.slice(0, 3).map((stat) => (
-              <div key={stat.label} className="rounded-[11px] bg-secondary px-1.5 py-3 text-center">
-                <b className="block font-sport text-[19px] font-extrabold tracking-tight">
+              <div key={stat.label} className="rounded-md bg-secondary px-1.5 py-3 text-center">
+                <b className="block font-sport text-[19px] font-extrabold tracking-tight text-foreground">
                   {stat.value}
                 </b>
                 <span className="mt-[3px] block text-[10.5px] text-muted-foreground">
@@ -109,7 +104,7 @@ export function PlayerCard({
           <Button
             asChild
             variant="outline"
-            className="h-auto flex-1 rounded-[11px] py-[11px] text-[13px] shadow-none hover:border-primary hover:bg-card hover:text-primary-hover"
+            className="h-auto flex-1 rounded-md py-[11px] text-[13px] shadow-none hover:border-primary hover:bg-card hover:text-primary-hover"
           >
             <a href={viewProfileHref}>
               View profile <ArrowUpRight className="size-3.5" />
@@ -117,7 +112,7 @@ export function PlayerCard({
           </Button>
           <Button
             asChild
-            className="h-auto flex-1 rounded-[11px] bg-primary py-[11px] text-[13px] shadow-none hover:bg-primary-hover"
+            className="h-auto flex-1 rounded-md bg-primary py-[11px] text-[13px] shadow-none hover:bg-primary-hover"
           >
             <a href={evaluateHref}>
               Evaluate <Star className="size-3.5" />

@@ -76,7 +76,7 @@ export default function RosterPage() {
       {/* Header */}
       <header className="mb-2 flex items-center gap-8 py-[22px]">
         <div className="flex items-center gap-2.5">
-          <div className="grid size-8 flex-none place-items-center rounded-[9px] bg-primary">
+          <div className="grid size-8 flex-none place-items-center rounded-sm bg-primary">
             <span className="font-sport text-[17px] font-extrabold text-primary-foreground">F</span>
           </div>
           <b className="font-sport text-[17px] font-extrabold tracking-tight">Forza Team</b>
@@ -101,14 +101,14 @@ export default function RosterPage() {
           <button
             type="button"
             aria-label="Search"
-            className="grid size-[38px] place-items-center rounded-[10px] border bg-card text-ink-2 hover:text-primary-hover"
+            className="grid size-[38px] place-items-center rounded-sm border bg-card text-ink-2 hover:text-primary-hover"
           >
             <Search className="size-[17px]" />
           </button>
           <button
             type="button"
             aria-label="Notifications"
-            className="grid size-[38px] place-items-center rounded-[10px] border bg-card text-ink-2 hover:text-primary-hover"
+            className="grid size-[38px] place-items-center rounded-sm border bg-card text-ink-2 hover:text-primary-hover"
           >
             <Bell className="size-[17px]" />
           </button>
@@ -121,7 +121,7 @@ export default function RosterPage() {
       </h1>
 
       {/* Team tabs */}
-      <div className="mb-[30px] inline-flex gap-1 rounded-[14px] border bg-card p-[5px]">
+      <div className="mb-[30px] inline-flex gap-1 rounded-lg border bg-card p-[5px]">
         {TEAMS.map((team) => {
           const active = team.id === activeTeamId;
           return (
@@ -130,7 +130,7 @@ export default function RosterPage() {
               type="button"
               onClick={() => setActiveTeamId(team.id)}
               className={cn(
-                "rounded-[10px] px-[18px] py-[9px] text-[13.5px] font-semibold transition-colors",
+                "rounded-sm px-[18px] py-[9px] text-[13.5px] font-semibold transition-colors",
                 active
                   ? "bg-foreground text-card"
                   : "text-muted-foreground hover:text-foreground",
@@ -154,7 +154,7 @@ export default function RosterPage() {
         <Button
           asChild
           variant="outline"
-          className="h-auto rounded-xl px-[22px] py-[11px] text-[13px] font-bold shadow-none hover:border-primary hover:bg-card hover:text-primary-hover"
+          className="h-auto rounded-md px-[22px] py-[11px] text-[13px] font-bold shadow-none hover:border-primary hover:bg-card hover:text-primary-hover"
         >
           <a href="#">
             View all {activeTeam.total} players <ArrowRight className="size-3.5" />
