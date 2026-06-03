@@ -16,7 +16,11 @@ export const PERMISSIONS = {
   "clubs.view": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
   "clubs.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
 
-  // Teams (§6.4)
+  // Seasons (§6.3)
+  "seasons.view": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM", PARENT: "CHILD" },
+  "seasons.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
+
+  // Teams (§6.4) — teams.manage also gates coach assignment (§6.5)
   "teams.view": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM", PARENT: "CHILD" },
   "teams.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
 
