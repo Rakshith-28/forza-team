@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forza Team — Roster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bungee&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#15211C;
+    --ink-2:#41534B;
+    --muted:#7C8C84;
+    --line:#E6EBE7;
+    --line-2:#EEF2EF;
+    --card:#FFFFFF;
+    --green:#1E9E5A;
+    --green-deep:#157A45;
+    --chip:#F4F7F4;
+    --r:18px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Archivo',sans-serif;color:var(--ink);
+    -webkit-font-smoothing:antialiased;min-height:100vh;
+    background:
+      linear-gradient(180deg,#F7F9F7 0%,#EEF3EE 46%,#E3EDE4 100%);
+  }
+  /* faint stadium horizon at the bottom, very subtle */
+  body::after{
+    content:"";position:fixed;left:0;right:0;bottom:0;height:34vh;z-index:0;pointer-events:none;opacity:.5;
+    background:linear-gradient(180deg,transparent,rgba(30,158,90,.10));
+    -webkit-mask:linear-gradient(180deg,transparent,#000);
+  }
+  .wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:0 28px}
+
+  /* HEADER */
+  header{display:flex;align-items:center;gap:34px;padding:22px 0;margin-bottom:8px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .mark{width:32px;height:32px;border-radius:9px;background:var(--green);display:grid;place-items:center;flex:none}
+  .brand .mark span{font-family:'Oswald';font-weight:800;color:#fff;font-size:17px}
+  .brand b{font-family:'Oswald';font-weight:800;font-size:17px;letter-spacing:-.01em}
+  nav{display:flex;gap:26px;margin:0 auto}
+  nav a{text-decoration:none;color:var(--ink-2);font-size:14px;font-weight:500}
+  nav a.active{color:var(--ink);font-weight:700}
+  nav a:hover{color:var(--green-deep)}
+  .h-actions{display:flex;align-items:center;gap:14px}
+  .icn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;color:var(--ink-2)}
+  .icn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8}
+
+  /* TITLE + TABS */
+  h1{font-family:'Bungee';font-size:42px;letter-spacing:0;margin:18px 0 24px;text-transform:uppercase;line-height:1.05}
+  .tabs{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:5px;margin-bottom:30px}
+  .tabs button{border:none;background:transparent;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--muted);padding:9px 18px;border-radius:10px;cursor:pointer;transition:.15s}
+  .tabs button.active{background:var(--ink);color:#fff}
+  .tabs button:not(.active):hover{color:var(--ink)}
+
+  /* GRID */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;padding-bottom:30px}
+  .pcard{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+    box-shadow:0 18px 40px -28px rgba(20,60,40,.35);transition:.2s;display:flex;flex-direction:column;
+  }
+  .pcard:hover{transform:translateY(-4px);box-shadow:0 28px 50px -28px rgba(20,60,40,.4)}
+  .photo{
+    position:relative;height:230px;
+    background:
+      radial-gradient(120% 80% at 50% 120%, rgba(30,158,90,.18), transparent 60%),
+      linear-gradient(180deg,#EEF3EF,#E2EAE4);
+    display:flex;align-items:flex-end;justify-content:center;overflow:hidden;
+  }
+  .photo .num{
+    position:absolute;top:14px;left:18px;font-family:'Bungee';
+    font-size:34px;color:var(--green);letter-spacing:0;line-height:1;
+  }
+  /* simple clean player silhouette placeholder */
+  .photo .figure{width:150px;height:200px;background:linear-gradient(180deg,#BFD2C6,#9DB7A8);border-radius:90px 90px 0 0;position:relative;filter:saturate(.7)}
+  .photo .figure::before{content:"";position:absolute;top:24px;left:50%;transform:translateX(-50%);width:64px;height:64px;border-radius:50%;background:#Aec3b6}
+  .body{padding:18px 20px 20px;display:flex;flex-direction:column;flex:1}
+  .body h3{font-family:'Oswald';font-weight:700;font-size:22px;letter-spacing:0}
+  .role{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .role .sep{color:var(--line)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
+  .stat{background:var(--chip);border-radius:11px;padding:12px 6px;text-align:center}
+  .stat b{font-family:'Oswald';font-weight:800;font-size:19px;display:block;letter-spacing:-.01em}
+  .stat span{font-size:10.5px;color:var(--muted);margin-top:3px;display:block}
+  .actions{display:flex;gap:10px;margin-top:auto}
+  .ab{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:11px;padding:11px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;text-decoration:none}
+  .ab:hover{border-color:var(--green);color:var(--green-deep)}
+  .ab svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
+  .ab.primary{background:var(--green);border-color:var(--green);color:#fff}
+  .ab.primary:hover{background:var(--green-deep)}
+  .ab.primary svg{stroke:#fff}
+
+  .foot{display:flex;justify-content:center;padding:6px 0 50px}
+  .viewall{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:11px 22px}
+  .viewall svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+  .viewall:hover{border-color:var(--green);color:var(--green-deep)}
+
+  @media(max-width:980px){.grid{grid-template-columns:repeat(2,1fr)}nav{display:none}h1{font-size:34px}}
+  @media(max-width:620px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="mark"><span>F</span></div><b>Forza Team</b></div>
+    <nav>
+      <a class="active" href="#">Roster</a>
+      <a href="#">Schedule</a>
+      <a href="#">Attendance</a>
+      <a href="#">Evaluations</a>
+      <a href="#">Messages</a>
+    </nav>
+    <div class="h-actions">
+      <div class="icn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></div>
+      <div class="icn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+    </div>
+  </header>
+
+  <h1>Roster</h1>
+
+  <div class="tabs">
+    <button class="active">First Team</button>
+    <button>U16 Elite</button>
+    <button>U14</button>
+    <button>Women</button>
+  </div>
+
+  <div class="grid">
+    <!-- card -->
+    <div class="pcard">
+      <div class="photo"><span class="num">9</span><div class="figure"></div></div>
+      <div class="body">
+        <h3>Léo Costa</h3>
+        <div class="role">Forward <span class="sep">·</span> 🇧🇷 Brazil</div>
+        <div class="stats">
+          <div class="stat"><b>504′</b><span>Played</span></div>
+          <div class="stat"><b>11</b><span>Goals</span></div>
+          <div class="stat"><b>4</b><span>Assists</span></div>
+        </div>
+        <div class="actions">
+          <a class="ab" href="#">View profile <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+          <a class="ab primary" href="#">Evaluate <svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.2 5L12 15l-4.2 3 1.2-5-4-3.5L10 9z"/></svg></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="pcard">
+      <div class="photo"><span class="num">4</span><div class="figure"></div></div>
+      <div class="body">
+        <h3>M. Adebayo</h3>
+        <div class="role">Defender <span class="sep">·</span> 🇳🇬 Nigeria</div>
+        <div class="stats">
+          <div class="stat"><b>720′</b><span>Played</span></div>
+          <div class="stat"><b>1</b><span>Goals</span></div>
+          <div class="stat"><b>2</b><span>Assists</span></div>
+        </div>
+        <div class="actions">
+          <a class="ab" href="#">View profile <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+          <a class="ab primary" href="#">Evaluate <svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.2 5L12 15l-4.2 3 1.2-5-4-3.5L10 9z"/></svg></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="pcard">
+      <div class="photo"><span class="num">7</span><div class="figure"></div></div>
+      <div class="body">
+        <h3>J. Rivera</h3>
+        <div class="role">Winger <span class="sep">·</span> 🇪🇸 Spain</div>
+        <div class="stats">
+          <div class="stat"><b>410′</b><span>Played</span></div>
+          <div class="stat"><b>6</b><span>Goals</span></div>
+          <div class="stat"><b>9</b><span>Assists</span></div>
+        </div>
+        <div class="actions">
+          <a class="ab" href="#">View profile <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+          <a class="ab primary" href="#">Evaluate <svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.2 5L12 15l-4.2 3 1.2-5-4-3.5L10 9z"/></svg></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="pcard">
+      <div class="photo"><span class="num">1</span><div class="figure"></div></div>
+      <div class="body">
+        <h3>T. Novák</h3>
+        <div class="role">Goalkeeper <span class="sep">·</span> 🇨🇿 Czechia</div>
+        <div class="stats">
+          <div class="stat"><b>900′</b><span>Played</span></div>
+          <div class="stat"><b>61</b><span>Saves</span></div>
+          <div class="stat"><b>5</b><span>Clean</span></div>
+        </div>
+        <div class="actions">
+          <a class="ab" href="#">View profile <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+          <a class="ab primary" href="#">Evaluate <svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.2 5L12 15l-4.2 3 1.2-5-4-3.5L10 9z"/></svg></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="pcard">
+      <div class="photo"><span class="num">10</span><div class="figure"></div></div>
+      <div class="body">
+        <h3>D. Ferreira</h3>
+        <div class="role">Midfielder <span class="sep">·</span> 🇵🇹 Portugal</div>
+        <div class="stats">
+          <div class="stat"><b>650′</b><span>Played</span></div>
+          <div class="stat"><b>4</b><span>Goals</span></div>
+          <div class="stat"><b>7</b><span>Assists</span></div>
+        </div>
+        <div class="actions">
+          <a class="ab" href="#">View profile <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+          <a class="ab primary" href="#">Evaluate <svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.2 5L12 15l-4.2 3 1.2-5-4-3.5L10 9z"/></svg></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="pcard">
+      <div class="photo"><span class="num">21</span><div class="figure"></div></div>
+      <div class="body">
+        <h3>K. Müller</h3>
+        <div class="role">Full-back <span class="sep">·</span> 🇩🇪 Germany</div>
+        <div class="stats">
+          <div class="stat"><b>540′</b><span>Played</span></div>
+          <div class="stat"><b>0</b><span>Goals</span></div>
+          <div class="stat"><b>3</b><span>Assists</span></div>
+        </div>
+        <div class="actions">
+          <a class="ab" href="#">View profile <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+          <a class="ab primary" href="#">Evaluate <svg viewBox="0 0 24 24"><path d="M12 4l2 5 5 .5-4 3.5 1.2 5L12 15l-4.2 3 1.2-5-4-3.5L10 9z"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <a class="viewall" href="#">View all 22 players <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+  </div>
+</div>
+</body>
+</html>

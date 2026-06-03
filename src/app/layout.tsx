@@ -1,15 +1,26 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Bungee, Oswald } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Body / UI text.
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Player names, section labels, stat numbers.
+const oswald = Oswald({
+  variable: "--font-oswald",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+
+// Page titles + jersey numbers (uppercase).
+const bungee = Bungee({
+  variable: "--font-bungee",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -25,9 +36,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${archivo.variable} ${oswald.variable} ${bungee.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }
