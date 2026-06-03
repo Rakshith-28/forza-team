@@ -35,6 +35,12 @@ const serverEnvSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("Forza Team <onboarding@resend.dev>"),
 
+  // File storage. `local` (default in dev) writes to .uploads/; `blob` uses
+  // Vercel Blob and is required on serverless (no writable disk). See
+  // src/modules/files/storage.ts.
+  STORAGE_DRIVER: z.enum(["local", "blob"]).optional(),
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
+
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
 });
 

@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { prisma } from "@/db/client";
+import { recordAudit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { invitationEmail, sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
@@ -63,21 +64,23 @@ export async function createInvitation(input: CreateInvitationInput) {
     select: { id: true },
   });
 
-  // Token travels only in the email link; only its hash is stored.
+  // Token travels only in the email link; only its hash is stored. The record
+  // is already committed above; emailing is best-effort and never throws.
   const url = `${env.BETTER_AUTH_URL}/accept-invite?id=${invitation.id}&token=${token}`;
   const { subject, html, text } = invitationEmail({
     url,
     clubName: club?.name ?? "your club",
     roleLabel: ROLE_LABELS[input.roleCode],
   });
-  await sendEmail({ to: input.email, subject, html, text });
+  const { delivered } = await sendEmail({ to: input.email, subject, html, text });
 
   logger.info("invitation created", {
     invitationId: invitation.id,
     clubId: input.clubId,
     roleCode: input.roleCode,
+    emailDelivered: delivered,
   });
-  return invitation;
+  return { id: invitation.id, emailDelivered: delivered };
 }
 
 export interface AcceptInvitationInput {
@@ -163,6 +166,15 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
     await tx.invitation.update({
       where: { id: invitation.id },
       data: { status: "ACCEPTED", acceptedAt: new Date(), acceptedByUserId: userId },
+    });
+    // Audit the role grant (sensitive — RBAC matrix §11.6).
+    await recordAudit(tx, {
+      action: "role.grant",
+      resourceType: "user_role_assignment",
+      resourceId: userId,
+      clubId: invitation.clubId,
+      actorUserId: userId,
+      metadata: { roleCode: invitation.roleCode, viaInvitation: invitation.id, teamId: invitation.teamId },
     });
   });
 

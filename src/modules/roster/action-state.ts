@@ -5,6 +5,8 @@
 export interface FormState {
   ok: boolean;
   error: string | null;
+  /** Soft warning on an otherwise-successful action (e.g. invite saved but email not sent). */
+  notice?: string | null;
 }
 
 export const INITIAL_STATE: FormState = { ok: false, error: null };

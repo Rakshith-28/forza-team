@@ -89,6 +89,14 @@ export const updateTeamSchema = createTeamSchema.extend({
 });
 export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;
 
+// --- Club settings (MVP feature/privacy flags) -----------------------------
+export const updateClubSettingsSchema = z.object({
+  showPlayerPhotosToParents: z.coerce.boolean(),
+  allowParentChildEvaluationView: z.coerce.boolean(),
+  attendanceTrackingEnabled: z.coerce.boolean(),
+});
+export type UpdateClubSettingsInput = z.infer<typeof updateClubSettingsSchema>;
+
 // --- Coach assignment ------------------------------------------------------
 export const assignCoachSchema = z.object({
   teamId: z.string().uuid(),

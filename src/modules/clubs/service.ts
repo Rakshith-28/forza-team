@@ -446,6 +446,44 @@ export async function removeCoach(ctx: AuthContext, teamId: string, userId: stri
 // Dashboard summary
 // ===========================================================================
 
+// ===========================================================================
+// Club settings (MVP feature/privacy flags)
+// ===========================================================================
+
+export async function getClubSettings(ctx: AuthContext, clubId: string) {
+  assertCan(ctx, "clubs.view", { clubId });
+  // The settings row is created with the club; ensure one exists defensively.
+  const existing = await prisma.clubSetting.findUnique({ where: { clubId } });
+  if (existing) return existing;
+  return prisma.clubSetting.create({ data: { clubId } });
+}
+
+export interface UpdateClubSettingsInput {
+  showPlayerPhotosToParents: boolean;
+  allowParentChildEvaluationView: boolean;
+  attendanceTrackingEnabled: boolean;
+}
+
+export async function updateClubSettings(ctx: AuthContext, clubId: string, input: UpdateClubSettingsInput) {
+  assertCan(ctx, "clubs.manage", { clubId });
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.clubSetting.upsert({
+      where: { clubId },
+      create: { clubId, ...input },
+      update: { ...input, updatedAt: new Date() },
+    });
+    await recordAudit(tx, {
+      action: "club_settings.update",
+      resourceType: "club_setting",
+      resourceId: updated.id,
+      clubId,
+      actorUserId: ctx.userId,
+      metadata: { ...input },
+    });
+    return updated;
+  });
+}
+
 /** System-wide counts for the Master Admin dashboard (system scope). */
 export async function getSystemSummary(ctx: AuthContext) {
   assertMasterAdmin(ctx);

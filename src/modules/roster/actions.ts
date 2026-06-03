@@ -154,13 +154,21 @@ export async function inviteParentAction(_prev: FormState, fd: FormData): Promis
   if (!clubId) return { ok: false, error: "No active club." };
   const parsed = inviteParentSchema.safeParse({ email: str(fd, "email") });
   if (!parsed.success) return failZod(parsed.error);
+  let emailDelivered = true;
   try {
-    await inviteParent(ctx, clubId, parsed.data);
+    const result = await inviteParent(ctx, clubId, parsed.data);
+    emailDelivered = result.emailDelivered;
   } catch (e) {
     return failService(e);
   }
   revalidatePath("/parents");
-  return { ok: true, error: null };
+  return {
+    ok: true,
+    error: null,
+    notice: emailDelivered
+      ? null
+      : "Invitation created, but the email couldn't be sent. Check the server logs for the invite link.",
+  };
 }
 
 export async function updateParentAction(_prev: FormState, fd: FormData): Promise<FormState> {

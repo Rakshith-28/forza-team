@@ -31,9 +31,14 @@ export function InviteParentForm() {
           {state.error}
         </p>
       ) : null}
-      {state.ok ? (
+      {state.ok && !state.notice ? (
         <p className="text-sm text-primary sm:basis-full" role="status">
           Invitation sent.
+        </p>
+      ) : null}
+      {state.ok && state.notice ? (
+        <p className="text-sm text-amber-600 sm:basis-full" role="status">
+          {state.notice}
         </p>
       ) : null}
     </form>

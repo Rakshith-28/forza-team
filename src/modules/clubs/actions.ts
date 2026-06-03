@@ -18,6 +18,7 @@ import {
   createTeam,
   removeCoach,
   updateClub,
+  updateClubSettings,
   updateSeason,
   updateTeam,
 } from "@/modules/clubs/service";
@@ -27,6 +28,7 @@ import {
   createSeasonSchema,
   createTeamSchema,
   updateClubSchema,
+  updateClubSettingsSchema,
   updateSeasonSchema,
   updateTeamSchema,
 } from "@/modules/clubs/schemas";
@@ -87,6 +89,25 @@ export async function archiveClubAction(fd: FormData): Promise<void> {
   const { ctx } = await requireUserAndContext();
   await archiveClub(ctx, str(fd, "clubId"));
   revalidatePath("/clubs");
+}
+
+// --- Club settings ---------------------------------------------------------
+export async function updateClubSettingsAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { ctx, clubId } = await activeClub();
+  if (!clubId) return { ok: false, error: "No active club." };
+  const parsed = updateClubSettingsSchema.safeParse({
+    showPlayerPhotosToParents: fd.get("showPlayerPhotosToParents") != null,
+    allowParentChildEvaluationView: fd.get("allowParentChildEvaluationView") != null,
+    attendanceTrackingEnabled: fd.get("attendanceTrackingEnabled") != null,
+  });
+  if (!parsed.success) return failZod(parsed.error);
+  try {
+    await updateClubSettings(ctx, clubId, parsed.data);
+  } catch (e) {
+    return failService(e);
+  }
+  revalidatePath("/settings");
+  return { ok: true, error: null };
 }
 
 // --- Seasons ---------------------------------------------------------------
