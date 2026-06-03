@@ -103,7 +103,7 @@ export async function updateClub(ctx: AuthContext, clubId: string, input: Update
   return prisma.$transaction(async (tx) => {
     const updated = await tx.club.update({
       where: { id: clubId },
-      data: { name: input.name, ...(input.timezone ? { timezone: input.timezone } : {}), updatedBy: ctx.userId },
+      data: { name: input.name, ...(input.timezone ? { timezone: input.timezone } : {}), updatedAt: new Date(), updatedBy: ctx.userId },
     });
     await recordAudit(tx, {
       action: "club.update",
@@ -125,7 +125,7 @@ export async function archiveClub(ctx: AuthContext, clubId: string) {
   return prisma.$transaction(async (tx) => {
     const archived = await tx.club.update({
       where: { id: clubId },
-      data: { status: "ARCHIVED", deletedAt: new Date(), deletedBy: ctx.userId, updatedBy: ctx.userId },
+      data: { status: "ARCHIVED", deletedAt: new Date(), deletedBy: ctx.userId, updatedAt: new Date(), updatedBy: ctx.userId },
     });
     await recordAudit(tx, {
       action: "club.archive",
@@ -187,6 +187,7 @@ export async function updateSeason(ctx: AuthContext, seasonId: string, input: Up
         startDate: input.startDate,
         endDate: input.endDate,
         status: input.status,
+        updatedAt: new Date(),
         updatedBy: ctx.userId,
       },
     });
@@ -209,7 +210,7 @@ export async function archiveSeason(ctx: AuthContext, seasonId: string) {
   return prisma.$transaction(async (tx) => {
     const archived = await tx.season.update({
       where: { id: seasonId },
-      data: { status: "ARCHIVED", updatedBy: ctx.userId },
+      data: { status: "ARCHIVED", updatedAt: new Date(), updatedBy: ctx.userId },
     });
     await recordAudit(tx, {
       action: "season.archive",
@@ -309,6 +310,7 @@ export async function updateTeam(ctx: AuthContext, teamId: string, input: Update
           division: input.division ?? null,
           competitiveLevel: input.competitiveLevel ?? null,
           status: input.status,
+          updatedAt: new Date(),
           updatedBy: ctx.userId,
         },
       });
@@ -335,7 +337,7 @@ export async function archiveTeam(ctx: AuthContext, teamId: string) {
   return prisma.$transaction(async (tx) => {
     const archived = await tx.team.update({
       where: { id: teamId },
-      data: { status: "ARCHIVED", deletedAt: new Date(), deletedBy: ctx.userId, updatedBy: ctx.userId },
+      data: { status: "ARCHIVED", deletedAt: new Date(), deletedBy: ctx.userId, updatedAt: new Date(), updatedBy: ctx.userId },
     });
     await recordAudit(tx, {
       action: "team.archive",

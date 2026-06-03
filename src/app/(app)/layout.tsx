@@ -12,14 +12,15 @@ import { ROLE_LABELS, type Role } from "@/lib/rbac";
 const NAV: Record<Role, { label: string; href?: string }[]> = {
   MASTER_ADMIN: [
     { label: "Dashboard", href: "/dashboard/admin" },
-    { label: "Clubs" },
+    { label: "Clubs", href: "/clubs" },
     { label: "Users" },
     { label: "Audit Logs" },
     { label: "System Settings" },
   ],
   CLUB_ADMIN: [
     { label: "Dashboard", href: "/dashboard/club" },
-    { label: "Teams" },
+    { label: "Seasons", href: "/seasons" },
+    { label: "Teams", href: "/teams" },
     { label: "Players" },
     { label: "Parents" },
     { label: "Coaches" },
