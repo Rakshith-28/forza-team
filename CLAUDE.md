@@ -27,8 +27,8 @@ These rules apply to every session in this repo:
 
 ## Status
 
-Phase 0 (Foundation) is complete. Next: Phase 1 (identity, auth & RBAC). See
-the phased roadmap in @docs/BUILD_PLAN.md §4.
+Phase 1 (Authentication, sessions & RBAC) is complete. Next: Phase 2 (clubs,
+seasons, teams). See the phased roadmap in @docs/BUILD_PLAN.md §4.
 
 ## Locked stack
 
@@ -59,6 +59,8 @@ npm run db:studio    # Prisma Studio
 CI runs `lint`, `typecheck`, and `build` on every PR (`.github/workflows/ci.yml`).
 
 For a **named** migration use `npx prisma migrate dev --name <x>` directly — `npm run db:migrate -- --name <x>` swallows the flag and hangs on the interactive prompt.
+
+After ANY `schema.prisma` change, run `npm run db:generate` and restart the dev server — the generated client is otherwise stale (e.g. a column that became nullable still reads as required).
 
 ### Node version
 
