@@ -6,7 +6,14 @@ import { requireUserAndContext } from "@/lib/auth-guards";
 import { ForbiddenError } from "@/lib/rbac";
 import type { FormState } from "@/modules/files/action-state";
 import { UploadValidationError } from "@/modules/files/schemas";
-import { uploadClubDocument, uploadPlayerPhoto, deleteClubDocument, type UploadFileInput } from "@/modules/files/service";
+import {
+  deleteClubDocument,
+  deleteTeamDocument,
+  uploadClubDocument,
+  uploadPlayerPhoto,
+  uploadTeamDocument,
+  type UploadFileInput,
+} from "@/modules/files/service";
 
 function failService(error: unknown): FormState {
   if (error instanceof ForbiddenError) return { ok: false, error: "You don't have access to do that." };
@@ -59,5 +66,25 @@ export async function uploadClubDocumentAction(_prev: FormState, fd: FormData): 
 export async function deleteClubDocumentAction(fd: FormData): Promise<void> {
   const { ctx } = await requireUserAndContext();
   await deleteClubDocument(ctx, str(fd, "fileId"));
+  revalidatePath("/documents");
+}
+
+export async function uploadTeamDocumentAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { ctx } = await requireUserAndContext();
+  const teamId = str(fd, "teamId");
+  const file = await readFile(fd, "file");
+  if (!file) return { ok: false, error: "Choose a file to upload." };
+  try {
+    await uploadTeamDocument(ctx, teamId, file);
+  } catch (e) {
+    return failService(e);
+  }
+  revalidatePath("/documents");
+  return { ok: true, error: null };
+}
+
+export async function deleteTeamDocumentAction(fd: FormData): Promise<void> {
+  const { ctx } = await requireUserAndContext();
+  await deleteTeamDocument(ctx, str(fd, "fileId"));
   revalidatePath("/documents");
 }

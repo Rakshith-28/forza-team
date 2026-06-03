@@ -339,6 +339,7 @@ model Team {
   evaluationCycles      EvaluationCycle[]
   playerEvaluations     PlayerEvaluation[]
   developmentGoals      DevelopmentGoal[]
+  files                 File[]
 
   @@unique([clubId, teamCode], name: "uq_teams_club_team_code")
   @@index([clubId])
@@ -405,6 +406,7 @@ model Player {
   waiverAcceptances       WaiverAcceptance[]
   evaluations             PlayerEvaluation[]
   developmentGoals        DevelopmentGoal[]
+  files                   File[]
 
   @@index([clubId])
   @@index([status])
@@ -503,6 +505,10 @@ model File {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clubId       String   @map("club_id") @db.Uuid
   ownerUserId  String?  @map("owner_user_id") @db.Uuid
+  // Optional ownership edges (Phase 5): team-scoped documents and player photos.
+  // Nullable + additive; CLUB_DOCUMENT/CHAT_ATTACHMENT leave both null.
+  teamId       String?  @map("team_id") @db.Uuid
+  playerId     String?  @map("player_id") @db.Uuid
   storageKey   String   @map("storage_key")
   originalName String   @map("original_name") @db.VarChar(255)
   mimeType     String   @map("mime_type") @db.VarChar(150)
@@ -511,11 +517,15 @@ model File {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   club               Club                @relation(fields: [clubId], references: [id])
+  team               Team?               @relation(fields: [teamId], references: [id])
+  player             Player?             @relation(fields: [playerId], references: [id])
   messageAttachments MessageAttachment[]
   eventAttachments   EventAttachment[]
 
   @@index([clubId])
   @@index([purpose])
+  @@index([teamId])
+  @@index([playerId])
   @@map("files")
 }
 

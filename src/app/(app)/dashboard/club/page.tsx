@@ -3,6 +3,9 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth-guards";
 import { getClub, getClubSummary } from "@/modules/clubs/service";
+import { listUpcomingEvents } from "@/modules/events/service";
+import { EVENT_TYPE_LABELS, type EventType } from "@/modules/events/schemas";
+import { formatEventTime } from "@/modules/events/format";
 
 import { ClubNameForm } from "../../clubs/club-forms";
 
@@ -18,7 +21,11 @@ export default async function ClubDashboard() {
   }
 
   const clubId = ctx.activeClubId;
-  const [club, summary] = await Promise.all([getClub(ctx, clubId), getClubSummary(ctx, clubId)]);
+  const [club, summary, upcoming] = await Promise.all([
+    getClub(ctx, clubId),
+    getClubSummary(ctx, clubId),
+    listUpcomingEvents(ctx, clubId, 5),
+  ]);
 
   const stats = [
     { label: "Teams", value: summary.teamCount, href: "/teams" },
@@ -72,6 +79,39 @@ export default async function ClubDashboard() {
           </Card>
         </Link>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="font-sport text-base">Upcoming events</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {upcoming.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No upcoming events. <Link href="/schedule" className="underline">Open the schedule</Link>.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {upcoming.map((e) => (
+                <li key={e.id}>
+                  <Link
+                    href={`/schedule/${e.id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{e.title}</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {EVENT_TYPE_LABELS[e.eventType as EventType] ?? e.eventType}
+                        {e.team ? ` · ${e.team.name}` : " · Club-wide"}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{formatEventTime(e.startAt, e.timezone)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

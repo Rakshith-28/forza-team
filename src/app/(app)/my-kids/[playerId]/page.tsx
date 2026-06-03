@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PhotoUpload } from "@/components/app/photo-upload";
 import { requireRole } from "@/lib/auth-guards";
 import { getOwnChild, listLinkedChildren } from "@/modules/roster/service";
+import { getChildAttendance } from "@/modules/events/service";
+import { ATTENDANCE_LABELS, type AttendanceStatus } from "@/modules/events/schemas";
+import { formatEventTime } from "@/modules/events/format";
 
 import { StatusBadge } from "../../seasons/season-forms";
 import { ChildEditForm } from "./child-edit-client";
@@ -13,7 +16,11 @@ export default async function ChildProfilePage({ params }: { params: Promise<{ p
   const { playerId } = await params;
   const ctx = await requireRole("PARENT");
 
-  const [child, siblings] = await Promise.all([getOwnChild(ctx, playerId), listLinkedChildren(ctx)]);
+  const [child, siblings, attendance] = await Promise.all([
+    getOwnChild(ctx, playerId),
+    listLinkedChildren(ctx),
+    getChildAttendance(ctx, playerId),
+  ]);
   if (!child) notFound();
 
   return (
@@ -114,6 +121,31 @@ export default async function ChildProfilePage({ params }: { params: Promise<{ p
                   >
                     View team roster
                   </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="font-sport text-base">Attendance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {attendance.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No attendance recorded yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {attendance.map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 text-sm">
+                  <div>
+                    <p className="font-medium text-foreground">{a.event.title}</p>
+                    <p className="text-xs text-muted-foreground">{formatEventTime(a.event.startAt, a.event.timezone)}</p>
+                  </div>
+                  <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">
+                    {ATTENDANCE_LABELS[a.attendanceStatus as AttendanceStatus] ?? a.attendanceStatus}
+                  </span>
                 </li>
               ))}
             </ul>

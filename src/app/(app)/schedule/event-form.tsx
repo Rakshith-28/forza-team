@@ -1,0 +1,145 @@
+"use client";
+
+import { useActionState, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { createEventAction, updateEventAction } from "@/modules/events/actions";
+import { INITIAL_STATE } from "@/modules/events/action-state";
+import { EVENT_STATUSES, EVENT_TYPE_LABELS, EVENT_TYPES } from "@/modules/events/schemas";
+
+export interface TeamOption {
+  id: string;
+  name: string;
+}
+
+export interface EventFormData {
+  id: string;
+  title: string;
+  eventType: string;
+  teamId: string | null;
+  description: string | null;
+  startAtLocal: string; // yyyy-MM-ddTHH:mm
+  endAtLocal: string;
+  locationName: string | null;
+  opponentName: string | null;
+  uniformNotes: string | null;
+  status: string;
+}
+
+/**
+ * Create/edit event form. `canClubWide` lets admins post club-wide events
+ * (team = none); coaches must pick one of their assigned teams.
+ */
+export function EventForm({
+  teams,
+  canClubWide,
+  event,
+}: {
+  teams: TeamOption[];
+  canClubWide: boolean;
+  event?: EventFormData;
+}) {
+  const editing = !!event;
+  const [state, action, pending] = useActionState(
+    editing ? updateEventAction : createEventAction,
+    INITIAL_STATE,
+  );
+  const [eventType, setEventType] = useState(event?.eventType ?? "PRACTICE");
+  const isGame = eventType === "GAME" || eventType === "TOURNAMENT";
+
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      {editing ? <input type="hidden" name="eventId" value={event.id} /> : null}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="title" label="Title">
+          <Input id="title" name="title" defaultValue={event?.title ?? ""} required />
+        </Field>
+        <Field id="eventType" label="Type">
+          <Select id="eventType" name="eventType" value={eventType} onChange={(e) => setEventType(e.target.value)}>
+            {EVENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {EVENT_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field id="teamId" label={canClubWide ? "Team (blank = club-wide)" : "Team"}>
+          <Select id="teamId" name="teamId" defaultValue={event?.teamId ?? ""} required={!canClubWide}>
+            {canClubWide ? <option value="">— Club-wide —</option> : <option value="" disabled>Select a team…</option>}
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {editing ? (
+          <Field id="status" label="Status">
+            <Select id="status" name="status" defaultValue={event.status}>
+              {EVENT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+        <Field id="startAt" label="Starts">
+          <Input id="startAt" name="startAt" type="datetime-local" defaultValue={event?.startAtLocal ?? ""} required />
+        </Field>
+        <Field id="endAt" label="Ends">
+          <Input id="endAt" name="endAt" type="datetime-local" defaultValue={event?.endAtLocal ?? ""} required />
+        </Field>
+        <Field id="locationName" label="Location">
+          <Input id="locationName" name="locationName" defaultValue={event?.locationName ?? ""} />
+        </Field>
+        {isGame ? (
+          <>
+            <Field id="opponentName" label="Opponent">
+              <Input id="opponentName" name="opponentName" defaultValue={event?.opponentName ?? ""} />
+            </Field>
+            <Field id="homeAway" label="Home / Away">
+              <Select id="homeAway" name="homeAway" defaultValue="">
+                <option value="">—</option>
+                <option value="HOME">Home</option>
+                <option value="AWAY">Away</option>
+                <option value="NEUTRAL">Neutral</option>
+              </Select>
+            </Field>
+          </>
+        ) : null}
+      </div>
+      <Field id="description" label="Description">
+        <textarea
+          id="description"
+          name="description"
+          rows={3}
+          defaultValue={event?.description ?? ""}
+          className="rounded-md border border-input bg-card px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        />
+      </Field>
+      <Field id="uniformNotes" label="Uniform / notes">
+        <Input id="uniformNotes" name="uniformNotes" defaultValue={event?.uniformNotes ?? ""} />
+      </Field>
+      {state.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
+      {state.ok ? <p className="text-sm text-primary" role="status">Saved.</p> : null}
+      <div>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : editing ? "Save changes" : "Create event"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+    </div>
+  );
+}

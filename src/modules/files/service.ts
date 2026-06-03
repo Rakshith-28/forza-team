@@ -28,7 +28,13 @@ function buildKey(clubId: string, ext: string): string {
   return `${clubId}/${randomUUID()}${ext}`;
 }
 
-async function persist(input: UploadFileInput, purpose: FilePurpose, clubId: string, ownerUserId: string) {
+async function persist(
+  input: UploadFileInput,
+  purpose: FilePurpose,
+  clubId: string,
+  ownerUserId: string,
+  links: { teamId?: string | null; playerId?: string | null } = {},
+) {
   const ext = validateUpload(purpose, input);
   const key = buildKey(clubId, ext);
   await getStorage().put({ key, bytes: input.bytes, contentType: input.mimeType });
@@ -36,6 +42,8 @@ async function persist(input: UploadFileInput, purpose: FilePurpose, clubId: str
     data: {
       clubId,
       ownerUserId,
+      teamId: links.teamId ?? null,
+      playerId: links.playerId ?? null,
       storageKey: key,
       originalName: input.originalName,
       mimeType: input.mimeType,
@@ -66,7 +74,7 @@ export async function uploadPlayerPhoto(ctx: AuthContext, playerId: string, inpu
     can(ctx, "players.edit_limited_own_child", { clubId: player.clubId, playerId });
   if (!allowed) throw new ForbiddenError("You cannot change this player's photo");
 
-  const file = await persist(input, "PLAYER_PHOTO", player.clubId, ctx.userId);
+  const file = await persist(input, "PLAYER_PHOTO", player.clubId, ctx.userId, { playerId });
 
   return prisma.$transaction(async (tx) => {
     await tx.player.update({
@@ -105,6 +113,68 @@ export async function uploadChatAttachment(ctx: AuthContext, teamId: string, inp
   if (!team) throw new ForbiddenError("Team not found");
   assertCan(ctx, "chat.send_team", { clubId: team.clubId, teamId });
   return persist(input, "CHAT_ATTACHMENT", team.clubId, ctx.userId);
+}
+
+/** Upload a team-scoped document. Coach (assigned team) or admin (club-wide). */
+export async function uploadTeamDocument(ctx: AuthContext, teamId: string, input: UploadFileInput) {
+  const team = await prisma.team.findFirst({ where: { id: teamId, deletedAt: null }, select: { clubId: true } });
+  if (!team) throw new ForbiddenError("Team not found");
+  assertCan(ctx, "documents.manage_team", { clubId: team.clubId, teamId });
+  const file = await persist(input, "TEAM_DOCUMENT", team.clubId, ctx.userId, { teamId });
+  await recordAudit(prisma, {
+    action: "file.upload",
+    resourceType: "file",
+    resourceId: file.id,
+    clubId: team.clubId,
+    actorUserId: ctx.userId,
+    metadata: { purpose: "TEAM_DOCUMENT", teamId, originalName: file.originalName },
+  });
+  return file;
+}
+
+/** Team documents for teams the caller can see (admin=club, coach=assigned, parent=child teams). */
+export async function listAccessibleTeamDocuments(ctx: AuthContext, clubId: string) {
+  assertClubScope(ctx, clubId);
+  const where: { clubId: string; purpose: "TEAM_DOCUMENT"; teamId?: { in: string[] } } = {
+    clubId,
+    purpose: "TEAM_DOCUMENT",
+  };
+  if (ctx.role === "COACH") where.teamId = { in: ctx.coachTeamIds };
+  else if (ctx.role === "PARENT") where.teamId = { in: ctx.childTeamIds };
+  // Master/Club admin: all team docs in the club.
+
+  return prisma.file.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      originalName: true,
+      mimeType: true,
+      sizeBytes: true,
+      createdAt: true,
+      teamId: true,
+      team: { select: { id: true, name: true } },
+    },
+  });
+}
+
+export async function deleteTeamDocument(ctx: AuthContext, fileId: string) {
+  const file = await prisma.file.findUnique({ where: { id: fileId } });
+  if (!file || file.purpose !== "TEAM_DOCUMENT" || !file.teamId) throw new ForbiddenError("Document not found");
+  assertCan(ctx, "documents.manage_team", { clubId: file.clubId, teamId: file.teamId });
+
+  await getStorage().delete(file.storageKey);
+  await prisma.$transaction(async (tx) => {
+    await tx.file.delete({ where: { id: fileId } });
+    await recordAudit(tx, {
+      action: "file.delete",
+      resourceType: "file",
+      resourceId: fileId,
+      clubId: file.clubId,
+      actorUserId: ctx.userId,
+      metadata: { purpose: "TEAM_DOCUMENT", teamId: file.teamId },
+    });
+  });
 }
 
 // ===========================================================================
@@ -161,10 +231,14 @@ export async function getFileForDownload(ctx: AuthContext, fileId: string): Prom
 
   if (file.purpose === "CLUB_DOCUMENT") {
     assertCan(ctx, "documents.view", { clubId: file.clubId });
+  } else if (file.purpose === "TEAM_DOCUMENT") {
+    // Viewing a team document follows team visibility (coach=assigned, parent=child team).
+    if (!file.teamId) throw new ForbiddenError("File is outside your scope");
+    assertCan(ctx, "teams.view", { clubId: file.clubId, teamId: file.teamId });
   } else if (file.purpose === "CHAT_ATTACHMENT") {
     await assertChatAttachmentAccess(ctx, file.id, file.clubId, file.ownerUserId);
   } else if (file.purpose === "PLAYER_PHOTO") {
-    await assertPlayerPhotoAccess(ctx, file.id, file.clubId, file.ownerUserId);
+    await assertPlayerPhotoAccess(ctx, file.playerId, file.clubId, file.ownerUserId);
   } else {
     throw new ForbiddenError("Unsupported file");
   }
@@ -195,28 +269,25 @@ async function assertChatAttachmentAccess(
 
 async function assertPlayerPhotoAccess(
   ctx: AuthContext,
-  fileId: string,
+  playerId: string | null,
   clubId: string,
   ownerUserId: string | null,
 ): Promise<void> {
-  const player = await prisma.player.findFirst({
-    where: { clubId, photoUrl: { contains: fileId } },
-    select: { id: true },
-  });
-  if (!player) {
+  // Direct FK lookup (Phase 5): the photo's owning player is files.player_id.
+  if (!playerId) {
     // Freshly uploaded, not yet bound to a player — uploader only.
     if (ownerUserId === ctx.userId) return;
     throw new ForbiddenError("File is outside your scope");
   }
   if (ctx.role === "MASTER_ADMIN" || ctx.role === "CLUB_ADMIN") return; // club scope already asserted
   if (ctx.role === "COACH") {
-    if (ctx.coachTeamPlayerIds.includes(player.id)) return;
+    if (ctx.coachTeamPlayerIds.includes(playerId)) return;
     throw new ForbiddenError("Player is outside your scope");
   }
   // PARENT — own child always; a teammate's photo only when the club allows it.
-  if (ctx.linkedPlayerIds.includes(player.id)) return;
+  if (ctx.linkedPlayerIds.includes(playerId)) return;
   const onChildTeam = await prisma.playerTeamMembership.findFirst({
-    where: { playerId: player.id, teamId: { in: ctx.childTeamIds }, status: "ACTIVE" },
+    where: { playerId, teamId: { in: ctx.childTeamIds }, status: "ACTIVE" },
     select: { id: true },
   });
   if (onChildTeam) {

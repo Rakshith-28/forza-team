@@ -40,8 +40,10 @@ export const PERMISSIONS = {
   "parents.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
 
   // Schedule / RSVP / attendance (§6.12–6.14)
+  "events.view": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM", PARENT: "CHILD" },
   "events.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
-  "rsvp.respond_own_child": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", PARENT: "CHILD" },
+  // Parent for a linked child; admin/coach may override (RBAC matrix §6.13).
+  "rsvp.respond_own_child": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM", PARENT: "CHILD" },
   "attendance.record": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
   "attendance.view_team": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
   "attendance.view_own_child": { PARENT: "CHILD" },
@@ -103,6 +105,9 @@ export const PERMISSIONS = {
   // attachments; player photos reuse the Phase 3 player-edit permissions.
   "documents.view": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "CLUB", PARENT: "CLUB" },
   "documents.manage_club": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
+  // Team documents (Phase 5): coach manages docs for assigned teams; admins club-wide.
+  // Viewing a team document reuses teams.view (coach=assigned, parent=child team).
+  "documents.manage_team": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
 
   // Reports (§6.21)
   "reports.view_club": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },

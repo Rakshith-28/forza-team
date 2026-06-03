@@ -3,12 +3,10 @@
  * before anything is stored (MIME + extension + size), in addition to the
  * scope/ownership checks in the service layer.
  *
- * TEAM_DOCUMENT is intentionally NOT a purpose here: the `files` table has no
- * team_id column, so team-scoped sharing rides on team-chat attachments instead
- * (see the Phase 4 summary — flagged schema gap, deferred rather than migrated
- * against an unreachable DB on an unsupported Node).
+ * TEAM_DOCUMENT (Phase 5) is scoped via files.team_id (landed in the Step-0
+ * migration); team-chat attachments remain available for in-thread sharing.
  */
-export const FILE_PURPOSES = ["PLAYER_PHOTO", "CLUB_DOCUMENT", "CHAT_ATTACHMENT"] as const;
+export const FILE_PURPOSES = ["PLAYER_PHOTO", "CLUB_DOCUMENT", "TEAM_DOCUMENT", "CHAT_ATTACHMENT"] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
 interface PurposeRule {
@@ -28,6 +26,7 @@ const DOC_EXTS = [".pdf", ".txt", ".csv", ...IMAGE_EXTS] as const;
 export const FILE_RULES: Record<FilePurpose, PurposeRule> = {
   PLAYER_PHOTO: { mimeTypes: IMAGE_MIMES, extensions: IMAGE_EXTS, maxBytes: 5 * 1024 * 1024 },
   CLUB_DOCUMENT: { mimeTypes: DOC_MIMES, extensions: DOC_EXTS, maxBytes: 10 * 1024 * 1024 },
+  TEAM_DOCUMENT: { mimeTypes: DOC_MIMES, extensions: DOC_EXTS, maxBytes: 10 * 1024 * 1024 },
   CHAT_ATTACHMENT: { mimeTypes: DOC_MIMES, extensions: DOC_EXTS, maxBytes: 10 * 1024 * 1024 },
 };
 
