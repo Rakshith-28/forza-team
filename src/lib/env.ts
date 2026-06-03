@@ -20,9 +20,20 @@ const serverEnvSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DIRECT_URL: z.string().min(1, "DIRECT_URL is required"),
 
-  // Better Auth (wired in Phase 1). Required now so deploys fail loudly if
-  // it is ever missing.
+  // Better Auth secret (signs sessions/tokens). Required so deploys fail loudly.
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
+  // Base URL Better Auth builds links against (reset/invite emails).
+  BETTER_AUTH_URL: z.string().min(1).default("http://localhost:3000"),
+
+  // Rate limiting (Upstash). Optional — absent ⇒ auth routes are not limited
+  // locally (a warning is logged once). See src/lib/rate-limit.ts.
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+
+  // Email (Resend). Optional — absent ⇒ emails are logged to the console in
+  // dev instead of sent. See src/lib/email.ts.
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default("Forza Team <onboarding@resend.dev>"),
 
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
 });

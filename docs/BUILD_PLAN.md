@@ -76,8 +76,13 @@ extract a service later if scale ever demands it.
 ### Multi-tenancy model
 
 - **Tenant = Club.** Every tenant-owned row carries a `club_id`.
-- Use **Better Auth organizations** to model club membership and the user→club
-  mapping. A user can belong to multiple clubs (e.g. a coach at two clubs).
+- **Decision (Phase 1): we do NOT use the Better Auth organization plugin.**
+  Better Auth handles **authentication only** (identity, sessions, password).
+  Club membership and the user→club mapping are modeled by our own
+  `clubs` + `user_role_assignments(club_id, team_id)` tables — which already
+  encode the four scope-aware roles, something the org plugin's
+  owner/admin/member model cannot. A user can belong to multiple clubs via
+  multiple role assignments; the active club is tracked on the session.
 - **Enforce tenant isolation in a single data-access layer**, not scattered across
   routes. Every query is scoped by the caller's active `club_id`; cross-tenant
   reads are impossible by construction, not by discipline.

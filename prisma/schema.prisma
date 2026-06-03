@@ -38,7 +38,13 @@ datasource db {
 model User {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email           String    @unique @db.Citext
-  passwordHash    String    @map("password_hash")
+  // Better Auth core fields. `name`/`image` are Better Auth's; first/last name
+  // are kept as the domain source of truth (additionalFields in src/lib/auth.ts).
+  name            String?   @db.VarChar(200)
+  image           String?
+  // Password now lives in the Better Auth `accounts` table (provider
+  // "credential"); this legacy column is nullable and unused.
+  passwordHash    String?   @map("password_hash")
   firstName       String    @map("first_name") @db.VarChar(100)
   lastName        String    @map("last_name") @db.VarChar(100)
   phone           String?   @db.VarChar(30)
@@ -56,9 +62,67 @@ model User {
   notifications          Notification[]
   notificationPreference NotificationPreference?
   passwordResetTokens    PasswordResetToken[]
+  sessions               Session[]
+  accounts               Account[]
 
   @@index([status])
   @@map("users")
+}
+
+// --- Better Auth-owned authentication tables -------------------------------
+// Field NAMES match what the Better Auth Prisma adapter expects (camelCase);
+// @map keeps DB columns snake_case. IDs are UUIDs (Better Auth generateId is
+// configured to crypto.randomUUID in src/lib/auth.ts).
+
+model Session {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  token        String   @unique
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(6)
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  // Custom: the club the session is currently acting within (tenant context).
+  activeClubId String?  @map("active_club_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(6)
+  scope                 String?
+  idToken               String?   @map("id_token")
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@map("verifications")
 }
 
 model Role {

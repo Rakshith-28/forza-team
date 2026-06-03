@@ -36,7 +36,9 @@ Do not swap these without updating the plan first.
 
 - **Next.js 16** (App Router, Turbopack) + **React 19** + **TypeScript** (strict).
 - **PostgreSQL on Neon**, **Prisma 7** ORM (driver-adapter based, no Rust engine).
-- **Better Auth** for auth + organizations (multi-tenancy) + RBAC — *Phase 1*.
+- **Better Auth** for **authentication only** (identity, sessions, password) —
+  *Phase 1*. We do **not** use its organization plugin; tenancy + RBAC are
+  modeled by our own `clubs` + `user_role_assignments` tables.
 - **Tailwind CSS v4** + **shadcn/ui** (Radix); **React Hook Form + Zod** for forms.
 - **Resend** (email), **Vercel Blob** (files), **Upstash** (rate limiting),
   **Sentry** (errors) — wired in their respective phases.
