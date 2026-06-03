@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth-guards";
 import { getClub, getClubSummary } from "@/modules/clubs/service";
-import { listUpcomingEvents } from "@/modules/events/service";
+import { countEventsNeedingAttendance, listUpcomingEvents } from "@/modules/events/service";
 import { EVENT_TYPE_LABELS, type EventType } from "@/modules/events/schemas";
 import { formatEventTime } from "@/modules/events/format";
 
@@ -21,15 +21,16 @@ export default async function ClubDashboard() {
   }
 
   const clubId = ctx.activeClubId;
-  const [club, summary, upcoming] = await Promise.all([
+  const [club, summary, upcoming, needsAttendance] = await Promise.all([
     getClub(ctx, clubId),
     getClubSummary(ctx, clubId),
     listUpcomingEvents(ctx, clubId, 5),
+    countEventsNeedingAttendance(ctx, clubId),
   ]);
 
   const stats = [
     { label: "Teams", value: summary.teamCount, href: "/teams" },
-    { label: "Seasons", value: summary.seasonCount, href: "/seasons" },
+    { label: "Players", value: summary.playerCount, href: "/players" },
     { label: "Active seasons", value: summary.activeSeasonCount, href: "/seasons" },
     { label: "Coaches assigned", value: summary.coachCount, href: "/teams" },
   ];
@@ -47,6 +48,18 @@ export default async function ClubDashboard() {
           <ClubNameForm key={club.updatedAt.toISOString()} clubId={club.id} name={club.name} />
         ) : null}
       </div>
+
+      {needsAttendance > 0 ? (
+        <Link href="/schedule">
+          <Card className="mt-6 border-primary/40 transition-colors hover:border-primary">
+            <CardContent className="py-4">
+              <p className="text-sm font-medium text-foreground">
+                {needsAttendance} past {needsAttendance === 1 ? "event needs" : "events need"} attendance recorded →
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      ) : null}
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (

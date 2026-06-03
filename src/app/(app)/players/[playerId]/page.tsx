@@ -53,6 +53,14 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={player.status} />
+          {canEdit ? (
+            <Link
+              href={`/evaluations/evaluate/${player.id}`}
+              className="rounded-md border px-3 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
+            >
+              Evaluate
+            </Link>
+          ) : null}
           {canEdit ? <PlayerEditSection player={toEditData(player)} /> : null}
         </div>
       </div>

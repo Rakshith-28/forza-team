@@ -32,8 +32,8 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Registration" },
     { label: "Payments" },
     { label: "Waivers" },
-    { label: "Evaluations" },
-    { label: "Reports" },
+    { label: "Evaluations", href: "/evaluations" },
+    { label: "Reports", href: "/dashboard/club" },
     { label: "Settings" },
   ],
   COACH: [
@@ -44,7 +44,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Documents", href: "/documents" },
     { label: "Schedule", href: "/schedule" },
     { label: "Attendance", href: "/schedule" },
-    { label: "Evaluations" },
+    { label: "Evaluations", href: "/evaluations" },
     { label: "Development" },
   ],
   PARENT: [

@@ -70,6 +70,8 @@ export const PERMISSIONS = {
 
   // Evaluations (§6.18) — parents never see team ranking/radar
   "evaluations.manage_templates": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
+  // Coaches may VIEW templates/criteria/cycles (config) but not manage them.
+  "evaluations.view_config": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "CLUB" },
   "evaluations.score_players": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
   "evaluations.view_team": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
   "evaluations.view_own_child_summary": { PARENT: "CHILD" },

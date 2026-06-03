@@ -8,6 +8,7 @@ import { getOwnChild, listLinkedChildren } from "@/modules/roster/service";
 import { getChildAttendance } from "@/modules/events/service";
 import { ATTENDANCE_LABELS, type AttendanceStatus } from "@/modules/events/schemas";
 import { formatEventTime } from "@/modules/events/format";
+import { parentEvaluationViewEnabled } from "@/modules/evaluations/service";
 
 import { StatusBadge } from "../../seasons/season-forms";
 import { ChildEditForm } from "./child-edit-client";
@@ -16,10 +17,11 @@ export default async function ChildProfilePage({ params }: { params: Promise<{ p
   const { playerId } = await params;
   const ctx = await requireRole("PARENT");
 
-  const [child, siblings, attendance] = await Promise.all([
+  const [child, siblings, attendance, evalEnabled] = await Promise.all([
     getOwnChild(ctx, playerId),
     listLinkedChildren(ctx),
     getChildAttendance(ctx, playerId),
+    ctx.activeClubId ? parentEvaluationViewEnabled(ctx.activeClubId) : Promise.resolve(false),
   ]);
   if (!child) notFound();
 
@@ -60,6 +62,14 @@ export default async function ChildProfilePage({ params }: { params: Promise<{ p
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={child.status} />
+          {evalEnabled ? (
+            <Link
+              href={`/my-kids/${child.id}/evaluations`}
+              className="rounded-md border px-3 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
+            >
+              Evaluations
+            </Link>
+          ) : null}
           <ChildEditForm
             child={{
               id: child.id,

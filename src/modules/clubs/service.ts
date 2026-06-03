@@ -446,13 +446,25 @@ export async function removeCoach(ctx: AuthContext, teamId: string, userId: stri
 // Dashboard summary
 // ===========================================================================
 
+/** System-wide counts for the Master Admin dashboard (system scope). */
+export async function getSystemSummary(ctx: AuthContext) {
+  assertMasterAdmin(ctx);
+  const [clubCount, teamCount, playerCount] = await Promise.all([
+    prisma.club.count({ where: { deletedAt: null } }),
+    prisma.team.count({ where: { deletedAt: null } }),
+    prisma.player.count({ where: { deletedAt: null } }),
+  ]);
+  return { clubCount, teamCount, playerCount };
+}
+
 export async function getClubSummary(ctx: AuthContext, clubId: string) {
   assertCan(ctx, "clubs.view", { clubId });
-  const [teamCount, seasonCount, activeSeasonCount, coachCount] = await Promise.all([
+  const [teamCount, seasonCount, activeSeasonCount, coachCount, playerCount] = await Promise.all([
     prisma.team.count({ where: { clubId, deletedAt: null, status: { not: "ARCHIVED" } } }),
     prisma.season.count({ where: { clubId, status: { not: "ARCHIVED" } } }),
     prisma.season.count({ where: { clubId, status: "ACTIVE" } }),
     prisma.teamCoach.count({ where: { clubId, status: "ACTIVE" } }),
+    prisma.player.count({ where: { clubId, deletedAt: null } }),
   ]);
-  return { teamCount, seasonCount, activeSeasonCount, coachCount };
+  return { teamCount, seasonCount, activeSeasonCount, coachCount, playerCount };
 }

@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth-guards";
 import { countEventsNeedingAttendance, listUpcomingEvents } from "@/modules/events/service";
 import { EVENT_TYPE_LABELS, type EventType } from "@/modules/events/schemas";
 import { formatEventTime } from "@/modules/events/format";
+import { countEvaluationsToComplete } from "@/modules/evaluations/service";
 
 export default async function CoachDashboard() {
   const ctx = await requireRole("COACH");
@@ -18,9 +19,10 @@ export default async function CoachDashboard() {
   }
 
   const clubId = ctx.activeClubId;
-  const [upcoming, needsAttendance] = await Promise.all([
+  const [upcoming, needsAttendance, evalsToComplete] = await Promise.all([
     listUpcomingEvents(ctx, clubId, 6),
     countEventsNeedingAttendance(ctx, clubId),
+    countEvaluationsToComplete(ctx, clubId),
   ]);
 
   return (
@@ -34,6 +36,18 @@ export default async function CoachDashboard() {
             <CardContent className="py-4">
               <p className="text-sm font-medium text-foreground">
                 {needsAttendance} past {needsAttendance === 1 ? "event needs" : "events need"} attendance recorded →
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      ) : null}
+
+      {evalsToComplete > 0 ? (
+        <Link href="/evaluations">
+          <Card className="mt-3 border-primary/40 transition-colors hover:border-primary">
+            <CardContent className="py-4">
+              <p className="text-sm font-medium text-foreground">
+                {evalsToComplete} {evalsToComplete === 1 ? "player" : "players"} still to evaluate this cycle →
               </p>
             </CardContent>
           </Card>
