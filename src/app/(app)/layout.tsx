@@ -86,19 +86,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-full flex-1 flex-col gap-2 p-2">
-      <header className="flex h-14 shrink-0 items-center justify-between rounded-2xl bg-neutral-900 px-4 text-white ring-1 ring-white/10 shadow-xl">
+      <header className="sticky top-2 z-40 flex h-14 shrink-0 items-center justify-between rounded-2xl border bg-card px-4 shadow-xl">
         <Link
           href="/dashboard"
           className="font-sport text-2xl font-bold uppercase tracking-[0.32em] transition-opacity hover:opacity-80"
         >
-          <span className="text-white">Forza</span>
-          <span className="ml-[0.32em] text-emerald-400">Team</span>
+          <span className="text-foreground">Forza</span>
+          <span className="ml-[0.32em] text-primary">Team</span>
         </Link>
         <div className="flex items-center gap-3">
-          <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-neutral-200">
+          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
             {ROLE_LABELS[ctx.role]}
           </span>
-          <SignOutButton className="text-neutral-300 hover:bg-white/10 hover:text-white" />
+          <SignOutButton />
         </div>
       </header>
 

@@ -286,6 +286,10 @@ UTILITY
 - notification_preferences
 - audit_logs
 - system_settings
+- platform_announcements
+- platform_announcement_clubs
+- platform_announcement_reads
+- platform_announcement_templates
 
 ---
 
@@ -1666,6 +1670,103 @@ CREATE TABLE system_settings (
 - Master Admin only (system scope); reads/writes go through the master module
   service, and every write records a `system_settings.update` audit entry.
 - The row is created lazily on first read if absent.
+
+---
+
+## 7.53 `platform_announcements`
+
+System-scoped broadcasts published by Master Admin to tenants (system notices,
+release notes, policy updates, maintenance windows). Distinct from the
+club-scoped `announcements` table and per-user `notifications`. Visibility is
+computed at query time; no per-user fan-out on publish.
+
+```sql
+CREATE TABLE platform_announcements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(200) NOT NULL,
+  body TEXT NOT NULL,
+  severity VARCHAR(20) NOT NULL DEFAULT 'INFO',          -- INFO | WARNING | CRITICAL
+  audience_scope VARCHAR(30) NOT NULL DEFAULT 'ALL_CLUBS', -- ALL_CLUBS | SPECIFIC_CLUBS
+  audience_roles TEXT[] NOT NULL,                         -- CLUB_ADMIN | COACH | PARENT
+  status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',            -- DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
+  pinned BOOLEAN NOT NULL DEFAULT false,
+  published_at TIMESTAMPTZ NULL,
+  scheduled_at TIMESTAMPTZ NULL,                          -- flips to PUBLISHED at/after this time
+  expires_at TIMESTAMPTZ NULL,                            -- auto-hidden after this time
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by UUID NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by UUID NULL,
+  deleted_at TIMESTAMPTZ NULL,
+  deleted_by UUID NULL
+);
+CREATE INDEX idx_platform_announcements_status ON platform_announcements(status);
+CREATE INDEX idx_platform_announcements_published_at ON platform_announcements(published_at DESC);
+CREATE INDEX idx_platform_announcements_scheduled_at ON platform_announcements(scheduled_at);
+```
+
+### "Live" rule (computed at read time)
+`(status = 'PUBLISHED' OR (status = 'SCHEDULED' AND scheduled_at <= now()))
+AND (expires_at IS NULL OR expires_at > now())`. A cron/queue worker should
+formalize the SCHEDULED→PUBLISHED flip; until then it is computed.
+
+## 7.54 `platform_announcement_clubs`
+
+Targets when `audience_scope = SPECIFIC_CLUBS` (unused for ALL_CLUBS).
+
+```sql
+CREATE TABLE platform_announcement_clubs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  platform_announcement_id UUID NOT NULL REFERENCES platform_announcements(id) ON DELETE CASCADE,
+  club_id UUID NOT NULL REFERENCES clubs(id),
+  UNIQUE (platform_announcement_id, club_id)
+);
+CREATE INDEX idx_platform_announcement_clubs_club_id ON platform_announcement_clubs(club_id);
+```
+
+## 7.55 `platform_announcement_reads`
+
+Read/dismiss tracking — one row per (announcement, user), written ONLY on
+interaction (open or dismiss). No fan-out on publish.
+
+```sql
+CREATE TABLE platform_announcement_reads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  platform_announcement_id UUID NOT NULL REFERENCES platform_announcements(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  read_at TIMESTAMPTZ NULL,
+  dismissed_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (platform_announcement_id, user_id)
+);
+CREATE INDEX idx_platform_announcement_reads_user_id ON platform_announcement_reads(user_id);
+```
+
+## 7.56 `platform_announcement_templates`
+
+Reusable composer templates for platform announcements.
+
+```sql
+CREATE TABLE platform_announcement_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(150) NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  body TEXT NOT NULL,
+  severity VARCHAR(20) NOT NULL DEFAULT 'INFO',
+  default_audience_scope VARCHAR(30) NOT NULL DEFAULT 'ALL_CLUBS',
+  default_audience_roles TEXT[] NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by UUID NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+### Rules
+- Master Admin only for all writes (system scope); every create/publish/archive/
+  delete + template change records an audit entry (`platform_announcement.*`).
+- Recipients see an announcement only when it is "live" AND
+  (`ALL_CLUBS` OR their club ∈ `platform_announcement_clubs`) AND their role ∈
+  `audience_roles`.
 
 ---
 

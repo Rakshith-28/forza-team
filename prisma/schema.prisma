@@ -269,6 +269,7 @@ model Club {
   developmentGoals        DevelopmentGoal[]
   notifications           Notification[]
   auditLogs               AuditLog[]
+  platformAnnouncementClubs PlatformAnnouncementClub[]
 
   @@index([status])
   @@index([name])
@@ -1334,4 +1335,86 @@ model SystemSettings {
   updatedBy                  String?  @map("updated_by") @db.Uuid
 
   @@map("system_settings")
+}
+
+// =============================================================================
+// MODULE: platform announcements — Master Admin broadcasts to all tenants
+// =============================================================================
+// System-scoped (NO club_id): a notice published ABOVE all clubs, distinct from
+// the club-scoped `announcements` table and per-user `notifications`. Visibility
+// is computed at query time (audience scope + roles); reads are tracked only on
+// interaction (no per-user fan-out on publish).
+
+model PlatformAnnouncement {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title         String    @db.VarChar(200)
+  body          String
+  severity      String    @default("INFO") @db.VarChar(20) // INFO | WARNING | CRITICAL
+  audienceScope String    @default("ALL_CLUBS") @map("audience_scope") @db.VarChar(30) // ALL_CLUBS | SPECIFIC_CLUBS
+  audienceRoles String[]  @map("audience_roles") // role codes: CLUB_ADMIN | COACH | PARENT
+  status        String    @default("DRAFT") @db.VarChar(20) // DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
+  pinned        Boolean   @default(false)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(6)
+  scheduledAt   DateTime? @map("scheduled_at") @db.Timestamptz(6)
+  expiresAt     DateTime? @map("expires_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+
+  clubs PlatformAnnouncementClub[]
+  reads PlatformAnnouncementRead[]
+
+  @@index([status])
+  @@index([publishedAt(sort: Desc)])
+  @@index([scheduledAt])
+  @@map("platform_announcements")
+}
+
+// Targets for audience_scope = SPECIFIC_CLUBS (unused for ALL_CLUBS).
+model PlatformAnnouncementClub {
+  id                     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platformAnnouncementId String @map("platform_announcement_id") @db.Uuid
+  clubId                 String @map("club_id") @db.Uuid
+
+  announcement PlatformAnnouncement @relation(fields: [platformAnnouncementId], references: [id], onDelete: Cascade)
+  club         Club                 @relation(fields: [clubId], references: [id])
+
+  @@unique([platformAnnouncementId, clubId], name: "uq_platform_announcement_club")
+  @@index([clubId])
+  @@map("platform_announcement_clubs")
+}
+
+// Read/dismiss tracking — one row per (announcement, user), written on interaction.
+model PlatformAnnouncementRead {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platformAnnouncementId String    @map("platform_announcement_id") @db.Uuid
+  userId                 String    @map("user_id") @db.Uuid
+  readAt                 DateTime? @map("read_at") @db.Timestamptz(6)
+  dismissedAt            DateTime? @map("dismissed_at") @db.Timestamptz(6)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  announcement PlatformAnnouncement @relation(fields: [platformAnnouncementId], references: [id], onDelete: Cascade)
+
+  @@unique([platformAnnouncementId, userId], name: "uq_platform_announcement_read")
+  @@index([userId])
+  @@map("platform_announcement_reads")
+}
+
+// Reusable composer templates.
+model PlatformAnnouncementTemplate {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String   @db.VarChar(150)
+  title                String   @db.VarChar(200)
+  body                 String
+  severity             String   @default("INFO") @db.VarChar(20)
+  defaultAudienceScope String   @default("ALL_CLUBS") @map("default_audience_scope") @db.VarChar(30)
+  defaultAudienceRoles String[] @map("default_audience_roles")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy            String?  @map("created_by") @db.Uuid
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("platform_announcement_templates")
 }

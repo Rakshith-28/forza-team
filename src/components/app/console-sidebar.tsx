@@ -88,7 +88,7 @@ export function ConsoleSidebar({ items, profile }: { items: NavItem[]; profile: 
   return (
     <aside
       className={cn(
-        "group/sb sticky top-2 hidden max-h-[calc(100dvh-1rem)] w-16 shrink-0 flex-col self-start overflow-hidden rounded-2xl",
+        "group/sb sticky top-18 hidden max-h-[calc(100dvh-5rem)] w-16 shrink-0 flex-col self-start overflow-hidden rounded-2xl",
         "bg-neutral-900 text-neutral-400 ring-1 ring-white/10 shadow-xl",
         "transition-[width] duration-300 ease-out hover:w-60 focus-within:w-60 motion-reduce:transition-none md:flex",
       )}
