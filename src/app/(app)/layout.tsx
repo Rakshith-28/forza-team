@@ -1,8 +1,10 @@
 import Link from "next/link";
 
+import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
 import { SignOutButton } from "@/components/app/sign-out-button";
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ROLE_LABELS, type Role } from "@/lib/rbac";
+import { getAppearanceTheme } from "@/modules/identity/appearance";
 
 /**
  * Authenticated application shell with role-aware navigation (RBAC matrix §8).
@@ -64,8 +66,21 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, ctx } = await requireUserAndContext();
-  const navItems = NAV[ctx.role];
   const displayName = session.user.name || session.user.email;
+
+  // Player/parent surface: the themed mobile app shell (Vibrant/Classic).
+  // The Console (admin/coach) keeps its fixed look below — never themed.
+  if (ctx.role === "PARENT") {
+    const theme = await getAppearanceTheme(session.user.id);
+    const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
+    return (
+      <ParentAppShell theme={theme} initial={initial}>
+        {children}
+      </ParentAppShell>
+    );
+  }
+
+  const navItems = NAV[ctx.role];
 
   return (
     <div className="flex min-h-full flex-1 flex-col">

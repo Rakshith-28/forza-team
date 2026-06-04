@@ -131,6 +131,111 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ===========================================================================
+ * PLAYER / PARENT APP THEMES (Vibrant + Classic) — token swap only.
+ * Applied via [data-theme] on the parent app-shell root. The Console (:root,
+ * admin/coach) is NEVER themed — these blocks only take effect inside an element
+ * carrying data-theme, which only the player/parent surface renders. Same
+ * components/layout; tokens differ.
+ * ------------------------------------------------------------------------- */
+
+/* Classic — official, restrained: green-led + one muted amber accent, hairline
+ * borders + soft shadows. The default for new users. */
+[data-theme="classic"] {
+  --background: oklch(0.974 0.008 150);
+  --foreground: oklch(0.2345 0.0195 167.05);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2345 0.0195 167.05);
+  --primary: oklch(0.6172 0.1472 153.78);
+  --primary-foreground: oklch(1 0 0);
+  --primary-hover: oklch(0.5117 0.1212 154.08);
+  --secondary: oklch(0.96 0.012 150);
+  --secondary-foreground: oklch(0.2345 0.0195 167.05);
+  --muted: oklch(0.96 0.012 150);
+  --muted-foreground: oklch(0.6247 0.022 164.19);
+  --accent: oklch(0.95 0.03 150);
+  --accent-foreground: oklch(0.5117 0.1212 154.08);
+  --border: oklch(0.9151 0.0095 151.88);
+  --input: oklch(0.9151 0.0095 151.88);
+  --ring: oklch(0.6172 0.1472 153.78);
+
+  --app-bg: linear-gradient(180deg, oklch(0.985 0.01 150) 0%, oklch(0.95 0.018 150) 100%);
+  --app-border-width: 1px;
+  --app-radius: 1.25rem;
+  --app-shadow: 0 12px 30px -22px rgba(20, 60, 40, 0.4);
+  --app-ink: oklch(0.2345 0.0195 167.05);
+  --pop-1: oklch(0.6172 0.1472 153.78);
+  --pop-2: oklch(0.55 0.1 154);
+  --pop-3: oklch(0.82 0.1 85);
+  --pop-4: oklch(0.6172 0.1472 153.78);
+  --pop-5: oklch(0.55 0.1 154);
+  --accent-amber: oklch(0.82 0.1 85);
+  --card-premium: oklch(0.3 0.06 158);
+  --card-premium-fg: oklch(0.97 0.02 150);
+}
+
+/* Vibrant — loud, neobrutalist: warm paper bg, thick ink borders, hard offset
+ * shadows, a full rainbow of color pops. */
+[data-theme="vibrant"] {
+  --background: oklch(0.972 0.018 92);
+  --foreground: oklch(0.21 0.03 159);
+  --card: oklch(0.992 0.01 92);
+  --card-foreground: oklch(0.21 0.03 159);
+  --primary: oklch(0.6172 0.1472 153.78);
+  --primary-foreground: oklch(1 0 0);
+  --primary-hover: oklch(0.5117 0.1212 154.08);
+  --secondary: oklch(0.94 0.03 92);
+  --secondary-foreground: oklch(0.21 0.03 159);
+  --muted: oklch(0.94 0.025 92);
+  --muted-foreground: oklch(0.46 0.03 160);
+  --accent: oklch(0.9 0.18 130);
+  --accent-foreground: oklch(0.21 0.03 159);
+  --border: oklch(0.21 0.03 159);
+  --input: oklch(0.21 0.03 159);
+  --ring: oklch(0.6172 0.1472 153.78);
+
+  --app-bg: oklch(0.972 0.018 92);
+  --app-border-width: 2.5px;
+  --app-radius: 1rem;
+  --app-ink: oklch(0.21 0.03 159);
+  --app-shadow: 3px 3px 0 0 var(--app-ink);
+  --pop-1: oklch(0.85 0.2 130); /* lime */
+  --pop-2: oklch(0.7 0.2 25); /* coral */
+  --pop-3: oklch(0.83 0.16 75); /* amber */
+  --pop-4: oklch(0.6 0.2 300); /* violet */
+  --pop-5: oklch(0.75 0.13 230); /* sky */
+  --accent-amber: oklch(0.83 0.16 75);
+  --card-premium: oklch(0.55 0.18 145);
+  --card-premium-fg: oklch(0.99 0.01 92);
+}
+
+@layer components {
+  .app-surface {
+    min-height: 100vh;
+    background: var(--app-bg);
+  }
+  /* Shared surface primitive — border width + shadow + radius come from the
+   * active theme, so Classic reads hairline/soft and Vibrant reads thick/offset
+   * with NO component changes (pure token swap). */
+  .app-card {
+    background: var(--card);
+    color: var(--card-foreground);
+    border: var(--app-border-width, 1px) solid var(--border);
+    border-radius: var(--app-radius, 1rem);
+    box-shadow: var(--app-shadow, none);
+  }
+  .app-pill {
+    border: var(--app-border-width, 1px) solid var(--border);
+    border-radius: 9999px;
+  }
+  .app-tabbar {
+    background: var(--card);
+    border: var(--app-border-width, 1px) solid var(--border);
+    border-radius: 9999px;
+    box-shadow: var(--app-shadow, 0 12px 30px -18px rgba(20, 60, 40, 0.4));
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -51,6 +51,9 @@ model User {
   isEmailVerified Boolean   @default(false) @map("is_email_verified")
   lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
   status          String    @default("ACTIVE") @db.VarChar(50)
+  // Player/parent app appearance preference ("vibrant" | "classic"). Console
+  // roles ignore it. New users default to Classic.
+  appearanceTheme String    @default("classic") @map("appearance_theme") @db.VarChar(20)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
