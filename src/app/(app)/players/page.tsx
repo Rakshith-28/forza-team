@@ -76,7 +76,12 @@ export default async function PlayersPage() {
                   {p.primaryPosition ? ` · ${p.primaryPosition}` : ""}
                 </p>
               </div>
-              <StatusBadge status={p.status} />
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {p._count.parentLinks} {p._count.parentLinks === 1 ? "parent" : "parents"}
+                </span>
+                <StatusBadge status={p.status} />
+              </div>
             </Link>
           ))
         )}

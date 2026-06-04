@@ -94,6 +94,7 @@ export const updateClubSettingsSchema = z.object({
   showPlayerPhotosToParents: z.coerce.boolean(),
   allowParentChildEvaluationView: z.coerce.boolean(),
   attendanceTrackingEnabled: z.coerce.boolean(),
+  allowCoachInviteParents: z.coerce.boolean(),
 });
 export type UpdateClubSettingsInput = z.infer<typeof updateClubSettingsSchema>;
 

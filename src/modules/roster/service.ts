@@ -8,6 +8,7 @@ import {
   assertChildScope,
   assertClubScope,
   assertTeamScope,
+  can,
   ForbiddenError,
   type AuthContext,
 } from "@/lib/rbac";
@@ -22,6 +23,7 @@ import {
   PARENT_EDITABLE_PLAYER_FIELDS,
   type AddMembershipInput,
   type CreatePlayerInput,
+  type InviteParentForPlayerInput,
   type InviteParentInput,
   type LinkParentInput,
   type ParentUpdatePlayerInput,
@@ -90,6 +92,7 @@ export async function listPlayers(
         where: { status: "ACTIVE" },
         include: { team: { select: { id: true, name: true } } },
       },
+      _count: { select: { parentLinks: { where: { status: "ACTIVE" } } } },
     },
   });
 }
@@ -405,8 +408,132 @@ export async function updateParent(ctx: AuthContext, parentId: string, input: Up
 }
 
 // ===========================================================================
-// Parent ↔ player links (sensitive — admin only by default; always audited)
+// Parent ↔ player links (admin club-wide; coach for assigned teams if allowed)
 // ===========================================================================
+
+/**
+ * Authorize managing a player's guardians (invite/link/unlink). Admins may do so
+ * club-wide; a COACH may do so for a player on one of their assigned teams ONLY
+ * when the club's `allow_coach_invite_parents` setting is on. Parents never.
+ */
+async function assertGuardianManage(ctx: AuthContext, player: { id: string; clubId: string }): Promise<void> {
+  if (can(ctx, "parents.manage", { clubId: player.clubId })) return; // Master / Club Admin
+  if (ctx.role === "COACH" && ctx.coachTeamPlayerIds.includes(player.id)) {
+    const setting = await prisma.clubSetting.findUnique({
+      where: { clubId: player.clubId },
+      select: { allowCoachInviteParents: true },
+    });
+    if (setting?.allowCoachInviteParents) return;
+    throw new ForbiddenError("Coach parent management is disabled for this club");
+  }
+  throw new ForbiddenError("You can't manage this player's guardians");
+}
+
+/**
+ * Invite a parent FOR a specific player (coach or admin). The link metadata rides
+ * on the invitation and becomes a player_parent_link on acceptance. Refuses to
+ * duplicate an existing club member (link them instead). Best-effort email.
+ */
+export async function inviteParentForPlayer(ctx: AuthContext, input: InviteParentForPlayerInput) {
+  const player = await prisma.player.findFirst({
+    where: { id: input.playerId, deletedAt: null },
+    select: { id: true, clubId: true },
+  });
+  if (!player) throw new ForbiddenError("Player not found");
+  await assertGuardianManage(ctx, player);
+
+  const existingUser = await prisma.user.findFirst({ where: { email: input.email }, select: { id: true } });
+  if (existingUser) {
+    const inClub = await prisma.userRoleAssignment.findFirst({
+      where: { userId: existingUser.id, clubId: player.clubId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (inClub) {
+      throw new ConflictError("That email already belongs to a member of this club — use “Link existing parent” instead.");
+    }
+  }
+
+  const invitation = await createInvitation({
+    clubId: player.clubId,
+    email: input.email,
+    roleCode: "PARENT",
+    invitedByUserId: ctx.userId,
+    linkMetadata: {
+      playerId: input.playerId,
+      relationshipType: input.relationshipType,
+      isPrimaryGuardian: input.isPrimaryGuardian ?? false,
+      canPickup: input.canPickup ?? false,
+      canPay: input.canPay ?? true,
+    },
+  });
+  await recordAuditStandalone({
+    action: "parent.invite",
+    resourceType: "invitation",
+    resourceId: invitation.id,
+    clubId: player.clubId,
+    actorUserId: ctx.userId,
+    metadata: { roleCode: "PARENT", email: input.email, playerId: input.playerId },
+  });
+  return invitation;
+}
+
+/** Active guardian links + pending parent invites for a player (admin/coach scoped). */
+export async function listPlayerGuardians(ctx: AuthContext, playerId: string) {
+  const player = await prisma.player.findFirst({
+    where: { id: playerId, deletedAt: null },
+    select: { id: true, clubId: true },
+  });
+  if (!player) throw new ForbiddenError("Player not found");
+  assertCan(ctx, "roster.view_full", { clubId: player.clubId, playerId }); // coach assigned / admin
+
+  const [links, pendingInvites] = await Promise.all([
+    prisma.playerParentLink.findMany({
+      where: { playerId, status: "ACTIVE" },
+      include: { parent: { select: { id: true, firstName: true, lastName: true, email: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.invitation.findMany({
+      where: {
+        clubId: player.clubId,
+        roleCode: "PARENT",
+        status: "PENDING",
+        linkMetadata: { path: ["playerId"], equals: playerId },
+      },
+      select: { id: true, email: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+  return { links, pendingInvites };
+}
+
+/** Search club parents for the "Link existing parent" picker (query-gated, minimal fields). */
+export async function searchClubParents(ctx: AuthContext, clubId: string, query: string) {
+  if (!can(ctx, "parents.manage", { clubId })) {
+    assertClubScope(ctx, clubId);
+    if (ctx.role !== "COACH") throw new ForbiddenError("Not allowed");
+    const setting = await prisma.clubSetting.findUnique({
+      where: { clubId },
+      select: { allowCoachInviteParents: true },
+    });
+    if (!setting?.allowCoachInviteParents) throw new ForbiddenError("Coach parent management is disabled for this club");
+  }
+  const q = query.trim();
+  if (q.length < 2) return [];
+  return prisma.parent.findMany({
+    where: {
+      clubId,
+      status: "ACTIVE",
+      OR: [
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, firstName: true, lastName: true, email: true },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    take: 10,
+  });
+}
 
 export async function linkParentToPlayer(ctx: AuthContext, input: LinkParentInput) {
   const [player, parent] = await Promise.all([
@@ -415,8 +542,9 @@ export async function linkParentToPlayer(ctx: AuthContext, input: LinkParentInpu
   ]);
   if (!player) throw new ForbiddenError("Player not found");
   if (!parent) throw new ForbiddenError("Parent not found");
-  // Linking is a CLUB-admin action (matrix §6.7); coaches do not link by default.
-  assertCan(ctx, "parents.manage", { clubId: player.clubId });
+  // Admins link club-wide; coaches may link for assigned-team players when the
+  // club allows it (matrix §6.7, gated by allow_coach_invite_parents).
+  await assertGuardianManage(ctx, { id: input.playerId, clubId: player.clubId });
   if (parent.clubId !== player.clubId) throw new ForbiddenError("Parent and player belong to different clubs");
 
   try {
@@ -453,7 +581,7 @@ export async function linkParentToPlayer(ctx: AuthContext, input: LinkParentInpu
 export async function unlinkParentFromPlayer(ctx: AuthContext, linkId: string) {
   const link = await prisma.playerParentLink.findUnique({ where: { id: linkId } });
   if (!link) throw new ForbiddenError("Link not found");
-  assertCan(ctx, "parents.manage", { clubId: link.clubId });
+  await assertGuardianManage(ctx, { id: link.playerId, clubId: link.clubId });
 
   return prisma.$transaction(async (tx) => {
     const removed = await tx.playerParentLink.update({

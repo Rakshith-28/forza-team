@@ -13,8 +13,10 @@ import {
   archivePlayer,
   createPlayer,
   inviteParent,
+  inviteParentForPlayer,
   linkParentToPlayer,
   removePlayerFromTeam,
+  searchClubParents,
   unlinkParentFromPlayer,
   updateOwnChild,
   updateParent,
@@ -23,6 +25,7 @@ import {
 import {
   addMembershipSchema,
   createPlayerSchema,
+  inviteParentForPlayerSchema,
   inviteParentSchema,
   linkParentSchema,
   parentUpdatePlayerSchema,
@@ -226,6 +229,78 @@ export async function unlinkParentAction(fd: FormData): Promise<void> {
   const parentId = str(fd, "parentId");
   await unlinkParentFromPlayer(ctx, str(fd, "linkId"));
   revalidatePath(`/parents/${parentId}`);
+}
+
+// --- Player guardians (coach/admin, from the player detail page) -----------
+export async function inviteGuardianAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { ctx } = await requireUserAndContext();
+  const playerId = str(fd, "playerId");
+  const parsed = inviteParentForPlayerSchema.safeParse({
+    email: str(fd, "email"),
+    playerId,
+    relationshipType: str(fd, "relationshipType"),
+    isPrimaryGuardian: bool(fd, "isPrimaryGuardian"),
+    canPickup: bool(fd, "canPickup"),
+    canPay: bool(fd, "canPay"),
+  });
+  if (!parsed.success) return failZod(parsed.error);
+  let emailDelivered = true;
+  try {
+    const result = await inviteParentForPlayer(ctx, parsed.data);
+    emailDelivered = result.emailDelivered;
+  } catch (e) {
+    return failService(e);
+  }
+  revalidatePath(`/players/${playerId}`);
+  return {
+    ok: true,
+    error: null,
+    notice: emailDelivered
+      ? null
+      : "Invitation created, but the email couldn't be sent. Check the server logs for the invite link.",
+  };
+}
+
+export async function linkGuardianAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { ctx } = await requireUserAndContext();
+  const playerId = str(fd, "playerId");
+  const parsed = linkParentSchema.safeParse({
+    playerId,
+    parentId: str(fd, "parentId"),
+    relationshipType: str(fd, "relationshipType"),
+    isPrimaryGuardian: bool(fd, "isPrimaryGuardian"),
+    canPickup: bool(fd, "canPickup"),
+    canPay: bool(fd, "canPay"),
+  });
+  if (!parsed.success) return failZod(parsed.error);
+  try {
+    await linkParentToPlayer(ctx, parsed.data);
+  } catch (e) {
+    return failService(e);
+  }
+  revalidatePath(`/players/${playerId}`);
+  return { ok: true, error: null };
+}
+
+export async function removeGuardianAction(fd: FormData): Promise<void> {
+  const { ctx } = await requireUserAndContext();
+  const playerId = str(fd, "playerId");
+  await unlinkParentFromPlayer(ctx, str(fd, "linkId"));
+  revalidatePath(`/players/${playerId}`);
+}
+
+/** Search club parents for the "Link existing parent" picker. Returns [] on denial/empty. */
+export async function searchGuardiansAction(
+  query: string,
+): Promise<{ id: string; name: string; email: string }[]> {
+  const { ctx } = await requireUserAndContext();
+  if (!ctx.activeClubId) return [];
+  try {
+    const parents = await searchClubParents(ctx, ctx.activeClubId, query);
+    return parents.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, email: p.email }));
+  } catch {
+    return [];
+  }
 }
 
 // --- Parent self-service: edit own child (approved fields only) ------------

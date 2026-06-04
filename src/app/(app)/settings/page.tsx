@@ -32,6 +32,7 @@ export default async function SettingsPage() {
               showPlayerPhotosToParents: settings.showPlayerPhotosToParents,
               allowParentChildEvaluationView: settings.allowParentChildEvaluationView,
               attendanceTrackingEnabled: settings.attendanceTrackingEnabled,
+              allowCoachInviteParents: settings.allowCoachInviteParents,
             }}
           />
         </CardContent>

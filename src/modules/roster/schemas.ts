@@ -118,6 +118,21 @@ export const inviteParentSchema = z.object({
 });
 export type InviteParentInput = z.infer<typeof inviteParentSchema>;
 
+/**
+ * Coach/admin invites a parent FOR a specific player (no name fields — collected
+ * at accept). The link metadata is carried on the invitation and applied as a
+ * player_parent_link on acceptance.
+ */
+export const inviteParentForPlayerSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Valid email required").max(255),
+  playerId: z.string().uuid(),
+  relationshipType: z.enum(RELATIONSHIP_TYPES),
+  isPrimaryGuardian: z.coerce.boolean().optional(),
+  canPickup: z.coerce.boolean().optional(),
+  canPay: z.coerce.boolean().optional(),
+});
+export type InviteParentForPlayerInput = z.infer<typeof inviteParentForPlayerSchema>;
+
 export const updateParentSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required").max(100),
   lastName: z.string().trim().min(1, "Last name is required").max(100),

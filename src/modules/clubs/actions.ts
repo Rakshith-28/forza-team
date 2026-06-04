@@ -99,6 +99,7 @@ export async function updateClubSettingsAction(_prev: FormState, fd: FormData): 
     showPlayerPhotosToParents: fd.get("showPlayerPhotosToParents") != null,
     allowParentChildEvaluationView: fd.get("allowParentChildEvaluationView") != null,
     attendanceTrackingEnabled: fd.get("attendanceTrackingEnabled") != null,
+    allowCoachInviteParents: fd.get("allowCoachInviteParents") != null,
   });
   if (!parsed.success) return failZod(parsed.error);
   try {

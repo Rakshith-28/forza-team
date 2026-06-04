@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { prisma } from "@/db/client";
+import { Prisma } from "@/db/generated/client";
 import { recordAudit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { invitationEmail, sendEmail } from "@/lib/email";
@@ -27,6 +28,20 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+/** Narrow the invitation's jsonb link_metadata back to ParentLinkMetadata. */
+function parseLinkMetadata(value: unknown): ParentLinkMetadata | null {
+  if (!value || typeof value !== "object") return null;
+  const m = value as Record<string, unknown>;
+  if (typeof m.playerId !== "string" || typeof m.relationshipType !== "string") return null;
+  return {
+    playerId: m.playerId,
+    relationshipType: m.relationshipType,
+    isPrimaryGuardian: m.isPrimaryGuardian === true,
+    canPickup: m.canPickup === true,
+    canPay: m.canPay !== false,
+  };
+}
+
 function tokenMatches(token: string, hash: string): boolean {
   const a = Buffer.from(hashToken(token));
   const b = Buffer.from(hash);
@@ -40,7 +55,18 @@ export interface CreateInvitationInput {
   teamId?: string | null;
   /** For a COACH invite with an initial team: the team_coaches role_type to apply on accept. */
   teamRoleType?: string | null;
+  /** For a PARENT invite carrying a child link: applied as a player_parent_link on accept. */
+  linkMetadata?: ParentLinkMetadata | null;
   invitedByUserId: string;
+}
+
+/** Parent↔player link carried on a PARENT invite, applied on acceptance. */
+export interface ParentLinkMetadata {
+  playerId: string;
+  relationshipType: string;
+  isPrimaryGuardian: boolean;
+  canPickup: boolean;
+  canPay: boolean;
 }
 
 export async function createInvitation(input: CreateInvitationInput) {
@@ -59,6 +85,9 @@ export async function createInvitation(input: CreateInvitationInput) {
       roleCode: input.roleCode,
       teamId: input.teamId ?? null,
       teamRoleType: input.teamRoleType ?? null,
+      linkMetadata: input.linkMetadata
+        ? (input.linkMetadata as unknown as Prisma.InputJsonValue)
+        : undefined,
       tokenHash: hashToken(token),
       expiresAt,
       status: "PENDING",
@@ -169,7 +198,7 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
     // is required, so the profile can only exist once the login is created). The
     // admin can then link children to this profile (roster module, Phase 3).
     if (invitation.roleCode === "PARENT" && invitation.clubId) {
-      await tx.parent.create({
+      const parent = await tx.parent.create({
         data: {
           clubId: invitation.clubId,
           userId,
@@ -181,6 +210,32 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
           createdBy: invitation.createdBy,
         },
       });
+      // If the invite carried a child link (coach/admin invited this parent FOR a
+      // specific player), create the player_parent_link now (mirrors team_role_type).
+      const link = parseLinkMetadata(invitation.linkMetadata);
+      if (link) {
+        const player = await tx.player.findFirst({
+          where: { id: link.playerId, clubId: invitation.clubId, deletedAt: null },
+          select: { id: true },
+        });
+        if (player) {
+          await tx.playerParentLink.upsert({
+            where: { uq_player_parent_link: { playerId: link.playerId, parentId: parent.id } },
+            create: {
+              clubId: invitation.clubId,
+              playerId: link.playerId,
+              parentId: parent.id,
+              relationshipType: link.relationshipType,
+              isPrimaryGuardian: link.isPrimaryGuardian,
+              canPickup: link.canPickup,
+              canPay: link.canPay,
+              status: "ACTIVE",
+              createdBy: invitation.createdBy,
+            },
+            update: { status: "ACTIVE" },
+          });
+        }
+      }
     }
     await tx.invitation.update({
       where: { id: invitation.id },

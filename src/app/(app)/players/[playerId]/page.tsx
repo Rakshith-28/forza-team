@@ -6,11 +6,17 @@ import { PhotoUpload } from "@/components/app/photo-upload";
 import { requireRole } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
-import { archivePlayerAction, removeMembershipAction } from "@/modules/roster/actions";
-import { getPlayer } from "@/modules/roster/service";
+import { archivePlayerAction, removeGuardianAction, removeMembershipAction } from "@/modules/roster/actions";
+import { getPlayer, listPlayerGuardians } from "@/modules/roster/service";
+import { RELATIONSHIP_LABELS } from "@/modules/roster/schemas";
 
 import { StatusBadge } from "../../seasons/season-forms";
 import { AddMembershipForm, PlayerEditSection } from "./player-detail-client";
+import { InviteGuardianForm, LinkExistingGuardianForm } from "./guardian-forms";
+
+function relLabel(t: string): string {
+  return RELATIONSHIP_LABELS[t as keyof typeof RELATIONSHIP_LABELS] ?? t;
+}
 
 function fmtDate(d: Date | null): string {
   return d ? d.toISOString().slice(0, 10) : "—";
@@ -24,6 +30,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
   if (!player) notFound();
 
   const canEdit = can(ctx, "players.edit_full", { clubId: player.clubId, playerId });
+  const guardians = await listPlayerGuardians(ctx, playerId);
   const teams = canEdit ? await listTeams(ctx, player.clubId) : [];
   const memberTeamIds = new Set(player.teamMemberships.map((m) => m.teamId));
   const addableTeams = teams
@@ -134,29 +141,52 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="font-sport text-base">Linked parents / guardians</CardTitle>
+          <CardTitle className="font-sport text-base">Guardians</CardTitle>
         </CardHeader>
-        <CardContent>
-          {player.parentLinks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No parents linked yet. Link a parent from the{" "}
-              <Link href="/parents" className="underline underline-offset-4">
-                Parents
-              </Link>{" "}
-              page.
-            </p>
+        <CardContent className="flex flex-col gap-4">
+          {guardians.links.length === 0 && guardians.pendingInvites.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No parents linked yet.</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {player.parentLinks.map((l) => (
-                <li key={l.id} className="rounded-lg border bg-card p-3">
-                  <Link href={`/parents/${l.parent.id}`} className="font-medium text-foreground hover:underline">
-                    {l.parent.firstName} {l.parent.lastName}
-                  </Link>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{l.relationshipType}</p>
+              {guardians.links.map((l) => (
+                <li key={l.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3">
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {l.parent.firstName} {l.parent.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="uppercase tracking-wide">{relLabel(l.relationshipType)}</span>
+                      {l.canPickup ? " · can pick up" : ""}
+                      {l.canPay ? " · can pay" : ""}
+                    </p>
+                  </div>
+                  {canEdit ? (
+                    <form action={removeGuardianAction}>
+                      <input type="hidden" name="playerId" value={player.id} />
+                      <input type="hidden" name="linkId" value={l.id} />
+                      <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
+                        Remove
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+              {guardians.pendingInvites.map((inv) => (
+                <li key={inv.id} className="flex items-center justify-between gap-3 rounded-lg border border-dashed bg-card p-3">
+                  <span className="text-sm text-foreground">{inv.email}</span>
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                    Pending
+                  </span>
                 </li>
               ))}
             </ul>
           )}
+          {canEdit ? (
+            <div className="flex flex-wrap gap-2 border-t pt-4">
+              <InviteGuardianForm playerId={player.id} />
+              <LinkExistingGuardianForm playerId={player.id} />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

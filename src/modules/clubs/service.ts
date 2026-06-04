@@ -462,6 +462,7 @@ export interface UpdateClubSettingsInput {
   showPlayerPhotosToParents: boolean;
   allowParentChildEvaluationView: boolean;
   attendanceTrackingEnabled: boolean;
+  allowCoachInviteParents: boolean;
 }
 
 export async function updateClubSettings(ctx: AuthContext, clubId: string, input: UpdateClubSettingsInput) {

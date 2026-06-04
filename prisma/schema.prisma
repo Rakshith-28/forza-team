@@ -171,6 +171,10 @@ model Invitation {
   teamId           String?   @map("team_id") @db.Uuid
   // Optional initial team_coaches role_type for a COACH invite (applied on accept).
   teamRoleType     String?   @map("team_role_type") @db.VarChar(50)
+  // Optional parent↔player link metadata for a PARENT invite carrying a child
+  // link ({ playerId, relationshipType, isPrimaryGuardian, canPickup, canPay });
+  // the link is created from this on acceptance (mirrors team_role_type).
+  linkMetadata     Json?     @map("link_metadata")
   tokenHash        String    @map("token_hash")
   expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
   acceptedAt       DateTime? @map("accepted_at") @db.Timestamptz(6)
@@ -274,6 +278,7 @@ model ClubSetting {
   allowParentToParentChat        Boolean  @default(false) @map("allow_parent_to_parent_chat")
   allowParentChildEvaluationView Boolean  @default(false) @map("allow_parent_child_evaluation_view")
   showPlayerPhotosToParents      Boolean  @default(true) @map("show_player_photos_to_parents")
+  allowCoachInviteParents        Boolean  @default(true) @map("allow_coach_invite_parents")
   enableAiFeatures               Boolean  @default(true) @map("enable_ai_features")
   enableSmsNotifications         Boolean  @default(false) @map("enable_sms_notifications")
   defaultCurrency                String   @default("USD") @map("default_currency") @db.VarChar(10)

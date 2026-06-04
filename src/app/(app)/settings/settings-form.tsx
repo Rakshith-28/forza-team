@@ -10,6 +10,7 @@ export interface ClubSettingsData {
   showPlayerPhotosToParents: boolean;
   allowParentChildEvaluationView: boolean;
   attendanceTrackingEnabled: boolean;
+  allowCoachInviteParents: boolean;
 }
 
 const TOGGLES: { name: keyof ClubSettingsData; label: string; help: string }[] = [
@@ -27,6 +28,11 @@ const TOGGLES: { name: keyof ClubSettingsData; label: string; help: string }[] =
     name: "attendanceTrackingEnabled",
     label: "Attendance tracking",
     help: "Enables recording attendance for events.",
+  },
+  {
+    name: "allowCoachInviteParents",
+    label: "Coaches can invite & link parents",
+    help: "When on, coaches can add players and invite/link their parents for assigned teams. Club Admins always can.",
   },
 ];
 
