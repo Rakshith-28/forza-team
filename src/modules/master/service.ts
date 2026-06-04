@@ -1,7 +1,15 @@
 import "server-only";
 
 import { prisma } from "@/db/client";
+import { Prisma } from "@/db/generated/client";
+import { recordAudit } from "@/lib/audit";
 import { ForbiddenError, type AuthContext } from "@/lib/rbac";
+import {
+  normalizePage,
+  type ClubStatus,
+  type Paginated,
+  type PageParams,
+} from "@/modules/master/schemas";
 
 /**
  * Master module service layer — system-scope reads/writes for the Master Admin
@@ -95,4 +103,361 @@ export async function getMasterDashboardSummary(ctx: AuthContext): Promise<Maste
     activeEvaluationCycles,
     waiverAcceptances,
   };
+}
+
+// ===========================================================================
+// Clubs — list (dashboard panel + Clubs page) and detail (drawer)
+// ===========================================================================
+
+export interface MasterClubListItem {
+  id: string;
+  name: string;
+  shortCode: string;
+  logoUrl: string | null;
+  city: string | null;
+  state: string | null;
+  status: string;
+  createdAt: Date;
+  teamCount: number;
+  playerCount: number;
+  userCount: number;
+}
+
+export interface MasterClubFilters extends PageParams {
+  search?: string;
+  status?: ClubStatus;
+}
+
+/** Tally distinct users per club from (clubId,userId) pairs. */
+function tallyDistinctUsers(pairs: { clubId: string | null }[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const p of pairs) {
+    if (!p.clubId) continue;
+    counts.set(p.clubId, (counts.get(p.clubId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * Paginated club list with per-club team / player / distinct-user counts.
+ * Drives both the dashboard Clubs panel and the Clubs page table. Counts are
+ * gathered with one grouped query each over the page's club ids (no N+1) and
+ * respect soft-delete.
+ */
+export async function getMasterClubs(
+  ctx: AuthContext,
+  filters: MasterClubFilters = {},
+): Promise<Paginated<MasterClubListItem>> {
+  assertMasterAdmin(ctx);
+  const { page, pageSize, skip, take } = normalizePage(filters);
+
+  const where: Prisma.ClubWhereInput = { deletedAt: null };
+  if (filters.status) where.status = filters.status;
+  if (filters.search?.trim()) {
+    const q = filters.search.trim();
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { shortCode: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const [total, clubs] = await Promise.all([
+    prisma.club.count({ where }),
+    prisma.club.findMany({
+      where,
+      orderBy: { name: "asc" },
+      skip,
+      take,
+      select: {
+        id: true,
+        name: true,
+        shortCode: true,
+        logoUrl: true,
+        city: true,
+        state: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  const clubIds = clubs.map((c) => c.id);
+  const [teamGroups, playerGroups, userPairs] = clubIds.length
+    ? await Promise.all([
+        prisma.team.groupBy({ by: ["clubId"], where: { clubId: { in: clubIds }, deletedAt: null }, _count: { _all: true } }),
+        prisma.player.groupBy({ by: ["clubId"], where: { clubId: { in: clubIds }, deletedAt: null }, _count: { _all: true } }),
+        prisma.userRoleAssignment.findMany({
+          where: { clubId: { in: clubIds }, status: "ACTIVE" },
+          select: { clubId: true, userId: true },
+          distinct: ["clubId", "userId"],
+        }),
+      ])
+    : [[], [], []];
+
+  const teamCounts = new Map(teamGroups.map((g) => [g.clubId, g._count._all]));
+  const playerCounts = new Map(playerGroups.map((g) => [g.clubId, g._count._all]));
+  const userCounts = tallyDistinctUsers(userPairs);
+
+  const rows: MasterClubListItem[] = clubs.map((c) => ({
+    ...c,
+    teamCount: teamCounts.get(c.id) ?? 0,
+    playerCount: playerCounts.get(c.id) ?? 0,
+    userCount: userCounts.get(c.id) ?? 0,
+  }));
+
+  return { rows, total, page, pageSize };
+}
+
+export interface MasterClubDetail {
+  id: string;
+  name: string;
+  shortCode: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  phone: string | null;
+  website: string | null;
+  status: string;
+  timezone: string;
+  createdAt: Date;
+  updatedAt: Date;
+  metrics: {
+    teams: number;
+    players: number;
+    users: number;
+    coaches: number;
+    parents: number;
+    openInvoices: number;
+    waiverAcceptances: number;
+    activeEvaluationCycles: number;
+  };
+  teams: {
+    id: string;
+    name: string;
+    teamCode: string;
+    ageGroup: string | null;
+    seasonName: string | null;
+    status: string;
+    playerCount: number;
+    headCoachName: string | null;
+  }[];
+  users: { userId: string; name: string; email: string; status: string; roleCodes: string[] }[];
+  settings: {
+    enableAiFeatures: boolean;
+    enableSmsNotifications: boolean;
+    defaultCurrency: string;
+    registrationEnabled: boolean;
+    billingEnabled: boolean;
+    attendanceTrackingEnabled: boolean;
+    showPlayerPhotosToParents: boolean;
+    allowParentChildEvaluationView: boolean;
+    allowCoachInviteParents: boolean;
+    allowParentToParentChat: boolean;
+  } | null;
+  recentAudit: {
+    id: string;
+    action: string;
+    resourceType: string;
+    resourceId: string | null;
+    actorName: string | null;
+    createdAt: Date;
+  }[];
+}
+
+function personName(u: { name: string | null; firstName: string; lastName: string; email: string }): string {
+  return u.name?.trim() || `${u.firstName} ${u.lastName}`.trim() || u.email;
+}
+
+/** Full detail for one club (Overview/Teams/Users/Settings/Audit drawer). */
+export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Promise<MasterClubDetail | null> {
+  assertMasterAdmin(ctx);
+
+  const club = await prisma.club.findFirst({ where: { id: clubId, deletedAt: null } });
+  if (!club) return null;
+
+  const [
+    teamCount,
+    playerCount,
+    userPairs,
+    coachPairs,
+    parentPairs,
+    openInvoices,
+    waiverAcceptances,
+    activeEvaluationCycles,
+    teams,
+    assignments,
+    settings,
+    recentAudit,
+  ] = await Promise.all([
+    prisma.team.count({ where: { clubId, deletedAt: null } }),
+    prisma.player.count({ where: { clubId, deletedAt: null } }),
+    prisma.userRoleAssignment.findMany({ where: { clubId, status: "ACTIVE" }, select: { userId: true }, distinct: ["userId"] }),
+    prisma.userRoleAssignment.findMany({ where: { clubId, status: "ACTIVE", role: { code: "COACH" } }, select: { userId: true }, distinct: ["userId"] }),
+    prisma.userRoleAssignment.findMany({ where: { clubId, status: "ACTIVE", role: { code: "PARENT" } }, select: { userId: true }, distinct: ["userId"] }),
+    prisma.invoice.count({ where: { clubId, status: { in: ["OPEN", "PARTIALLY_PAID", "OVERDUE"] } } }),
+    prisma.waiverAcceptance.count({ where: { clubId } }),
+    prisma.evaluationCycle.count({ where: { clubId, status: "ACTIVE" } }),
+    prisma.team.findMany({
+      where: { clubId, deletedAt: null },
+      orderBy: [{ status: "asc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        teamCode: true,
+        ageGroup: true,
+        status: true,
+        season: { select: { name: true } },
+        teamCoaches: {
+          where: { status: "ACTIVE", roleType: "HEAD_COACH" },
+          select: { user: { select: { name: true, firstName: true, lastName: true, email: true } } },
+          take: 1,
+        },
+      },
+    }),
+    prisma.userRoleAssignment.findMany({
+      where: { clubId, status: "ACTIVE" },
+      select: {
+        user: { select: { id: true, name: true, firstName: true, lastName: true, email: true, status: true } },
+        role: { select: { code: true } },
+      },
+    }),
+    prisma.clubSetting.findUnique({ where: { clubId } }),
+    prisma.auditLog.findMany({
+      where: { clubId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { id: true, action: true, resourceType: true, resourceId: true, actorUserId: true, createdAt: true },
+    }),
+  ]);
+
+  // Per-team player counts (one grouped query) + head-coach names already joined.
+  const teamIds = teams.map((t) => t.id);
+  const playerGroups = teamIds.length
+    ? await prisma.playerTeamMembership.groupBy({
+        by: ["teamId"],
+        where: { teamId: { in: teamIds }, status: "ACTIVE" },
+        _count: { _all: true },
+      })
+    : [];
+  const teamPlayerCounts = new Map(playerGroups.map((g) => [g.teamId, g._count._all]));
+
+  // Resolve actor names for the recent audit rows in one query.
+  const actorIds = [...new Set(recentAudit.map((a) => a.actorUserId).filter((x): x is string => !!x))];
+  const actors = actorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true, firstName: true, lastName: true, email: true } })
+    : [];
+  const actorById = new Map(actors.map((a) => [a.id, personName(a)]));
+
+  // Collapse role assignments into one row per user with their role codes.
+  const usersById = new Map<string, MasterClubDetail["users"][number]>();
+  for (const a of assignments) {
+    const existing = usersById.get(a.user.id);
+    if (existing) {
+      if (!existing.roleCodes.includes(a.role.code)) existing.roleCodes.push(a.role.code);
+    } else {
+      usersById.set(a.user.id, {
+        userId: a.user.id,
+        name: personName(a.user),
+        email: a.user.email,
+        status: a.user.status,
+        roleCodes: [a.role.code],
+      });
+    }
+  }
+
+  return {
+    id: club.id,
+    name: club.name,
+    shortCode: club.shortCode,
+    logoUrl: club.logoUrl,
+    primaryColor: club.primaryColor,
+    secondaryColor: club.secondaryColor,
+    addressLine1: club.addressLine1,
+    addressLine2: club.addressLine2,
+    city: club.city,
+    state: club.state,
+    postalCode: club.postalCode,
+    country: club.country,
+    phone: club.phone,
+    website: club.website,
+    status: club.status,
+    timezone: club.timezone,
+    createdAt: club.createdAt,
+    updatedAt: club.updatedAt,
+    metrics: {
+      teams: teamCount,
+      players: playerCount,
+      users: userPairs.length,
+      coaches: coachPairs.length,
+      parents: parentPairs.length,
+      openInvoices,
+      waiverAcceptances,
+      activeEvaluationCycles,
+    },
+    teams: teams.map((t) => ({
+      id: t.id,
+      name: t.name,
+      teamCode: t.teamCode,
+      ageGroup: t.ageGroup,
+      seasonName: t.season?.name ?? null,
+      status: t.status,
+      playerCount: teamPlayerCounts.get(t.id) ?? 0,
+      headCoachName: t.teamCoaches[0] ? personName(t.teamCoaches[0].user) : null,
+    })),
+    users: [...usersById.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    settings: settings
+      ? {
+          enableAiFeatures: settings.enableAiFeatures,
+          enableSmsNotifications: settings.enableSmsNotifications,
+          defaultCurrency: settings.defaultCurrency,
+          registrationEnabled: settings.registrationEnabled,
+          billingEnabled: settings.billingEnabled,
+          attendanceTrackingEnabled: settings.attendanceTrackingEnabled,
+          showPlayerPhotosToParents: settings.showPlayerPhotosToParents,
+          allowParentChildEvaluationView: settings.allowParentChildEvaluationView,
+          allowCoachInviteParents: settings.allowCoachInviteParents,
+          allowParentToParentChat: settings.allowParentToParentChat,
+        }
+      : null,
+    recentAudit: recentAudit.map((a) => ({
+      id: a.id,
+      action: a.action,
+      resourceType: a.resourceType,
+      resourceId: a.resourceId,
+      actorName: a.actorUserId ? (actorById.get(a.actorUserId) ?? null) : null,
+      createdAt: a.createdAt,
+    })),
+  };
+}
+
+/**
+ * Toggle a club between ACTIVE and SUSPENDED (master-only, audited). Archiving
+ * remains a separate, soft-deleting action in the clubs module.
+ */
+export async function setClubStatus(ctx: AuthContext, clubId: string, status: "ACTIVE" | "SUSPENDED") {
+  assertMasterAdmin(ctx);
+  const club = await prisma.club.findFirst({ where: { id: clubId, deletedAt: null }, select: { id: true } });
+  if (!club) throw new ForbiddenError("Club not found");
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.club.update({
+      where: { id: clubId },
+      data: { status, updatedAt: new Date(), updatedBy: ctx.userId },
+    });
+    await recordAudit(tx, {
+      action: status === "SUSPENDED" ? "club.suspend" : "club.activate",
+      resourceType: "club",
+      resourceId: clubId,
+      clubId,
+      actorUserId: ctx.userId,
+      metadata: { status },
+    });
+    return updated;
+  });
 }

@@ -1,13 +1,17 @@
 import Link from "next/link";
 
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader, SummaryCard } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
-import { getMasterDashboardSummary } from "@/modules/master/service";
+import { getMasterClubs, getMasterDashboardSummary } from "@/modules/master/service";
+
+import { ClubsPanel } from "./clubs-panel";
 
 export default async function AdminDashboard() {
   const ctx = await requireRole("MASTER_ADMIN");
-  const summary = await getMasterDashboardSummary(ctx);
+  const [summary, clubs] = await Promise.all([
+    getMasterDashboardSummary(ctx),
+    getMasterClubs(ctx, { pageSize: 12 }),
+  ]);
 
   const stats: { label: string; value: number; href?: string }[] = [
     { label: "Clubs", value: summary.clubs, href: "/clubs" },
@@ -43,22 +47,15 @@ export default async function AdminDashboard() {
         </div>
       </section>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <Link href="/clubs">
-          <Card className="h-full transition-colors hover:border-primary">
-            <CardHeader>
-              <CardTitle className="font-sport text-base">Clubs</CardTitle>
-              <CardDescription>Create and manage every club on the platform.</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="font-sport text-base text-muted-foreground">Users &amp; audit</CardTitle>
-            <CardDescription>Account management and audit trail arrive in a later phase.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <section className="mt-8">
+        <div className="mb-3 flex items-end justify-between">
+          <h2 className="font-sport text-lg font-bold tracking-tight text-foreground">Clubs</h2>
+          <Link href="/clubs" className="text-sm font-medium text-primary hover:underline">
+            View all
+          </Link>
+        </div>
+        <ClubsPanel clubs={clubs.rows} />
+      </section>
     </div>
   );
 }
