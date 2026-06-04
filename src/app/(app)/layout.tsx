@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ConsoleSidebar } from "@/components/app/console-sidebar";
 import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
 import { SignOutButton } from "@/components/app/sign-out-button";
 import { requireUserAndContext } from "@/lib/auth-guards";
@@ -101,30 +102,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
 
       <div className="flex flex-1">
-        <nav className="hidden w-56 shrink-0 border-r bg-sidebar p-3 md:block">
-          <ul className="flex flex-col gap-0.5">
-            {navItems.map((item) =>
-              item.href ? (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="block rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ) : (
-                <li
-                  key={item.label}
-                  className="flex items-center justify-between rounded-md px-3 py-2 text-sm text-muted-foreground"
-                >
-                  {item.label}
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/60">soon</span>
-                </li>
-              ),
-            )}
-          </ul>
-        </nav>
+        <ConsoleSidebar items={navItems} />
 
         <main className="flex-1 p-6">{children}</main>
       </div>
