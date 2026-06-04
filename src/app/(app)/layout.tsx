@@ -85,29 +85,30 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex h-14 items-center justify-between border-b bg-card px-4">
+    <div className="flex min-h-full flex-1 flex-col gap-2 p-2">
+      <header className="flex h-14 shrink-0 items-center justify-between rounded-2xl bg-neutral-900 px-4 text-white ring-1 ring-white/10 shadow-xl">
         <Link
           href="/dashboard"
-          className="font-sport text-2xl font-bold uppercase tracking-tight text-primary transition-colors hover:text-primary-hover"
+          className="font-sport text-2xl font-bold uppercase tracking-[0.32em] transition-opacity hover:opacity-80"
         >
-          Forza Team
+          <span className="text-white">Forza</span>
+          <span className="ml-[0.32em] text-emerald-400">Team</span>
         </Link>
         <div className="flex items-center gap-3">
-          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+          <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-neutral-200">
             {ROLE_LABELS[ctx.role]}
           </span>
-          <SignOutButton />
+          <SignOutButton className="text-neutral-300 hover:bg-white/10 hover:text-white" />
         </div>
       </header>
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 gap-2">
         <ConsoleSidebar
           items={navItems}
           profile={{ name: displayName, initial, roleLabel: ROLE_LABELS[ctx.role] }}
         />
 
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4">{children}</main>
       </div>
     </div>
   );
