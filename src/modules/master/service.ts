@@ -830,14 +830,24 @@ export async function getMasterAuditLogs(
   return { rows, total, page, pageSize };
 }
 
-/** Distinct action + resource-type values, for the audit-log filter dropdowns. */
-export async function getAuditFilterOptions(ctx: AuthContext): Promise<{ actions: string[]; resourceTypes: string[] }> {
+/** Distinct action / resource-type / actor values for the audit-log filter dropdowns. */
+export async function getAuditFilterOptions(
+  ctx: AuthContext,
+): Promise<{ actions: string[]; resourceTypes: string[]; actors: { id: string; name: string }[] }> {
   assertMasterAdmin(ctx);
-  const [actions, resourceTypes] = await Promise.all([
+  const [actions, resourceTypes, actorRows] = await Promise.all([
     prisma.auditLog.findMany({ distinct: ["action"], select: { action: true }, orderBy: { action: "asc" } }),
     prisma.auditLog.findMany({ distinct: ["resourceType"], select: { resourceType: true }, orderBy: { resourceType: "asc" } }),
+    prisma.auditLog.findMany({ distinct: ["actorUserId"], where: { actorUserId: { not: null } }, select: { actorUserId: true } }),
   ]);
-  return { actions: actions.map((a) => a.action), resourceTypes: resourceTypes.map((r) => r.resourceType) };
+
+  const actorIds = actorRows.map((r) => r.actorUserId).filter((x): x is string => !!x);
+  const actorUsers = actorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true, firstName: true, lastName: true, email: true } })
+    : [];
+  const actors = actorUsers.map((u) => ({ id: u.id, name: personName(u) })).sort((a, b) => a.name.localeCompare(b.name));
+
+  return { actions: actions.map((a) => a.action), resourceTypes: resourceTypes.map((r) => r.resourceType), actors };
 }
 
 /** Lazy counts for a coach detail drawer: players across their teams + evals authored. */
