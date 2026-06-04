@@ -16,6 +16,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "bootstrap:master": "node scripts/bootstrap-master.mjs",
+    "prune:demo": "node scripts/prune-demo.mjs",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "engines": {
