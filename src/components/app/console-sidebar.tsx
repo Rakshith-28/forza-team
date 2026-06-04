@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   BarChart3,
   Building2,
   Calendar,
   CalendarRange,
+  ChevronRight,
   ClipboardCheck,
   ClipboardList,
   CreditCard,
   FileSignature,
   FileText,
   LayoutDashboard,
+  Lock,
   Megaphone,
   MessageSquare,
   ScrollText,
@@ -64,31 +67,73 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 /**
- * Console navigation (admin/coach). Active-route aware via usePathname, with an
- * animated accent rail, hover nudge, per-item icons, and a one-time staggered
- * entrance. Motion is suppressed under prefers-reduced-motion.
+ * Console navigation (admin/coach). A single translucent "pill" highlight
+ * physically slides + resizes to the active item (measured from the DOM) with a
+ * gentle spring, icon chips fill green when active, and the rows fan in once on
+ * load. All motion is gated behind motion-safe for reduced-motion users.
  */
 export function ConsoleSidebar({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
+  const listRef = useRef<HTMLUListElement>(null);
+  const [indicator, setIndicator] = useState<{ top: number; height: number; ready: boolean }>({
+    top: 0,
+    height: 0,
+    ready: false,
+  });
+  // Don't animate the highlight into place on first paint — only when it moves.
+  const [armed, setArmed] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const ul = listRef.current;
+      if (!ul) return;
+      const el = ul.querySelector<HTMLElement>('[data-active="true"]');
+      if (el) setIndicator({ top: el.offsetTop, height: el.offsetHeight, ready: true });
+      else setIndicator((s) => ({ ...s, ready: false }));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [pathname, items]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setArmed(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   return (
     <nav className="hidden w-60 shrink-0 border-r bg-sidebar p-3 md:block">
-      <ul className="flex flex-col gap-0.5">
+      <p className="px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
+        Navigation
+      </p>
+      <ul ref={listRef} className="relative flex flex-col gap-0.5">
+        {/* The sliding highlight — moves + resizes to the active row. */}
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-x-1 z-0 rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20",
+            indicator.ready ? "opacity-100" : "opacity-0",
+            armed &&
+              "motion-safe:transition-[transform,height] motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.34,1.4,0.64,1)]",
+          )}
+          style={{ transform: `translateY(${indicator.top}px)`, height: indicator.ready ? indicator.height : 0 }}
+        />
+
         {items.map((item, i) => {
           const Icon = ICONS[item.label] ?? Building2;
-          const style = { animationDelay: `${i * 35}ms` } as const;
           const enter =
             "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-left-3 motion-safe:fill-mode-both motion-safe:duration-300";
+          const style = { animationDelay: `${i * 35}ms` } as const;
 
           if (!item.href) {
             return (
-              <li key={item.label} style={style} className={enter}>
-                <span className="group/navitem relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground/70">
-                  <Icon className="size-4 shrink-0 opacity-60" />
-                  <span className="flex-1">{item.label}</span>
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
-                    soon
+              <li key={item.label} className={cn("relative z-10", enter)} style={style}>
+                <span className="group/navitem flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm text-muted-foreground/70">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-secondary/60 text-muted-foreground/60">
+                    <Icon className="size-4" />
                   </span>
+                  <span className="flex-1">{item.label}</span>
+                  <Lock className="size-3.5 text-muted-foreground/50" />
                 </span>
               </li>
             );
@@ -97,34 +142,39 @@ export function ConsoleSidebar({ items }: { items: NavItem[] }) {
           const active = isActive(pathname, item.href);
 
           return (
-            <li key={item.label} style={style} className={enter}>
+            <li
+              key={item.label}
+              data-active={active || undefined}
+              className={cn("relative z-10", enter)}
+              style={style}
+            >
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group/navitem relative flex items-center gap-3 overflow-hidden rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200",
-                  active
-                    ? "bg-primary/10 text-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  "group/navitem flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm transition-colors duration-200",
+                  active ? "font-semibold text-primary" : "text-sidebar-foreground hover:text-foreground",
                 )}
               >
-                {/* Accent rail: tall when active, grows from center on hover. */}
                 <span
-                  aria-hidden
                   className={cn(
-                    "absolute left-0 top-1/2 w-1 -translate-y-1/2 rounded-r-full bg-primary transition-all duration-300 ease-out",
-                    active ? "h-7" : "h-0 group-hover/navitem:h-4",
+                    "grid size-7 shrink-0 place-items-center rounded-lg transition-all duration-200 ease-out",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-secondary text-muted-foreground group-hover/navitem:scale-110 group-hover/navitem:text-foreground",
                   )}
-                />
-                <Icon
-                  className={cn(
-                    "size-4 shrink-0 transition-transform duration-200 ease-out group-hover/navitem:scale-110",
-                    active && "text-primary",
-                  )}
-                />
-                <span className="transition-transform duration-200 ease-out group-hover/navitem:translate-x-0.5">
+                >
+                  <Icon className="size-4" />
+                </span>
+                <span className="flex-1 transition-transform duration-200 ease-out group-hover/navitem:translate-x-0.5">
                   {item.label}
                 </span>
+                <ChevronRight
+                  className={cn(
+                    "size-4 text-primary transition-all duration-200 ease-out",
+                    active ? "opacity-100" : "-translate-x-1 opacity-0",
+                  )}
+                />
               </Link>
             </li>
           );
