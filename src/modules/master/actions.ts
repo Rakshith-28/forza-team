@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRoleOrThrow } from "@/lib/auth-guards";
-import { getMasterClubDetail, setClubStatus, type MasterClubDetail } from "@/modules/master/service";
+import {
+  getMasterClubDetail,
+  getMasterCoachDetail,
+  setClubStatus,
+  type MasterClubDetail,
+} from "@/modules/master/service";
 
 /**
  * Server actions for the Master Admin portal. Reads (detail loaders) are exposed
@@ -15,6 +20,12 @@ import { getMasterClubDetail, setClubStatus, type MasterClubDetail } from "@/mod
 export async function loadClubDetailAction(clubId: string): Promise<MasterClubDetail | null> {
   const ctx = await requireRoleOrThrow("MASTER_ADMIN");
   return getMasterClubDetail(ctx, clubId);
+}
+
+/** Lazy-load a coach's player/evaluation counts when their drawer opens. */
+export async function loadCoachDetailAction(userId: string): Promise<{ playersOnTeams: number; evaluationsAuthored: number }> {
+  const ctx = await requireRoleOrThrow("MASTER_ADMIN");
+  return getMasterCoachDetail(ctx, userId);
 }
 
 /** Suspend or re-activate a club (audited). Called from the Clubs page row menu. */

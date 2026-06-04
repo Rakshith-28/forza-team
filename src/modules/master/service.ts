@@ -436,6 +436,157 @@ export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Pro
   };
 }
 
+/** Club id+name options for filter dropdowns (non-deleted, alphabetical). */
+export async function listClubOptions(ctx: AuthContext): Promise<{ id: string; name: string }[]> {
+  assertMasterAdmin(ctx);
+  return prisma.club.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+}
+
+// ===========================================================================
+// Coaches — platform-wide list + detail
+// ===========================================================================
+
+export interface MasterCoachRow {
+  userId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  lastLoginAt: Date | null;
+  clubs: { id: string; name: string }[];
+  teams: { teamId: string; teamName: string; roleType: string }[];
+  roleTypes: string[];
+}
+
+export interface MasterCoachFilters extends PageParams {
+  search?: string;
+  clubId?: string;
+  status?: string;
+  roleType?: string;
+}
+
+/**
+ * All coaches platform-wide — users holding an ACTIVE COACH role assignment,
+ * with their club(s) and team assignments (+ role types). Paginated/filtered
+ * server-side over the users table; per-page club + team data is fetched with
+ * two grouped queries (no N+1).
+ */
+export async function getMasterCoaches(
+  ctx: AuthContext,
+  filters: MasterCoachFilters = {},
+): Promise<Paginated<MasterCoachRow>> {
+  assertMasterAdmin(ctx);
+  const { page, pageSize, skip, take } = normalizePage(filters);
+
+  const where: Prisma.UserWhereInput = {
+    roleAssignments: {
+      some: {
+        status: "ACTIVE",
+        role: { code: "COACH" },
+        ...(filters.clubId ? { clubId: filters.clubId } : {}),
+      },
+    },
+  };
+  if (filters.status) where.status = filters.status;
+  if (filters.roleType) where.teamCoachRoles = { some: { status: "ACTIVE", roleType: filters.roleType } };
+  if (filters.search?.trim()) {
+    const q = filters.search.trim();
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { firstName: { contains: q, mode: "insensitive" } },
+      { lastName: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const [total, users] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      skip,
+      take,
+      select: { id: true, name: true, firstName: true, lastName: true, email: true, phone: true, status: true, lastLoginAt: true },
+    }),
+  ]);
+
+  const userIds = users.map((u) => u.id);
+  const [coachAssignments, teamCoaches] = userIds.length
+    ? await Promise.all([
+        prisma.userRoleAssignment.findMany({
+          where: { userId: { in: userIds }, status: "ACTIVE", role: { code: "COACH" }, clubId: { not: null } },
+          select: { userId: true, club: { select: { id: true, name: true } } },
+        }),
+        prisma.teamCoach.findMany({
+          where: { userId: { in: userIds }, status: "ACTIVE" },
+          select: { userId: true, roleType: true, team: { select: { id: true, name: true } } },
+        }),
+      ])
+    : [[], []];
+
+  const clubsByUser = new Map<string, Map<string, string>>();
+  for (const a of coachAssignments) {
+    if (!a.club) continue;
+    const m = clubsByUser.get(a.userId) ?? new Map<string, string>();
+    m.set(a.club.id, a.club.name);
+    clubsByUser.set(a.userId, m);
+  }
+  const teamsByUser = new Map<string, MasterCoachRow["teams"]>();
+  for (const tc of teamCoaches) {
+    const list = teamsByUser.get(tc.userId) ?? [];
+    list.push({ teamId: tc.team.id, teamName: tc.team.name, roleType: tc.roleType });
+    teamsByUser.set(tc.userId, list);
+  }
+
+  const rows: MasterCoachRow[] = users.map((u) => {
+    const teams = teamsByUser.get(u.id) ?? [];
+    return {
+      userId: u.id,
+      name: u.name?.trim() || `${u.firstName} ${u.lastName}`.trim() || u.email,
+      email: u.email,
+      phone: u.phone,
+      status: u.status,
+      lastLoginAt: u.lastLoginAt,
+      clubs: [...(clubsByUser.get(u.id) ?? new Map()).entries()].map(([id, name]) => ({ id, name })),
+      teams,
+      roleTypes: [...new Set(teams.map((t) => t.roleType))],
+    };
+  });
+
+  return { rows, total, page, pageSize };
+}
+
+/** Lazy counts for a coach detail drawer: players across their teams + evals authored. */
+export async function getMasterCoachDetail(
+  ctx: AuthContext,
+  userId: string,
+): Promise<{ playersOnTeams: number; evaluationsAuthored: number }> {
+  assertMasterAdmin(ctx);
+
+  const teamCoaches = await prisma.teamCoach.findMany({
+    where: { userId, status: "ACTIVE" },
+    select: { teamId: true },
+  });
+  const teamIds = teamCoaches.map((t) => t.teamId);
+
+  const [memberships, evaluationsAuthored] = await Promise.all([
+    teamIds.length
+      ? prisma.playerTeamMembership.findMany({
+          where: { teamId: { in: teamIds }, status: "ACTIVE" },
+          select: { playerId: true },
+          distinct: ["playerId"],
+        })
+      : Promise.resolve([]),
+    prisma.playerEvaluation.count({ where: { createdBy: userId } }),
+  ]);
+
+  return { playersOnTeams: memberships.length, evaluationsAuthored };
+}
+
 /**
  * Toggle a club between ACTIVE and SUSPENDED (master-only, audited). Archiving
  * remains a separate, soft-deleting action in the clubs module.
