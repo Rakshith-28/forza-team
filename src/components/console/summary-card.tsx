@@ -47,8 +47,8 @@ export function SummaryCard({
   const body = (
     <div
       className={cn(
-        "flex h-full flex-col gap-1.5 rounded-xl border bg-card p-5 shadow-sm transition-colors",
-        href && "hover:border-primary",
+        "flex h-full flex-col gap-1.5 rounded-xl border bg-card p-5 shadow-sm transition",
+        href && "hover:border-primary hover:shadow-md",
         className,
       )}
     >

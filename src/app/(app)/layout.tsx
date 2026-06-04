@@ -85,7 +85,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="flex h-14 items-center justify-between border-b bg-card px-4">
-        <Link href="/dashboard" className="font-semibold tracking-tight text-primary">
+        <Link
+          href="/dashboard"
+          className="font-sport text-2xl font-bold uppercase tracking-tight text-primary transition-colors hover:text-primary-hover"
+        >
           Forza Team
         </Link>
         <div className="flex items-center gap-3">
