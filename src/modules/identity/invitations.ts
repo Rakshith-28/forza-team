@@ -38,6 +38,8 @@ export interface CreateInvitationInput {
   email: string;
   roleCode: Role;
   teamId?: string | null;
+  /** For a COACH invite with an initial team: the team_coaches role_type to apply on accept. */
+  teamRoleType?: string | null;
   invitedByUserId: string;
 }
 
@@ -56,6 +58,7 @@ export async function createInvitation(input: CreateInvitationInput) {
       email: input.email,
       roleCode: input.roleCode,
       teamId: input.teamId ?? null,
+      teamRoleType: input.teamRoleType ?? null,
       tokenHash: hashToken(token),
       expiresAt,
       status: "PENDING",
@@ -146,6 +149,22 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
         createdBy: invitation.createdBy,
       },
     });
+    // A COACH invite with an initial team also creates the team_coaches row so
+    // the coach lands with that team visible and appears on the Coaches page.
+    if (invitation.roleCode === "COACH" && invitation.clubId && invitation.teamId) {
+      await tx.teamCoach.upsert({
+        where: { teamId_userId: { teamId: invitation.teamId, userId } },
+        create: {
+          clubId: invitation.clubId,
+          teamId: invitation.teamId,
+          userId,
+          roleType: invitation.teamRoleType ?? "ASSISTANT_COACH",
+          status: "ACTIVE",
+          createdBy: invitation.createdBy,
+        },
+        update: { roleType: invitation.teamRoleType ?? "ASSISTANT_COACH", status: "ACTIVE" },
+      });
+    }
     // A PARENT invite also provisions the parent business profile (parents.user_id
     // is required, so the profile can only exist once the login is created). The
     // admin can then link children to this profile (roster module, Phase 3).

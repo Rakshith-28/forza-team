@@ -13,6 +13,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
   MASTER_ADMIN: [
     { label: "Dashboard", href: "/dashboard/admin" },
     { label: "Clubs", href: "/clubs" },
+    { label: "Coaches", href: "/coaches" },
     { label: "Users" },
     { label: "Audit Logs" },
     { label: "System Settings" },
@@ -23,7 +24,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Teams", href: "/teams" },
     { label: "Players", href: "/players" },
     { label: "Parents", href: "/parents" },
-    { label: "Coaches" },
+    { label: "Coaches", href: "/coaches" },
     { label: "Schedule", href: "/schedule" },
     { label: "Attendance", href: "/schedule" },
     { label: "Announcements", href: "/announcements" },

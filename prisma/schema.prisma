@@ -169,6 +169,8 @@ model Invitation {
   email            String    @db.Citext
   roleCode         String    @map("role_code") @db.VarChar(50)
   teamId           String?   @map("team_id") @db.Uuid
+  // Optional initial team_coaches role_type for a COACH invite (applied on accept).
+  teamRoleType     String?   @map("team_role_type") @db.VarChar(50)
   tokenHash        String    @map("token_hash")
   expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
   acceptedAt       DateTime? @map("accepted_at") @db.Timestamptz(6)
