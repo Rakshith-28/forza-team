@@ -6,8 +6,10 @@ import { requireRoleOrThrow } from "@/lib/auth-guards";
 import {
   getMasterClubDetail,
   getMasterCoachDetail,
+  getMasterUserDetail,
   setClubStatus,
   type MasterClubDetail,
+  type MasterUserDetail,
 } from "@/modules/master/service";
 
 /**
@@ -26,6 +28,12 @@ export async function loadClubDetailAction(clubId: string): Promise<MasterClubDe
 export async function loadCoachDetailAction(userId: string): Promise<{ playersOnTeams: number; evaluationsAuthored: number }> {
   const ctx = await requireRoleOrThrow("MASTER_ADMIN");
   return getMasterCoachDetail(ctx, userId);
+}
+
+/** Lazy-load full user detail when their row opens its drawer. */
+export async function loadUserDetailAction(userId: string): Promise<MasterUserDetail | null> {
+  const ctx = await requireRoleOrThrow("MASTER_ADMIN");
+  return getMasterUserDetail(ctx, userId);
 }
 
 /** Suspend or re-activate a club (audited). Called from the Clubs page row menu. */

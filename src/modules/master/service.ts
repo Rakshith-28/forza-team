@@ -560,6 +560,286 @@ export async function getMasterCoaches(
   return { rows, total, page, pageSize };
 }
 
+// ===========================================================================
+// Users — cross-platform list + detail
+// ===========================================================================
+
+export interface MasterUserRow {
+  userId: string;
+  name: string;
+  email: string;
+  roleCodes: string[];
+  clubNames: string[];
+  status: string;
+  lastLoginAt: Date | null;
+}
+
+export interface MasterUserFilters extends PageParams {
+  search?: string;
+  role?: string;
+  clubId?: string;
+  status?: string;
+}
+
+/** Cross-platform user search with role / club / status filters + pagination. */
+export async function getMasterUsers(
+  ctx: AuthContext,
+  filters: MasterUserFilters = {},
+): Promise<Paginated<MasterUserRow>> {
+  assertMasterAdmin(ctx);
+  const { page, pageSize, skip, take } = normalizePage(filters);
+
+  const where: Prisma.UserWhereInput = {};
+  // Role and/or club must be satisfied by the SAME active assignment.
+  if (filters.role || filters.clubId) {
+    where.roleAssignments = {
+      some: {
+        status: "ACTIVE",
+        ...(filters.role ? { role: { code: filters.role } } : {}),
+        ...(filters.clubId ? { clubId: filters.clubId } : {}),
+      },
+    };
+  }
+  if (filters.status) where.status = filters.status;
+  if (filters.search?.trim()) {
+    const q = filters.search.trim();
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { firstName: { contains: q, mode: "insensitive" } },
+      { lastName: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const [total, users] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      skip,
+      take,
+      select: { id: true, name: true, firstName: true, lastName: true, email: true, status: true, lastLoginAt: true },
+    }),
+  ]);
+
+  const userIds = users.map((u) => u.id);
+  const assignments = userIds.length
+    ? await prisma.userRoleAssignment.findMany({
+        where: { userId: { in: userIds }, status: "ACTIVE" },
+        select: { userId: true, role: { select: { code: true } }, club: { select: { name: true } } },
+      })
+    : [];
+
+  const rolesByUser = new Map<string, Set<string>>();
+  const clubsByUser = new Map<string, Set<string>>();
+  for (const a of assignments) {
+    (rolesByUser.get(a.userId) ?? rolesByUser.set(a.userId, new Set()).get(a.userId)!).add(a.role.code);
+    if (a.club) (clubsByUser.get(a.userId) ?? clubsByUser.set(a.userId, new Set()).get(a.userId)!).add(a.club.name);
+  }
+
+  const rows: MasterUserRow[] = users.map((u) => ({
+    userId: u.id,
+    name: u.name?.trim() || `${u.firstName} ${u.lastName}`.trim() || u.email,
+    email: u.email,
+    roleCodes: [...(rolesByUser.get(u.id) ?? [])],
+    clubNames: [...(clubsByUser.get(u.id) ?? [])],
+    status: u.status,
+    lastLoginAt: u.lastLoginAt,
+  }));
+
+  return { rows, total, page, pageSize };
+}
+
+export interface MasterUserDetail {
+  userId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  assignments: { roleCode: string; clubName: string | null; teamName: string | null; status: string }[];
+  clubNames: string[];
+  notificationPreference: {
+    emailEnabled: boolean;
+    pushEnabled: boolean;
+    smsEnabled: boolean;
+    chatNotificationsEnabled: boolean;
+    announcementNotificationsEnabled: boolean;
+    billingNotificationsEnabled: boolean;
+    scheduleNotificationsEnabled: boolean;
+  } | null;
+  pendingInvitations: { id: string; clubName: string | null; roleCode: string; createdAt: Date }[];
+}
+
+export async function getMasterUserDetail(ctx: AuthContext, userId: string): Promise<MasterUserDetail | null> {
+  assertMasterAdmin(ctx);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      status: true,
+      lastLoginAt: true,
+      createdAt: true,
+      roleAssignments: {
+        where: { status: "ACTIVE" },
+        select: {
+          status: true,
+          role: { select: { code: true } },
+          club: { select: { name: true } },
+          team: { select: { name: true } },
+        },
+      },
+      notificationPreference: {
+        select: {
+          emailEnabled: true,
+          pushEnabled: true,
+          smsEnabled: true,
+          chatNotificationsEnabled: true,
+          announcementNotificationsEnabled: true,
+          billingNotificationsEnabled: true,
+          scheduleNotificationsEnabled: true,
+        },
+      },
+    },
+  });
+  if (!user) return null;
+
+  const pending = await prisma.invitation.findMany({
+    where: { email: user.email, status: "PENDING" },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, roleCode: true, createdAt: true, club: { select: { name: true } } },
+  });
+
+  const clubNames = [...new Set(user.roleAssignments.map((a) => a.club?.name).filter((n): n is string => !!n))];
+
+  return {
+    userId: user.id,
+    name: user.name?.trim() || `${user.firstName} ${user.lastName}`.trim() || user.email,
+    email: user.email,
+    phone: user.phone,
+    status: user.status,
+    lastLoginAt: user.lastLoginAt,
+    createdAt: user.createdAt,
+    assignments: user.roleAssignments.map((a) => ({
+      roleCode: a.role.code,
+      clubName: a.club?.name ?? null,
+      teamName: a.team?.name ?? null,
+      status: a.status,
+    })),
+    clubNames,
+    notificationPreference: user.notificationPreference,
+    pendingInvitations: pending.map((p) => ({
+      id: p.id,
+      clubName: p.club?.name ?? null,
+      roleCode: p.roleCode,
+      createdAt: p.createdAt,
+    })),
+  };
+}
+
+// ===========================================================================
+// Audit logs — system-wide, joined to actor + club
+// ===========================================================================
+
+export interface MasterAuditRow {
+  id: string;
+  createdAt: Date;
+  actorName: string | null;
+  clubName: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  metadata: unknown;
+  ipAddress: string | null;
+}
+
+export interface MasterAuditFilters extends PageParams {
+  dateFrom?: Date;
+  dateTo?: Date;
+  actorUserId?: string;
+  clubId?: string;
+  action?: string;
+  resourceType?: string;
+}
+
+/** System-wide audit log, newest first, with actor + club names resolved. */
+export async function getMasterAuditLogs(
+  ctx: AuthContext,
+  filters: MasterAuditFilters = {},
+): Promise<Paginated<MasterAuditRow>> {
+  assertMasterAdmin(ctx);
+  const { page, pageSize, skip, take } = normalizePage(filters);
+
+  const where: Prisma.AuditLogWhereInput = {};
+  if (filters.actorUserId) where.actorUserId = filters.actorUserId;
+  if (filters.clubId) where.clubId = filters.clubId;
+  if (filters.action?.trim()) where.action = { contains: filters.action.trim(), mode: "insensitive" };
+  if (filters.resourceType?.trim()) where.resourceType = { contains: filters.resourceType.trim(), mode: "insensitive" };
+  if (filters.dateFrom || filters.dateTo) {
+    where.createdAt = {};
+    if (filters.dateFrom) where.createdAt.gte = filters.dateFrom;
+    if (filters.dateTo) where.createdAt.lte = filters.dateTo;
+  }
+
+  const [total, logs] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+      select: {
+        id: true,
+        createdAt: true,
+        actorUserId: true,
+        action: true,
+        resourceType: true,
+        resourceId: true,
+        metadataJson: true,
+        ipAddress: true,
+        club: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  const actorIds = [...new Set(logs.map((l) => l.actorUserId).filter((x): x is string => !!x))];
+  const actors = actorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true, firstName: true, lastName: true, email: true } })
+    : [];
+  const actorById = new Map(actors.map((a) => [a.id, personName(a)]));
+
+  const rows: MasterAuditRow[] = logs.map((l) => ({
+    id: l.id,
+    createdAt: l.createdAt,
+    actorName: l.actorUserId ? (actorById.get(l.actorUserId) ?? null) : null,
+    clubName: l.club?.name ?? null,
+    action: l.action,
+    resourceType: l.resourceType,
+    resourceId: l.resourceId,
+    metadata: l.metadataJson,
+    ipAddress: l.ipAddress,
+  }));
+
+  return { rows, total, page, pageSize };
+}
+
+/** Distinct action + resource-type values, for the audit-log filter dropdowns. */
+export async function getAuditFilterOptions(ctx: AuthContext): Promise<{ actions: string[]; resourceTypes: string[] }> {
+  assertMasterAdmin(ctx);
+  const [actions, resourceTypes] = await Promise.all([
+    prisma.auditLog.findMany({ distinct: ["action"], select: { action: true }, orderBy: { action: "asc" } }),
+    prisma.auditLog.findMany({ distinct: ["resourceType"], select: { resourceType: true }, orderBy: { resourceType: "asc" } }),
+  ]);
+  return { actions: actions.map((a) => a.action), resourceTypes: resourceTypes.map((r) => r.resourceType) };
+}
+
 /** Lazy counts for a coach detail drawer: players across their teams + evals authored. */
 export async function getMasterCoachDetail(
   ctx: AuthContext,

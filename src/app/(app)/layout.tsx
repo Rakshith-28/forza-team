@@ -16,7 +16,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Dashboard", href: "/dashboard/admin" },
     { label: "Clubs", href: "/clubs" },
     { label: "Coaches", href: "/coaches" },
-    { label: "Users" },
+    { label: "Users", href: "/users" },
     { label: "Audit Logs" },
     { label: "System Settings" },
   ],
