@@ -14,6 +14,17 @@ import { defineConfig } from "vitest/config";
  *     npx prisma migrate deploy
  *   TEST_DATABASE_URL=... npm run test:integration
  */
+// Load .env (if present) so we can capture the REAL app DB URLs before we
+// override them — the safety guard in helpers.ts compares TEST_DATABASE_URL
+// against these to refuse running against production.
+try {
+  process.loadEnvFile();
+} catch {
+  /* no .env (CI) — rely on the ambient environment */
+}
+
+const appDatabaseUrl = process.env.DATABASE_URL ?? "";
+const appDirectUrl = process.env.DIRECT_URL ?? "";
 const testDbUrl =
   process.env.TEST_DATABASE_URL ?? "postgresql://user:pass@localhost:5432/forza_integration_unset";
 
@@ -21,10 +32,14 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests-integration/**/*.test.ts"],
-    // The Prisma singleton reads these at import; point them at the test DB.
+    // The Prisma singleton reads DATABASE_URL/DIRECT_URL at import; point them at
+    // the test DB. PROD_* carry the real app URLs so the guard can compare.
     env: {
       DATABASE_URL: testDbUrl,
       DIRECT_URL: testDbUrl,
+      TEST_DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
+      PROD_DATABASE_URL: appDatabaseUrl,
+      PROD_DIRECT_URL: appDirectUrl,
       AUTH_SECRET: "test-secret-at-least-32-characters-long-xx",
     },
     // Integration tests share one DB; don't run files in parallel.

@@ -234,6 +234,15 @@ async function main() {
     }
     console.log(`✓ seeded ${ROLES.length} roles`);
 
+    // PRODUCTION SAFETY: the four roles are the only data production needs (auth
+    // requires them). The Demo FC club + its data must NEVER land in production —
+    // it's a dev/demo fixture. Refuse unless explicitly allowed.
+    const allowDemo = process.env.NODE_ENV !== "production" || process.env.SEED_DEMO === "1";
+    if (!allowDemo) {
+      console.log("• production environment — seeded roles only; skipping Demo FC (set SEED_DEMO=1 to override).");
+      return;
+    }
+
     const club = await client.query<{ id: string }>(
       `INSERT INTO clubs (name, short_code) VALUES ($1, $2)
        ON CONFLICT (short_code) DO UPDATE SET name = EXCLUDED.name

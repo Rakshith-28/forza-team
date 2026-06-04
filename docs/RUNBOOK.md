@@ -89,10 +89,14 @@ generic message + a digest ref; API routes return generic status text.
 
 ## 5. Tests
 
-- `npm test` — guard-level unit + RBAC regression (no DB needed).
-- `npm run test:integration` — DB-backed integration tests. **Gated**: skips
-  unless `TEST_DATABASE_URL` is set to an **isolated** test DB (never the shared
-  dev branch). Example:
+- `npm test` — guard-level unit + RBAC regression (no DB needed). Includes the
+  RBAC/privacy matrix (`tests/rbac/matrix.test.ts`), parent-safe projection, and
+  the decoupled accept→link grant logic (`tests/identity/invitation-grants.test.ts`).
+- `npm run test:integration` — DB-backed integration tests. **Gated + guarded**:
+  skips unless `TEST_DATABASE_URL` is set, and **refuses to run** if that URL
+  resolves to the same database as the app's `DATABASE_URL`/`DIRECT_URL` (fails
+  fast — never touches production). Point it at an **isolated** DB — a Neon test
+  branch (preferred) or local Postgres:
 
   ```bash
   docker run -e POSTGRES_PASSWORD=pw -p 5433:5432 -d postgres:16
@@ -153,3 +157,36 @@ Seed first (`npm run db:seed`), accept the Club Manager invite, then:
 - [ ] A parent cannot edit another child or see another club's data.
 - [ ] File reads go through `/api/files/[id]` (no public URLs); an out-of-scope
       file returns 403.
+
+---
+
+## 7. Production seed & first-deploy verification
+
+### Production seed safety
+`npm run db:seed` seeds the four **roles** (auth needs them) and, **only outside
+production**, the **Demo FC** demo dataset. In production the seed prints
+"seeded roles only; skipping Demo FC" and stops — Demo FC can never reach prod
+(override intentionally with `SEED_DEMO=1`, not recommended). Production schema is
+applied via `npm run db:deploy` (`prisma migrate deploy`), never `migrate dev`.
+
+Minimal production bootstrap:
+```bash
+npm run db:deploy        # apply migrations
+NODE_ENV=production npm run db:seed   # roles only (no Demo FC)
+# then create the first Master Admin + a real club via your admin path
+```
+
+### First-deploy verification checklist
+After the first deploy to a fresh environment, confirm:
+
+- [ ] **Migrations applied** — `prisma migrate deploy` reports all migrations applied; `prisma migrate status` is clean.
+- [ ] **Env present & validated** — app boots without env errors (the zod schema in `src/lib/env.ts` fails fast on missing required vars).
+- [ ] **Connection model** — `DATABASE_URL` is the **pooled** Neon string, `DIRECT_URL` the **direct** one; serverless functions don't exhaust connections under load.
+- [ ] **Roles seeded, Demo FC absent** — `roles` has 4 rows; no `clubs` row with `short_code = 'DEMO'`.
+- [ ] **Login works** — sign-in + session persists; `BETTER_AUTH_URL` matches the deploy origin.
+- [ ] **Invite email sends** — with `RESEND_API_KEY` set, an invite delivers a working accept link (dev without a key logs the link to the server console).
+- [ ] **File upload works** — `STORAGE_DRIVER=blob` + `BLOB_READ_WRITE_TOKEN`; a player-photo upload round-trips and renders via the permission-checked proxy `/api/files/[id]` (no public URLs).
+- [ ] **No secrets in the client bundle** — `grep` the built client chunks for `AUTH_SECRET` / `BLOB_READ_WRITE_TOKEN` / `RESEND_API_KEY` → no matches (env is server-only; never `NEXT_PUBLIC_*`).
+- [ ] **Health check** — `GET /api/health` returns OK.
+- [ ] **No client console errors** on the dashboards (admin + parent).
+- [ ] **Smoke the cascade** — run the §6 per-role QA checklist once.
