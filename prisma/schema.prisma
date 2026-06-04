@@ -1314,3 +1314,24 @@ model AuditLog {
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
 }
+
+// =============================================================================
+// MODULE: master — platform-wide system settings (Master Admin only)
+// =============================================================================
+
+// Singleton row of GLOBAL platform settings, distinct from per-club
+// `club_settings`. Holds platform-wide master switches and the defaults applied
+// to brand-new clubs. Exactly one row exists (id = "system").
+model SystemSettings {
+  id                         String   @id @default("system")
+  aiFeaturesEnabled          Boolean  @default(true) @map("ai_features_enabled")
+  maintenanceMode            Boolean  @default(false) @map("maintenance_mode")
+  defaultCurrency            String   @default("USD") @map("default_currency") @db.VarChar(10)
+  defaultRegistrationEnabled Boolean  @default(true) @map("default_registration_enabled")
+  defaultBillingEnabled      Boolean  @default(true) @map("default_billing_enabled")
+  defaultSmsNotifications    Boolean  @default(false) @map("default_sms_notifications")
+  updatedAt                  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy                  String?  @map("updated_by") @db.Uuid
+
+  @@map("system_settings")
+}

@@ -285,6 +285,7 @@ UTILITY
 - notifications
 - notification_preferences
 - audit_logs
+- system_settings
 
 ---
 
@@ -1637,6 +1638,34 @@ CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
 CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
 ```
+
+---
+
+## 7.52 `system_settings`
+
+Singleton table of **global, platform-wide** settings managed by Master Admin.
+Distinct from per-club `club_settings`: this holds platform master switches and
+the defaults applied to brand-new clubs (each club can override afterwards in
+`club_settings`). Exactly one row exists, with the fixed id `'system'`.
+
+```sql
+CREATE TABLE system_settings (
+  id TEXT PRIMARY KEY DEFAULT 'system',
+  ai_features_enabled BOOLEAN NOT NULL DEFAULT true,
+  maintenance_mode BOOLEAN NOT NULL DEFAULT false,
+  default_currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  default_registration_enabled BOOLEAN NOT NULL DEFAULT true,
+  default_billing_enabled BOOLEAN NOT NULL DEFAULT true,
+  default_sms_notifications BOOLEAN NOT NULL DEFAULT false,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by UUID NULL
+);
+```
+
+### Rules
+- Master Admin only (system scope); reads/writes go through the master module
+  service, and every write records a `system_settings.update` audit entry.
+- The row is created lazily on first read if absent.
 
 ---
 

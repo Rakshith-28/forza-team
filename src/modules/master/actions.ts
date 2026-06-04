@@ -3,11 +3,15 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRoleOrThrow } from "@/lib/auth-guards";
+import { ForbiddenError } from "@/lib/rbac";
+import type { FormState } from "@/modules/clubs/action-state";
+import { updateSystemSettingsSchema } from "@/modules/master/schemas";
 import {
   getMasterClubDetail,
   getMasterCoachDetail,
   getMasterUserDetail,
   setClubStatus,
+  updateSystemSettings,
   type MasterClubDetail,
   type MasterUserDetail,
 } from "@/modules/master/service";
@@ -42,4 +46,26 @@ export async function toggleClubStatusAction(clubId: string, status: "ACTIVE" | 
   await setClubStatus(ctx, clubId, status);
   revalidatePath("/clubs");
   revalidatePath("/dashboard/admin");
+}
+
+/** Save global system settings (audited). */
+export async function updateSystemSettingsAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const ctx = await requireRoleOrThrow("MASTER_ADMIN");
+  const parsed = updateSystemSettingsSchema.safeParse({
+    aiFeaturesEnabled: fd.get("aiFeaturesEnabled") != null,
+    maintenanceMode: fd.get("maintenanceMode") != null,
+    defaultCurrency: fd.get("defaultCurrency"),
+    defaultRegistrationEnabled: fd.get("defaultRegistrationEnabled") != null,
+    defaultBillingEnabled: fd.get("defaultBillingEnabled") != null,
+    defaultSmsNotifications: fd.get("defaultSmsNotifications") != null,
+  });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  try {
+    await updateSystemSettings(ctx, parsed.data);
+  } catch (e) {
+    if (e instanceof ForbiddenError) return { ok: false, error: "You don't have access to do that." };
+    throw e;
+  }
+  revalidatePath("/system-settings");
+  return { ok: true, error: null };
 }

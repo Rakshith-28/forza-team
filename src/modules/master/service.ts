@@ -436,6 +436,83 @@ export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Pro
   };
 }
 
+// ===========================================================================
+// System settings — global, platform-wide singleton (distinct from club_settings)
+// ===========================================================================
+
+const SYSTEM_SETTINGS_ID = "system";
+
+export interface SystemSettingsData {
+  aiFeaturesEnabled: boolean;
+  maintenanceMode: boolean;
+  defaultCurrency: string;
+  defaultRegistrationEnabled: boolean;
+  defaultBillingEnabled: boolean;
+  defaultSmsNotifications: boolean;
+  updatedAt: Date;
+}
+
+function toSystemSettingsData(row: {
+  aiFeaturesEnabled: boolean;
+  maintenanceMode: boolean;
+  defaultCurrency: string;
+  defaultRegistrationEnabled: boolean;
+  defaultBillingEnabled: boolean;
+  defaultSmsNotifications: boolean;
+  updatedAt: Date;
+}): SystemSettingsData {
+  return {
+    aiFeaturesEnabled: row.aiFeaturesEnabled,
+    maintenanceMode: row.maintenanceMode,
+    defaultCurrency: row.defaultCurrency,
+    defaultRegistrationEnabled: row.defaultRegistrationEnabled,
+    defaultBillingEnabled: row.defaultBillingEnabled,
+    defaultSmsNotifications: row.defaultSmsNotifications,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/** Read the global settings, creating the singleton row on first access. */
+export async function getSystemSettings(ctx: AuthContext): Promise<SystemSettingsData> {
+  assertMasterAdmin(ctx);
+  const existing = await prisma.systemSettings.findUnique({ where: { id: SYSTEM_SETTINGS_ID } });
+  if (existing) return toSystemSettingsData(existing);
+  const created = await prisma.systemSettings.create({ data: { id: SYSTEM_SETTINGS_ID } });
+  return toSystemSettingsData(created);
+}
+
+export interface UpdateSystemSettingsInput {
+  aiFeaturesEnabled: boolean;
+  maintenanceMode: boolean;
+  defaultCurrency: string;
+  defaultRegistrationEnabled: boolean;
+  defaultBillingEnabled: boolean;
+  defaultSmsNotifications: boolean;
+}
+
+/** Update the global settings (master-only, audited). */
+export async function updateSystemSettings(
+  ctx: AuthContext,
+  input: UpdateSystemSettingsInput,
+): Promise<SystemSettingsData> {
+  assertMasterAdmin(ctx);
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.systemSettings.upsert({
+      where: { id: SYSTEM_SETTINGS_ID },
+      create: { id: SYSTEM_SETTINGS_ID, ...input },
+      update: { ...input, updatedBy: ctx.userId },
+    });
+    await recordAudit(tx, {
+      action: "system_settings.update",
+      resourceType: "system_settings",
+      resourceId: SYSTEM_SETTINGS_ID,
+      actorUserId: ctx.userId,
+      metadata: { ...input },
+    });
+    return toSystemSettingsData(updated);
+  });
+}
+
 /** Club id+name options for filter dropdowns (non-deleted, alphabetical). */
 export async function listClubOptions(ctx: AuthContext): Promise<{ id: string; name: string }[]> {
   assertMasterAdmin(ctx);

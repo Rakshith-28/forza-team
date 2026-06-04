@@ -1,8 +1,22 @@
+import { z } from "zod";
+
 /**
  * Shared vocab + filter/pagination types for the master module. Plain constants
  * and types (no "use server"), importable by both server services and client
  * filter UI.
  */
+
+export const CURRENCIES = ["USD", "CAD", "EUR", "GBP", "AUD", "MXN"] as const;
+
+/** System settings form input, shared by the settings form and its server action. */
+export const updateSystemSettingsSchema = z.object({
+  aiFeaturesEnabled: z.boolean(),
+  maintenanceMode: z.boolean(),
+  defaultCurrency: z.enum(CURRENCIES),
+  defaultRegistrationEnabled: z.boolean(),
+  defaultBillingEnabled: z.boolean(),
+  defaultSmsNotifications: z.boolean(),
+});
 
 export const CLUB_STATUSES = ["ACTIVE", "SUSPENDED", "ARCHIVED"] as const;
 export type ClubStatus = (typeof CLUB_STATUSES)[number];
