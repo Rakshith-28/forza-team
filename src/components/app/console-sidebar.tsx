@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import {
   BarChart3,
   Building2,
   Calendar,
   CalendarRange,
-  ChevronRight,
   ClipboardCheck,
   ClipboardList,
   CreditCard,
@@ -33,6 +31,12 @@ import { cn } from "@/lib/utils";
 export interface NavItem {
   label: string;
   href?: string;
+}
+
+export interface SidebarProfile {
+  name: string;
+  initial: string;
+  roleLabel: string;
 }
 
 /** Icon per nav label (Console roles only). Falls back to a neutral glyph. */
@@ -66,120 +70,99 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+// Shared transition for the label reveal as the rail expands.
+const LABEL = "min-w-0 whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/sb:opacity-100 group-focus-within/sb:opacity-100";
+
 /**
- * Console navigation (admin/coach). A single translucent "pill" highlight
- * physically slides + resizes to the active item (measured from the DOM) with a
- * gentle spring, icon chips fill green when active, and the rows fan in once on
- * load. All motion is gated behind motion-safe for reduced-motion users.
+ * Console navigation — a dark, floating icon rail that expands to a labelled
+ * panel on hover/focus (overlaying content, no reflow). Collapsed it shows
+ * centered icons + the profile avatar with native tooltips; expanded it reveals
+ * the name, role, and item labels. Active route highlighted with a white pill.
  */
-export function ConsoleSidebar({ items }: { items: NavItem[] }) {
+export function ConsoleSidebar({ items, profile }: { items: NavItem[]; profile: SidebarProfile }) {
   const pathname = usePathname();
-  const listRef = useRef<HTMLUListElement>(null);
-  const [indicator, setIndicator] = useState<{ top: number; height: number; ready: boolean }>({
-    top: 0,
-    height: 0,
-    ready: false,
-  });
-  // Don't animate the highlight into place on first paint — only when it moves.
-  const [armed, setArmed] = useState(false);
-
-  useEffect(() => {
-    const measure = () => {
-      const ul = listRef.current;
-      if (!ul) return;
-      const el = ul.querySelector<HTMLElement>('[data-active="true"]');
-      if (el) setIndicator({ top: el.offsetTop, height: el.offsetHeight, ready: true });
-      else setIndicator((s) => ({ ...s, ready: false }));
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [pathname, items]);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setArmed(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
 
   return (
-    <nav className="hidden w-60 shrink-0 border-r bg-sidebar p-3 md:block">
-      <p className="px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
-        Navigation
-      </p>
-      <ul ref={listRef} className="relative flex flex-col gap-0.5">
-        {/* The sliding highlight — moves + resizes to the active row. */}
-        <span
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute inset-x-1 z-0 rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20",
-            indicator.ready ? "opacity-100" : "opacity-0",
-            armed &&
-              "motion-safe:transition-[transform,height] motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.34,1.4,0.64,1)]",
-          )}
-          style={{ transform: `translateY(${indicator.top}px)`, height: indicator.ready ? indicator.height : 0 }}
-        />
+    // Spacer reserves the collapsed rail's footprint so content doesn't shift
+    // when the panel expands over it.
+    <div className="relative hidden w-20 shrink-0 md:block">
+      <aside
+        className={cn(
+          "group/sb absolute inset-y-2 left-2 z-30 flex w-16 flex-col overflow-hidden rounded-2xl",
+          "bg-neutral-900 text-neutral-400 ring-1 ring-white/10 shadow-2xl",
+          "transition-[width] duration-300 ease-out hover:w-60 focus-within:w-60 motion-reduce:transition-none",
+        )}
+      >
+        {/* Profile */}
+        <div className="flex h-16 shrink-0 items-center">
+          <span className="grid size-16 shrink-0 place-items-center">
+            <span className="grid size-9 place-items-center rounded-full bg-neutral-700 text-sm font-semibold text-white ring-2 ring-white/10">
+              {profile.initial}
+            </span>
+          </span>
+          <div className={cn(LABEL, "pr-3")}>
+            <p className="truncate text-sm font-semibold text-white">{profile.name}</p>
+            <p className="truncate text-xs text-neutral-500">{profile.roleLabel}</p>
+          </div>
+        </div>
 
-        {items.map((item, i) => {
-          const Icon = ICONS[item.label] ?? Building2;
-          const enter =
-            "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-left-3 motion-safe:fill-mode-both motion-safe:duration-300";
-          const style = { animationDelay: `${i * 35}ms` } as const;
+        <div className="mx-3 mb-1 border-t border-white/10" />
 
-          if (!item.href) {
-            return (
-              <li key={item.label} className={cn("relative z-10", enter)} style={style}>
-                <span className="group/navitem flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm text-muted-foreground/70">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-secondary/60 text-muted-foreground/60">
-                    <Icon className="size-4" />
-                  </span>
-                  <span className="flex-1">{item.label}</span>
-                  <Lock className="size-3.5 text-muted-foreground/50" />
-                </span>
-              </li>
-            );
-          }
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-1">
+          <ul className="flex flex-col gap-0.5">
+            {items.map((item) => {
+              const Icon = ICONS[item.label] ?? Building2;
 
-          const active = isActive(pathname, item.href);
+              if (!item.href) {
+                return (
+                  <li key={item.label}>
+                    <span
+                      title={item.label}
+                      className="group/item relative mx-2 flex h-11 items-center rounded-xl text-neutral-600"
+                    >
+                      <span className="grid size-12 shrink-0 place-items-center">
+                        <Icon className="size-5" />
+                      </span>
+                      <span className={cn(LABEL, "flex-1 text-sm font-medium")}>{item.label}</span>
+                      <Lock className={cn(LABEL, "mr-3 size-3.5")} />
+                    </span>
+                  </li>
+                );
+              }
 
-          return (
-            <li
-              key={item.label}
-              data-active={active || undefined}
-              className={cn("relative z-10", enter)}
-              style={style}
-            >
-              <Link
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "group/navitem flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm transition-colors duration-200",
-                  active ? "font-semibold text-primary" : "text-sidebar-foreground hover:text-foreground",
-                )}
-              >
-                <span
-                  className={cn(
-                    "grid size-7 shrink-0 place-items-center rounded-lg transition-all duration-200 ease-out",
-                    active
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-secondary text-muted-foreground group-hover/navitem:scale-110 group-hover/navitem:text-foreground",
-                  )}
-                >
-                  <Icon className="size-4" />
-                </span>
-                <span className="flex-1 transition-transform duration-200 ease-out group-hover/navitem:translate-x-0.5">
-                  {item.label}
-                </span>
-                <ChevronRight
-                  className={cn(
-                    "size-4 text-primary transition-all duration-200 ease-out",
-                    active ? "opacity-100" : "-translate-x-1 opacity-0",
-                  )}
-                />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+              const active = isActive(pathname, item.href);
+
+              return (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    title={item.label}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "group/item relative mx-2 flex h-11 items-center rounded-xl transition-colors duration-200",
+                      active ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white",
+                    )}
+                  >
+                    {/* Brand accent rail on the active item. */}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary transition-opacity",
+                        active ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    <span className="grid size-12 shrink-0 place-items-center">
+                      <Icon className="size-5" />
+                    </span>
+                    <span className={cn(LABEL, "flex-1 text-sm font-medium")}>{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </aside>
+    </div>
   );
 }

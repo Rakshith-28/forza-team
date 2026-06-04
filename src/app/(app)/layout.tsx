@@ -82,6 +82,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const navItems = NAV[ctx.role];
+  const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -93,7 +94,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           Forza Team
         </Link>
         <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-muted-foreground sm:inline">{displayName}</span>
           <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
             {ROLE_LABELS[ctx.role]}
           </span>
@@ -102,7 +102,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
 
       <div className="flex flex-1">
-        <ConsoleSidebar items={navItems} />
+        <ConsoleSidebar
+          items={navItems}
+          profile={{ name: displayName, initial, roleLabel: ROLE_LABELS[ctx.role] }}
+        />
 
         <main className="flex-1 p-6">{children}</main>
       </div>
