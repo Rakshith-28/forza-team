@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ForbiddenError, type AuthContext } from "@/lib/rbac";
+import { planInvitationGrants } from "@/modules/identity/invitations";
 import {
+  clubAdminState,
   getAuditFilterOptions,
+  getClubAdmins,
   getMasterAuditLogs,
   getMasterClubDetail,
   getMasterClubs,
@@ -12,7 +15,10 @@ import {
   getMasterUserDetail,
   getMasterUsers,
   getSystemSettings,
+  inviteClubAdmin,
   listClubOptions,
+  resendClubAdminInvite,
+  revokeClubAdminInvite,
   setClubStatus,
   updateSystemSettings,
 } from "@/modules/master/service";
@@ -72,8 +78,36 @@ describe("master services reject non-master roles before DB access", () => {
       await expect(getAuditFilterOptions(c)).rejects.toBeInstanceOf(ForbiddenError);
       await expect(getSystemSettings(c)).rejects.toBeInstanceOf(ForbiddenError);
       await expect(updateSystemSettings(c, SETTINGS_INPUT)).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(getClubAdmins(c, "club-a")).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(inviteClubAdmin(c, "club-a", { email: "a@b.com" })).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(resendClubAdminInvite(c, "inv-1")).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(revokeClubAdminInvite(c, "inv-1")).rejects.toBeInstanceOf(ForbiddenError);
     });
   }
+});
+
+describe("clubAdminState (orphan indicator)", () => {
+  it("ok when an active admin exists (regardless of pending invites)", () => {
+    expect(clubAdminState(true, false)).toBe("ok");
+    expect(clubAdminState(true, true)).toBe("ok");
+  });
+  it("pending when only an invite is out", () => {
+    expect(clubAdminState(false, true)).toBe("pending");
+  });
+  it("none (orphan) when there is neither", () => {
+    expect(clubAdminState(false, false)).toBe("none");
+  });
+});
+
+describe("CLUB_ADMIN acceptance grants", () => {
+  it("plans no side-grants, so acceptance yields only the role assignment", () => {
+    // The full acceptInvitation (Better Auth signUpEmail) needs a request context
+    // and is exercised in the auth flow; its CLUB_ADMIN path creates a
+    // user_role_assignment and applies these (empty) grants.
+    expect(
+      planInvitationGrants({ roleCode: "CLUB_ADMIN", clubId: "club-a", teamId: null, teamRoleType: null, linkMetadata: null }),
+    ).toEqual({ teamCoachRoleType: null, parentLink: null });
+  });
 });
 
 describe("normalizePage", () => {

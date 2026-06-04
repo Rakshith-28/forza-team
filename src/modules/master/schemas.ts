@@ -8,6 +8,14 @@ import { z } from "zod";
 
 export const CURRENCIES = ["USD", "CAD", "EUR", "GBP", "AUD", "MXN"] as const;
 
+/** Invite/manage an initial or additional CLUB_ADMIN for a club. */
+export const clubAdminInviteSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Valid email required").max(255),
+  firstName: z.string().trim().max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
+});
+export type ClubAdminInviteInput = z.infer<typeof clubAdminInviteSchema>;
+
 /** System settings form input, shared by the settings form and its server action. */
 export const updateSystemSettingsSchema = z.object({
   aiFeaturesEnabled: z.boolean(),

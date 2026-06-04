@@ -77,7 +77,7 @@ run("MVP journey (service-layer end-to-end)", () => {
       linkedPlayerIds: [],
       childTeamIds: [],
     };
-    const club = await createClub(master, { name: "ITJourney", shortCode: `ITJ-${uid().slice(0, 8)}` });
+    const { club } = await createClub(master, { name: "ITJourney", shortCode: `ITJ-${uid().slice(0, 8)}` });
     created.clubId = club.id;
     const admin = adminCtx(club.id);
 

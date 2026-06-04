@@ -160,8 +160,12 @@ export interface CreateInvitationInput {
   teamId?: string | null;
   /** For a COACH invite with an initial team: the team_coaches role_type to apply on accept. */
   teamRoleType?: string | null;
-  /** For a PARENT invite carrying a child link: applied as a player_parent_link on accept. */
-  linkMetadata?: ParentLinkMetadata | null;
+  /**
+   * For a PARENT invite carrying a child link: applied as a player_parent_link on
+   * accept. Also reused as generic jsonb for other roles (e.g. a CLUB_ADMIN invite
+   * carries `{ firstName, lastName }` for display in the pending-admin list).
+   */
+  linkMetadata?: ParentLinkMetadata | Record<string, unknown> | null;
   invitedByUserId: string;
 }
 
@@ -174,16 +178,15 @@ export interface ParentLinkMetadata {
   canPay: boolean;
 }
 
-export async function createInvitation(input: CreateInvitationInput) {
+/** Build the invitation row payload + the raw token (hashed at rest). */
+function prepareInvitationData(input: CreateInvitationInput): {
+  token: string;
+  data: Prisma.InvitationUncheckedCreateInput;
+} {
   const token = randomBytes(TOKEN_BYTES).toString("base64url");
   const expiresAt = new Date(Date.now() + EXPIRY_HOURS * 3600 * 1000);
-
-  const club = await prisma.club.findUnique({
-    where: { id: input.clubId },
-    select: { name: true },
-  });
-
-  const invitation = await prisma.invitation.create({
+  return {
+    token,
     data: {
       clubId: input.clubId,
       email: input.email,
@@ -198,18 +201,60 @@ export async function createInvitation(input: CreateInvitationInput) {
       status: "PENDING",
       createdBy: input.invitedByUserId,
     },
-    select: { id: true },
+  };
+}
+
+/** The accept URL the recipient clicks. The raw token lives ONLY in this link. */
+export function buildAcceptUrl(invitationId: string, token: string): string {
+  return `${env.BETTER_AUTH_URL}/accept-invite?id=${invitationId}&token=${token}`;
+}
+
+/** Best-effort invitation email (never throws). Returns whether it was delivered. */
+export async function sendInvitationEmail(params: {
+  to: string;
+  url: string;
+  clubName: string;
+  roleCode: Role;
+}): Promise<{ delivered: boolean }> {
+  const { subject, html, text } = invitationEmail({
+    url: params.url,
+    clubName: params.clubName,
+    roleLabel: ROLE_LABELS[params.roleCode],
   });
+  return sendEmail({ to: params.to, subject, html, text });
+}
+
+/**
+ * Create an invitation row INSIDE an existing transaction (no email send). Lets a
+ * caller mint a club + its initial admin invite atomically; the caller is
+ * responsible for sending the email AFTER the tx commits (use buildAcceptUrl +
+ * sendInvitationEmail). Returns the raw token so the URL can be built.
+ */
+export async function createInvitationInTx(
+  tx: Prisma.TransactionClient,
+  input: CreateInvitationInput,
+): Promise<{ id: string; token: string }> {
+  const { token, data } = prepareInvitationData(input);
+  const invitation = await tx.invitation.create({ data, select: { id: true } });
+  return { id: invitation.id, token };
+}
+
+export async function createInvitation(
+  input: CreateInvitationInput,
+): Promise<{ id: string; emailDelivered: boolean; acceptUrl: string }> {
+  const { token, data } = prepareInvitationData(input);
+  const club = await prisma.club.findUnique({ where: { id: input.clubId }, select: { name: true } });
+  const invitation = await prisma.invitation.create({ data, select: { id: true } });
 
   // Token travels only in the email link; only its hash is stored. The record
   // is already committed above; emailing is best-effort and never throws.
-  const url = `${env.BETTER_AUTH_URL}/accept-invite?id=${invitation.id}&token=${token}`;
-  const { subject, html, text } = invitationEmail({
-    url,
+  const acceptUrl = buildAcceptUrl(invitation.id, token);
+  const { delivered } = await sendInvitationEmail({
+    to: input.email,
+    url: acceptUrl,
     clubName: club?.name ?? "your club",
-    roleLabel: ROLE_LABELS[input.roleCode],
+    roleCode: input.roleCode,
   });
-  const { delivered } = await sendEmail({ to: input.email, subject, html, text });
 
   logger.info("invitation created", {
     invitationId: invitation.id,
@@ -217,7 +262,49 @@ export async function createInvitation(input: CreateInvitationInput) {
     roleCode: input.roleCode,
     emailDelivered: delivered,
   });
-  return { id: invitation.id, emailDelivered: delivered };
+  return { id: invitation.id, emailDelivered: delivered, acceptUrl };
+}
+
+/**
+ * Resend a pending invitation: rotates the token (invalidating the old link),
+ * extends expiry, and re-sends the email. Returns the fresh accept URL +
+ * delivery flag, or null if the invitation no longer exists.
+ */
+export async function resendInvitation(
+  invitationId: string,
+): Promise<{ acceptUrl: string; emailDelivered: boolean } | null> {
+  const inv = await prisma.invitation.findUnique({ where: { id: invitationId } });
+  if (!inv) return null;
+
+  const token = randomBytes(TOKEN_BYTES).toString("base64url");
+  const expiresAt = new Date(Date.now() + EXPIRY_HOURS * 3600 * 1000);
+  await prisma.invitation.update({
+    where: { id: invitationId },
+    data: { tokenHash: hashToken(token), expiresAt, status: "PENDING", acceptedAt: null, acceptedByUserId: null },
+  });
+
+  const acceptUrl = buildAcceptUrl(invitationId, token);
+  const club = inv.clubId ? await prisma.club.findUnique({ where: { id: inv.clubId }, select: { name: true } }) : null;
+  const { delivered } = await sendInvitationEmail({
+    to: inv.email,
+    url: acceptUrl,
+    clubName: club?.name ?? "your club",
+    roleCode: inv.roleCode as Role,
+  });
+  logger.info("invitation resent", { invitationId, emailDelivered: delivered });
+  return { acceptUrl, emailDelivered: delivered };
+}
+
+/**
+ * Revoke a pending invitation — its link stops working (invitationState treats a
+ * non-PENDING status as already-used). Returns whether a pending row was revoked.
+ */
+export async function revokeInvitation(invitationId: string): Promise<boolean> {
+  const result = await prisma.invitation.updateMany({
+    where: { id: invitationId, status: "PENDING" },
+    data: { status: "REVOKED" },
+  });
+  return result.count > 0;
 }
 
 export interface AcceptInvitationInput {

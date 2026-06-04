@@ -25,6 +25,7 @@ import { updateClubAction } from "@/modules/clubs/actions";
 import { toggleClubStatusAction } from "@/modules/master/actions";
 import type { MasterClubListItem } from "@/modules/master/service";
 
+import { ClubAdminBadge } from "./admin-badge";
 import { ClubDetailDrawer } from "./club-detail-drawer";
 
 function fmtDate(d: Date | string): string {
@@ -52,7 +53,16 @@ export function ClubsTable({ rows }: { rows: MasterClubListItem[] }) {
       cell: (c) => <PersonCell name={c.name} subtext={c.shortCode} imageUrl={c.logoUrl} />,
     },
     { key: "shortCode", header: "Short Code", cell: (c) => <span className="text-muted-foreground">{c.shortCode}</span> },
-    { key: "status", header: "Status", cell: (c) => <StatusBadge status={c.status} /> },
+    {
+      key: "status",
+      header: "Status",
+      cell: (c) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={c.status} />
+          <ClubAdminBadge state={c.adminState} />
+        </div>
+      ),
+    },
     { key: "teams", header: "Teams", className: "text-right tabular-nums", cell: (c) => c.teamCount },
     { key: "users", header: "Users", className: "text-right tabular-nums", cell: (c) => c.userCount },
     { key: "created", header: "Created", cell: (c) => <span className="text-muted-foreground">{fmtDate(c.createdAt)}</span> },

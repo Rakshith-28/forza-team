@@ -18,6 +18,9 @@ import { ROLE_LABELS, isRole } from "@/lib/rbac";
 import { loadClubDetailAction } from "@/modules/master/actions";
 import type { MasterClubDetail } from "@/modules/master/service";
 
+import { ClubAdminBadge } from "./admin-badge";
+import { ClubAdminsManager } from "./club-admins-manager";
+
 function fmtDate(d: Date | string | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -100,6 +103,7 @@ function ClubDetailContent({ clubId }: { clubId: string }) {
               <p className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
                 <span>{detail.shortCode}</span>
                 <StatusBadge status={detail.status} />
+                <ClubAdminBadge state={detail.adminState} />
               </p>
             ) : null}
           </div>
@@ -183,10 +187,13 @@ function ClubDetailContent({ clubId }: { clubId: string }) {
               </TabsContent>
 
               <TabsContent value="users">
+                <ClubAdminsManager clubId={detail.id} initialAdmins={detail.clubAdmins} />
+
+                <h3 className="mt-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground">All users</h3>
                 {detail.users.length === 0 ? (
                   <p className="py-6 text-center text-sm text-muted-foreground">No users yet.</p>
                 ) : (
-                  <ul className="divide-y">
+                  <ul className="mt-2 divide-y">
                     {detail.users.map((u) => (
                       <li key={u.userId} className="flex items-center justify-between gap-3 py-2.5">
                         <div className="min-w-0">

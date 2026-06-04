@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ForbiddenError } from "@/lib/rbac";
-import type { FormState } from "@/modules/clubs/action-state";
+import type { CreateClubState, FormState } from "@/modules/clubs/action-state";
 import {
   assignCoach,
   archiveClub,
@@ -58,17 +58,30 @@ async function activeClub() {
 }
 
 // --- Clubs (Master) --------------------------------------------------------
-export async function createClubAction(_prev: FormState, fd: FormData): Promise<FormState> {
+export async function createClubAction(_prev: CreateClubState, fd: FormData): Promise<CreateClubState> {
   const { ctx } = await requireUserAndContext();
-  const parsed = createClubSchema.safeParse({ name: str(fd, "name"), shortCode: str(fd, "shortCode") });
-  if (!parsed.success) return failZod(parsed.error);
+  // The initial-admin section is optional: only build it when an email is given.
+  const adminEmail = optStr(fd, "adminEmail");
+  const admin = adminEmail
+    ? { email: adminEmail, firstName: optStr(fd, "adminFirstName"), lastName: optStr(fd, "adminLastName") }
+    : undefined;
+
+  const parsed = createClubSchema.safeParse({ name: str(fd, "name"), shortCode: str(fd, "shortCode"), admin });
+  if (!parsed.success) return { ...failZod(parsed.error), invite: null };
   try {
-    await createClub(ctx, parsed.data);
+    const result = await createClub(ctx, parsed.data);
+    revalidatePath("/clubs");
+    revalidatePath("/dashboard/admin");
+    return {
+      ok: true,
+      error: null,
+      invite: result.invite
+        ? { acceptUrl: result.invite.acceptUrl, emailDelivered: result.invite.emailDelivered, email: result.invite.email }
+        : null,
+    };
   } catch (e) {
-    return failService(e);
+    return { ...failService(e), invite: null };
   }
-  revalidatePath("/clubs");
-  return { ok: true, error: null };
 }
 
 export async function updateClubAction(_prev: FormState, fd: FormData): Promise<FormState> {

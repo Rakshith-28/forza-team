@@ -2,14 +2,42 @@ import "server-only";
 
 import { prisma } from "@/db/client";
 import { Prisma } from "@/db/generated/client";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, recordAuditStandalone } from "@/lib/audit";
 import { ForbiddenError, type AuthContext } from "@/lib/rbac";
 import {
+  createInvitation,
+  resendInvitation,
+  revokeInvitation,
+} from "@/modules/identity/invitations";
+import {
   normalizePage,
+  type ClubAdminInviteInput,
   type ClubStatus,
   type Paginated,
   type PageParams,
 } from "@/modules/master/schemas";
+
+/** Raised on a uniqueness/duplicate conflict; surfaced as a friendly error at the action layer. */
+export class ConflictError extends Error {
+  readonly code = "CONFLICT";
+  constructor(message: string) {
+    super(message);
+    this.name = "ConflictError";
+  }
+}
+
+export type ClubAdminState = "ok" | "pending" | "none";
+
+/**
+ * Orphan-club state from admin presence (pure — unit-testable): an active admin
+ * means healthy; otherwise a pending invite means "pending"; nothing means
+ * "none" (a true orphan).
+ */
+export function clubAdminState(hasActiveAdmin: boolean, hasPendingInvite: boolean): ClubAdminState {
+  if (hasActiveAdmin) return "ok";
+  if (hasPendingInvite) return "pending";
+  return "none";
+}
 
 /**
  * Master module service layer — system-scope reads/writes for the Master Admin
@@ -121,6 +149,8 @@ export interface MasterClubListItem {
   teamCount: number;
   playerCount: number;
   userCount: number;
+  /** Orphan indicator: ok = has an active admin; pending = invite out; none = orphan. */
+  adminState: ClubAdminState;
 }
 
 export interface MasterClubFilters extends PageParams {
@@ -182,7 +212,7 @@ export async function getMasterClubs(
   ]);
 
   const clubIds = clubs.map((c) => c.id);
-  const [teamGroups, playerGroups, userPairs] = clubIds.length
+  const [teamGroups, playerGroups, userPairs, activeAdmins, pendingAdminInvites] = clubIds.length
     ? await Promise.all([
         prisma.team.groupBy({ by: ["clubId"], where: { clubId: { in: clubIds }, deletedAt: null }, _count: { _all: true } }),
         prisma.player.groupBy({ by: ["clubId"], where: { clubId: { in: clubIds }, deletedAt: null }, _count: { _all: true } }),
@@ -191,18 +221,31 @@ export async function getMasterClubs(
           select: { clubId: true, userId: true },
           distinct: ["clubId", "userId"],
         }),
+        prisma.userRoleAssignment.findMany({
+          where: { clubId: { in: clubIds }, status: "ACTIVE", role: { code: "CLUB_ADMIN" } },
+          select: { clubId: true },
+          distinct: ["clubId"],
+        }),
+        prisma.invitation.findMany({
+          where: { clubId: { in: clubIds }, roleCode: "CLUB_ADMIN", status: "PENDING" },
+          select: { clubId: true },
+          distinct: ["clubId"],
+        }),
       ])
-    : [[], [], []];
+    : [[], [], [], [], []];
 
   const teamCounts = new Map(teamGroups.map((g) => [g.clubId, g._count._all]));
   const playerCounts = new Map(playerGroups.map((g) => [g.clubId, g._count._all]));
   const userCounts = tallyDistinctUsers(userPairs);
+  const adminClubIds = new Set(activeAdmins.map((a) => a.clubId));
+  const pendingAdminClubIds = new Set(pendingAdminInvites.map((a) => a.clubId));
 
   const rows: MasterClubListItem[] = clubs.map((c) => ({
     ...c,
     teamCount: teamCounts.get(c.id) ?? 0,
     playerCount: playerCounts.get(c.id) ?? 0,
     userCount: userCounts.get(c.id) ?? 0,
+    adminState: clubAdminState(adminClubIds.has(c.id), pendingAdminClubIds.has(c.id)),
   }));
 
   return { rows, total, page, pageSize };
@@ -268,6 +311,8 @@ export interface MasterClubDetail {
     actorName: string | null;
     createdAt: Date;
   }[];
+  clubAdmins: ClubAdminRow[];
+  adminState: ClubAdminState;
 }
 
 function personName(u: { name: string | null; firstName: string; lastName: string; email: string }): string {
@@ -280,6 +325,8 @@ export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Pro
 
   const club = await prisma.club.findFirst({ where: { id: clubId, deletedAt: null } });
   if (!club) return null;
+
+  const clubAdmins = await getClubAdmins(ctx, clubId);
 
   const [
     teamCount,
@@ -433,6 +480,11 @@ export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Pro
       actorName: a.actorUserId ? (actorById.get(a.actorUserId) ?? null) : null,
       createdAt: a.createdAt,
     })),
+    clubAdmins,
+    adminState: clubAdminState(
+      clubAdmins.some((a) => a.status === "ACTIVE"),
+      clubAdmins.some((a) => a.status === "PENDING"),
+    ),
   };
 }
 
@@ -952,6 +1004,156 @@ export async function getMasterCoachDetail(
   ]);
 
   return { playersOnTeams: memberships.length, evaluationsAuthored };
+}
+
+// ===========================================================================
+// Club admins — list + invite/resend/revoke (orphan-club remediation)
+// ===========================================================================
+
+export interface ClubAdminRow {
+  /** USER = accepted (active assignment); INVITE = pending invitation. */
+  kind: "USER" | "INVITE";
+  /** userId for an active admin; invitationId for a pending invite. */
+  id: string;
+  name: string;
+  email: string;
+  status: "ACTIVE" | "PENDING";
+}
+
+/** Read the invited name carried on a CLUB_ADMIN invite's jsonb, if any. */
+function inviteeName(meta: unknown): string | null {
+  if (!meta || typeof meta !== "object") return null;
+  const m = meta as Record<string, unknown>;
+  const name = `${typeof m.firstName === "string" ? m.firstName : ""} ${
+    typeof m.lastName === "string" ? m.lastName : ""
+  }`.trim();
+  return name || null;
+}
+
+/** A club's Club Admins: active (accepted) users ∪ pending CLUB_ADMIN invites. */
+export async function getClubAdmins(ctx: AuthContext, clubId: string): Promise<ClubAdminRow[]> {
+  assertMasterAdmin(ctx);
+
+  const [assignments, invites] = await Promise.all([
+    prisma.userRoleAssignment.findMany({
+      where: { clubId, status: "ACTIVE", role: { code: "CLUB_ADMIN" } },
+      select: { user: { select: { id: true, name: true, firstName: true, lastName: true, email: true } } },
+    }),
+    prisma.invitation.findMany({
+      where: { clubId, roleCode: "CLUB_ADMIN", status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, email: true, linkMetadata: true },
+    }),
+  ]);
+
+  const usersById = new Map<string, ClubAdminRow>();
+  for (const a of assignments) {
+    usersById.set(a.user.id, {
+      kind: "USER",
+      id: a.user.id,
+      name: personName(a.user),
+      email: a.user.email,
+      status: "ACTIVE",
+    });
+  }
+  const inviteRows: ClubAdminRow[] = invites.map((inv) => ({
+    kind: "INVITE",
+    id: inv.id,
+    name: inviteeName(inv.linkMetadata) ?? "Invited admin",
+    email: inv.email,
+    status: "PENDING",
+  }));
+
+  return [...usersById.values(), ...inviteRows];
+}
+
+/** Invite an initial or additional CLUB_ADMIN for a club (audited; emails best-effort). */
+export async function inviteClubAdmin(
+  ctx: AuthContext,
+  clubId: string,
+  input: ClubAdminInviteInput,
+): Promise<{ invitationId: string; acceptUrl: string; emailDelivered: boolean }> {
+  assertMasterAdmin(ctx);
+  const club = await prisma.club.findFirst({ where: { id: clubId, deletedAt: null }, select: { id: true } });
+  if (!club) throw new ForbiddenError("Club not found");
+
+  const email = input.email.trim().toLowerCase();
+  const activeAdmin = await prisma.userRoleAssignment.findFirst({
+    where: { clubId, status: "ACTIVE", role: { code: "CLUB_ADMIN" }, user: { email } },
+    select: { id: true },
+  });
+  if (activeAdmin) throw new ConflictError("That email is already an active club admin for this club.");
+  const pending = await prisma.invitation.findFirst({
+    where: { clubId, roleCode: "CLUB_ADMIN", status: "PENDING", email },
+    select: { id: true },
+  });
+  if (pending) throw new ConflictError("A club-admin invite is already pending for that email — use Resend.");
+
+  const meta =
+    input.firstName || input.lastName
+      ? { firstName: input.firstName ?? null, lastName: input.lastName ?? null }
+      : null;
+  const res = await createInvitation({
+    clubId,
+    email,
+    roleCode: "CLUB_ADMIN",
+    linkMetadata: meta ?? undefined,
+    invitedByUserId: ctx.userId,
+  });
+  await recordAuditStandalone({
+    action: "club_admin.invite",
+    resourceType: "invitation",
+    resourceId: res.id,
+    clubId,
+    actorUserId: ctx.userId,
+    metadata: { email },
+  });
+  return { invitationId: res.id, acceptUrl: res.acceptUrl, emailDelivered: res.emailDelivered };
+}
+
+/** Verify an invitation is a CLUB_ADMIN invite and return its clubId, else throw. */
+async function assertClubAdminInvite(invitationId: string): Promise<{ clubId: string | null }> {
+  const inv = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+    select: { roleCode: true, clubId: true },
+  });
+  if (!inv || inv.roleCode !== "CLUB_ADMIN") throw new ForbiddenError("Invitation not found");
+  return { clubId: inv.clubId };
+}
+
+/** Resend a pending CLUB_ADMIN invite (rotates token; audited). */
+export async function resendClubAdminInvite(
+  ctx: AuthContext,
+  invitationId: string,
+): Promise<{ acceptUrl: string; emailDelivered: boolean }> {
+  assertMasterAdmin(ctx);
+  const { clubId } = await assertClubAdminInvite(invitationId);
+  const res = await resendInvitation(invitationId);
+  if (!res) throw new ForbiddenError("Invitation not found");
+  await recordAuditStandalone({
+    action: "club_admin.invite_resend",
+    resourceType: "invitation",
+    resourceId: invitationId,
+    clubId,
+    actorUserId: ctx.userId,
+  });
+  return res;
+}
+
+/** Revoke a pending CLUB_ADMIN invite — its link stops working (audited). */
+export async function revokeClubAdminInvite(ctx: AuthContext, invitationId: string): Promise<void> {
+  assertMasterAdmin(ctx);
+  const { clubId } = await assertClubAdminInvite(invitationId);
+  const revoked = await revokeInvitation(invitationId);
+  if (revoked) {
+    await recordAuditStandalone({
+      action: "club_admin.invite_revoke",
+      resourceType: "invitation",
+      resourceId: invitationId,
+      clubId,
+      actorUserId: ctx.userId,
+    });
+  }
 }
 
 /**

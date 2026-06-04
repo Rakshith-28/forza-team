@@ -5,6 +5,7 @@ import { useState } from "react";
 import { StatusBadge } from "@/components/console";
 import type { MasterClubListItem } from "@/modules/master/service";
 
+import { ClubAdminBadge } from "../../clubs/admin-badge";
 import { ClubDetailDrawer } from "../../clubs/club-detail-drawer";
 
 function monogram(name: string): string {
@@ -48,7 +49,10 @@ export function ClubsPanel({ clubs }: { clubs: MasterClubListItem[] }) {
                   <p className="truncate text-xs text-muted-foreground">{club.shortCode}</p>
                 </div>
               </div>
-              <StatusBadge status={club.status} />
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <StatusBadge status={club.status} />
+                <ClubAdminBadge state={club.adminState} />
+              </div>
             </div>
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>

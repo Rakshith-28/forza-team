@@ -30,6 +30,16 @@ export const createClubSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(200),
   shortCode: slug.transform((s) => s.toUpperCase()),
   timezone: z.string().trim().max(100).optional(),
+  // Initial Club Admin invite. OPTIONAL by design (a master can create-then-invite),
+  // but strongly surfaced in the UI. To make it REQUIRED, drop the `.optional()`
+  // below — that is the one-line switch (and mark the form fields `required`).
+  admin: z
+    .object({
+      email: z.string().trim().toLowerCase().email("Valid admin email required").max(255),
+      firstName: z.string().trim().max(100).optional(),
+      lastName: z.string().trim().max(100).optional(),
+    })
+    .optional(),
 });
 export type CreateClubInput = z.infer<typeof createClubSchema>;
 

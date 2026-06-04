@@ -8,3 +8,10 @@ export interface FormState {
 }
 
 export const INITIAL_STATE: FormState = { ok: false, error: null };
+
+/** Club-create result state — carries the optional initial-admin invite outcome. */
+export interface CreateClubState extends FormState {
+  invite: { acceptUrl: string; emailDelivered: boolean; email: string } | null;
+}
+
+export const CREATE_CLUB_INITIAL: CreateClubState = { ok: false, error: null, invite: null };

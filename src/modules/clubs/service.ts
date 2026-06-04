@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/db/client";
 import { Prisma } from "@/db/generated/client";
 import { recordAudit } from "@/lib/audit";
+import { buildAcceptUrl, createInvitationInTx, sendInvitationEmail } from "@/modules/identity/invitations";
 import {
   assertCan,
   assertClubScope,
@@ -66,10 +67,24 @@ export async function getClub(ctx: AuthContext, clubId: string) {
   return club;
 }
 
-export async function createClub(ctx: AuthContext, input: CreateClubInput) {
+export interface CreateClubResult {
+  club: Awaited<ReturnType<typeof prisma.club.create>>;
+  /** Present when an initial Club Admin was invited at creation. */
+  invite: { id: string; acceptUrl: string; emailDelivered: boolean; email: string } | null;
+}
+
+/**
+ * Create a club and — when `input.admin` is provided — its initial CLUB_ADMIN
+ * invitation, ATOMICALLY (one transaction): a club with no admin leaves an
+ * orphan flag rather than a dangling invite, and an invite is never persisted if
+ * the club create fails. The invitation email is sent best-effort AFTER commit;
+ * the accept URL is returned so the master can share it manually when email
+ * isn't delivered.
+ */
+export async function createClub(ctx: AuthContext, input: CreateClubInput): Promise<CreateClubResult> {
   assertMasterAdmin(ctx);
   try {
-    return await prisma.$transaction(async (tx) => {
+    const { club, inviteRef } = await prisma.$transaction(async (tx) => {
       const club = await tx.club.create({
         data: {
           name: input.name,
@@ -87,8 +102,43 @@ export async function createClub(ctx: AuthContext, input: CreateClubInput) {
         actorUserId: ctx.userId,
         metadata: { name: club.name, shortCode: club.shortCode },
       });
-      return club;
+
+      let inviteRef: { id: string; token: string; email: string } | null = null;
+      if (input.admin) {
+        const meta =
+          input.admin.firstName || input.admin.lastName
+            ? { firstName: input.admin.firstName ?? null, lastName: input.admin.lastName ?? null }
+            : null;
+        const { id, token } = await createInvitationInTx(tx, {
+          clubId: club.id,
+          email: input.admin.email,
+          roleCode: "CLUB_ADMIN",
+          linkMetadata: meta ?? undefined,
+          invitedByUserId: ctx.userId,
+        });
+        await recordAudit(tx, {
+          action: "club_admin.invite",
+          resourceType: "invitation",
+          resourceId: id,
+          clubId: club.id,
+          actorUserId: ctx.userId,
+          metadata: { email: input.admin.email },
+        });
+        inviteRef = { id, token, email: input.admin.email };
+      }
+      return { club, inviteRef };
     });
+
+    if (!inviteRef) return { club, invite: null };
+
+    const acceptUrl = buildAcceptUrl(inviteRef.id, inviteRef.token);
+    const { delivered } = await sendInvitationEmail({
+      to: inviteRef.email,
+      url: acceptUrl,
+      clubName: club.name,
+      roleCode: "CLUB_ADMIN",
+    });
+    return { club, invite: { id: inviteRef.id, acceptUrl, emailDelivered: delivered, email: inviteRef.email } };
   } catch (error) {
     if (isUniqueViolation(error)) throw new ConflictError("A club with that short code already exists");
     throw error;
