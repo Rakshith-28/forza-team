@@ -13,19 +13,24 @@ export default async function AdminDashboard() {
     getMasterClubs(ctx, { pageSize: 12 }),
   ]);
 
-  const stats: { label: string; value: number; href?: string }[] = [
+  // Three headline counts get prominent cards; everything else is condensed
+  // into a single "System snapshot" panel so the dashboard isn't a wall of cards.
+  const headline: { label: string; value: number; href?: string }[] = [
     { label: "Clubs", value: summary.clubs, href: "/clubs" },
-    { label: "Active Clubs", value: summary.activeClubs, href: "/clubs" },
     { label: "Teams", value: summary.teams },
     { label: "Players", value: summary.players },
+  ];
+
+  const snapshot: { label: string; value: number; href?: string }[] = [
+    { label: "Active clubs", value: summary.activeClubs },
     { label: "Coaches", value: summary.coaches, href: "/coaches" },
     { label: "Parents", value: summary.parents },
     { label: "Users", value: summary.users, href: "/users" },
-    { label: "Open Invoices", value: summary.openInvoices },
-    { label: "Overdue Invoices", value: summary.overdueInvoices },
-    { label: "Upcoming Events", value: summary.upcomingEvents },
-    { label: "Active Eval Cycles", value: summary.activeEvaluationCycles },
-    { label: "Waiver Acceptances", value: summary.waiverAcceptances },
+    { label: "Open invoices", value: summary.openInvoices },
+    { label: "Overdue invoices", value: summary.overdueInvoices },
+    { label: "Upcoming events", value: summary.upcomingEvents },
+    { label: "Active eval cycles", value: summary.activeEvaluationCycles },
+    { label: "Waiver acceptances", value: summary.waiverAcceptances },
   ];
 
   return (
@@ -33,8 +38,8 @@ export default async function AdminDashboard() {
       <PageHeader title="Master Admin" description="System-wide overview across all clubs." />
 
       <section className="mt-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {stats.map((s) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {headline.map((s) => (
             <SummaryCard
               key={s.label}
               label={s.label}
@@ -45,6 +50,27 @@ export default async function AdminDashboard() {
             />
           ))}
         </div>
+      </section>
+
+      <section className="mt-6 rounded-xl border bg-card p-5 shadow-sm">
+        <h2 className="font-sport text-base font-bold tracking-tight text-foreground">System snapshot</h2>
+        <dl className="mt-4 grid gap-x-8 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+          {snapshot.map((s) => {
+            const row = (
+              <div className="flex items-center justify-between border-b border-border/60 py-2">
+                <dt className="text-sm text-muted-foreground">{s.label}</dt>
+                <dd className="font-sport text-lg font-bold tabular-nums text-foreground">{s.value}</dd>
+              </div>
+            );
+            return s.href ? (
+              <Link key={s.label} href={s.href} className="rounded-md transition-colors hover:text-primary [&_dt]:hover:text-primary">
+                {row}
+              </Link>
+            ) : (
+              <div key={s.label}>{row}</div>
+            );
+          })}
+        </dl>
       </section>
 
       <section className="mt-8">
