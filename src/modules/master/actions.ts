@@ -3,8 +3,6 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRoleOrThrow } from "@/lib/auth-guards";
-import { ForbiddenError } from "@/lib/rbac";
-import type { FormState } from "@/modules/clubs/action-state";
 import { getMasterClubDetail, setClubStatus, type MasterClubDetail } from "@/modules/master/service";
 
 /**
@@ -19,18 +17,10 @@ export async function loadClubDetailAction(clubId: string): Promise<MasterClubDe
   return getMasterClubDetail(ctx, clubId);
 }
 
-/** Suspend or re-activate a club (audited). Used by the Clubs page row action. */
-export async function setClubStatusAction(_prev: FormState, fd: FormData): Promise<FormState> {
+/** Suspend or re-activate a club (audited). Called from the Clubs page row menu. */
+export async function toggleClubStatusAction(clubId: string, status: "ACTIVE" | "SUSPENDED"): Promise<void> {
   const ctx = await requireRoleOrThrow("MASTER_ADMIN");
-  const clubId = typeof fd.get("clubId") === "string" ? (fd.get("clubId") as string) : "";
-  const status = fd.get("status") === "SUSPENDED" ? "SUSPENDED" : "ACTIVE";
-  try {
-    await setClubStatus(ctx, clubId, status);
-  } catch (e) {
-    if (e instanceof ForbiddenError) return { ok: false, error: "You don't have access to do that." };
-    throw e;
-  }
+  await setClubStatus(ctx, clubId, status);
   revalidatePath("/clubs");
   revalidatePath("/dashboard/admin");
-  return { ok: true, error: null };
 }

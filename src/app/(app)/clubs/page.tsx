@@ -1,23 +1,28 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FilterBar, FilterSelect, FilterText, PageHeader, Pagination } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
-import { listClubs } from "@/modules/clubs/service";
+import { getMasterClubs } from "@/modules/master/service";
+import { CLUB_STATUSES, parseIntParam, type ClubStatus } from "@/modules/master/schemas";
 
-import { ClubRow, CreateClubForm, type ClubView } from "./club-forms";
+import { CreateClubForm } from "./club-forms";
+import { ClubsTable } from "./clubs-table";
 
-export default async function ClubsPage() {
+export default async function ClubsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; status?: string; page?: string }>;
+}) {
   const ctx = await requireRole("MASTER_ADMIN");
-  const clubs = await listClubs(ctx);
-  const views: ClubView[] = clubs.map((c) => ({
-    id: c.id,
-    name: c.name,
-    shortCode: c.shortCode,
-    status: c.status,
-  }));
+  const sp = await searchParams;
+  const status = CLUB_STATUSES.includes(sp.status as ClubStatus) ? (sp.status as ClubStatus) : undefined;
+  const search = sp.search?.trim() || undefined;
+  const page = parseIntParam(sp.page) ?? 1;
+
+  const result = await getMasterClubs(ctx, { search, status, page });
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Clubs</h1>
-      <p className="mt-1 text-muted-foreground">Every club on the platform.</p>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader title="Clubs" description="Every club on the platform." />
 
       <Card className="mt-6">
         <CardHeader>
@@ -28,14 +33,29 @@ export default async function ClubsPage() {
         </CardContent>
       </Card>
 
-      <div className="mt-6 flex flex-col gap-3">
-        {views.length === 0 ? (
-          <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            No clubs yet. Create the first one above.
-          </p>
-        ) : (
-          views.map((c) => <ClubRow key={c.id} club={c} />)
-        )}
+      <div className="mt-6">
+        <FilterBar>
+          <FilterText name="search" label="Search" defaultValue={sp.search} placeholder="Name or short code" />
+          <FilterSelect
+            name="status"
+            label="Status"
+            defaultValue={sp.status}
+            options={CLUB_STATUSES.map((s) => ({ value: s, label: s }))}
+          />
+        </FilterBar>
+      </div>
+
+      <div className="mt-4">
+        <ClubsTable rows={result.rows} />
+      </div>
+
+      <div className="mt-4">
+        <Pagination
+          page={result.page}
+          pageSize={result.pageSize}
+          total={result.total}
+          params={{ search: sp.search, status: sp.status }}
+        />
       </div>
     </div>
   );
