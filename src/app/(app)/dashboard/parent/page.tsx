@@ -35,7 +35,7 @@ export default async function ParentHome() {
       <div className="py-16 text-center">
         <h1 className="font-display text-2xl uppercase text-foreground">Welcome</h1>
         <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
-          No children are linked to your account yet. Your club admin links your children to your profile.
+          No children are linked to your account yet. Your club manager links your children to your profile.
         </p>
       </div>
     );

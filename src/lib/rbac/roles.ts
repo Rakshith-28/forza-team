@@ -12,7 +12,7 @@ export type Scope = (typeof SCOPES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
   MASTER_ADMIN: "Master Admin",
-  CLUB_ADMIN: "Club Admin",
+  CLUB_ADMIN: "Club Manager",
   COACH: "Coach",
   PARENT: "Parent / Guardian",
 };

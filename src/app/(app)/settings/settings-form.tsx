@@ -32,7 +32,7 @@ const TOGGLES: { name: keyof ClubSettingsData; label: string; help: string }[] =
   {
     name: "allowCoachInviteParents",
     label: "Coaches can invite & link parents",
-    help: "When on, coaches can add players and invite/link their parents for assigned teams. Club Admins always can.",
+    help: "When on, coaches can add players and invite/link their parents for assigned teams. Club Managers always can.",
   },
 ];
 

@@ -374,7 +374,7 @@ CREATE INDEX idx_user_role_assignments_role_id ON user_role_assignments(role_id)
 ---
 
 ## 7.4 `invitations`
-Used for inviting coaches, parents, and club admins.
+Used for inviting coaches, parents, and club managers.
 
 ```sql
 CREATE TABLE invitations (

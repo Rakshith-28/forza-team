@@ -49,7 +49,7 @@ npm run db:seed          # seed roles + the Demo FC club (prints an accept link)
 npm run dev
 ```
 
-Open the printed `accept-invite` link → set a password → land on the Club Admin
+Open the printed `accept-invite` link → set a password → land on the Club Manager
 dashboard. With no `RESEND_API_KEY`, all invite/reset emails are **logged to the
 server console** (look for the `──── EMAIL (dev fallback) ────` block).
 
@@ -65,7 +65,7 @@ server console** (look for the `──── EMAIL (dev fallback) ────` 
   scores). Re-running is safe (the dataset is inserted only when the club has no
   players yet). Prints a fresh `CLUB_ADMIN` accept link.
 
-To exercise Coach / Parent logins, sign in as Club Admin and **invite** a coach
+To exercise Coach / Parent logins, sign in as Club Manager and **invite** a coach
 and a parent from the UI (Parents page / coach assignment); with the console
 email provider the accept links appear in the server logs.
 
@@ -110,14 +110,14 @@ before shipping.
 
 ## 6. Per-role manual QA — mapped to the 8 MVP success criteria
 
-Seed first (`npm run db:seed`), accept the Club Admin invite, then:
+Seed first (`npm run db:seed`), accept the Club Manager invite, then:
 
 ### Master Admin
 - [ ] **(1 Auth/RBAC)** Sign in → lands on `/dashboard/admin`; sees system
       counts (clubs/teams/players). Cannot be reached by other roles.
 - [ ] **(2 Clubs)** Can view/manage clubs at `/clubs`.
 
-### Club Admin (`club-admin@demo.test`)
+### Club Manager (`club-admin@demo.test`)
 - [ ] **(2 Clubs/Seasons/Teams)** Dashboard shows teams/players/seasons; create a
       team & season.
 - [ ] **(3 Players & Parents)** Players list populated; open a player (full

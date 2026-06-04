@@ -203,7 +203,7 @@ don't start a phase until the prior one is green in CI.
   cross-tenant access is provably blocked.
 
 ### Phase 2 — Clubs, seasons, teams
-- Club CRUD (master/club admin), seasons, teams, coach assignments.
+- Club CRUD (master/club manager), seasons, teams, coach assignments.
 - Tenant scoping verified end-to-end.
 - **Exit:** an admin can build out a club's structure for a season.
 

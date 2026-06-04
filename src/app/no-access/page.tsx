@@ -6,7 +6,7 @@ export default function NoAccessPage() {
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight">No club access yet</h1>
         <p className="mt-2 text-muted-foreground">
-          Your account isn&apos;t assigned to a club. Ask a club admin to invite you, then sign in
+          Your account isn&apos;t assigned to a club. Ask a club manager to invite you, then sign in
           again.
         </p>
         <div className="mt-6 flex justify-center">

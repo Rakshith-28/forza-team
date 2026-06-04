@@ -25,7 +25,7 @@ type DB = InstanceType<typeof pg.Client>;
 
 const ROLES: Array<[string, string, string]> = [
   ["MASTER_ADMIN", "Master Admin", "System-wide administrator across all clubs"],
-  ["CLUB_ADMIN", "Club Admin", "Administrator of a single club"],
+  ["CLUB_ADMIN", "Club Manager", "Administrator of a single club"],
   ["COACH", "Coach", "Operational access to assigned teams"],
   ["PARENT", "Parent / Guardian", "Access to linked children"],
 ];
