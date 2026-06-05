@@ -55,7 +55,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Schedule", href: "/schedule" },
     { label: "Attendance", href: "/schedule" },
     { label: "Evaluations", href: "/evaluations" },
-    { label: "Development" },
+    { label: "Development", href: "/development" },
     { label: "Account", href: "/account" },
   ],
   PARENT: [
