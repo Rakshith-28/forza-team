@@ -32,10 +32,20 @@ export default async function EvaluationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Evaluations</h1>
-      <p className="mt-1 text-muted-foreground">
-        {canManage ? "Configure templates and cycles; coaches score players." : "Score players for the active cycles."}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Evaluations</h1>
+          <p className="mt-1 text-muted-foreground">
+            {canManage ? "Configure templates and cycles; coaches score players." : "Score players for the active cycles."}
+          </p>
+        </div>
+        <Link
+          href="/evaluations/compare"
+          className="rounded-md border px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-secondary"
+        >
+          Compare players
+        </Link>
+      </div>
 
       {/* Templates */}
       <div className="mt-6 grid gap-4 md:grid-cols-2">
