@@ -64,6 +64,7 @@ const ICONS: Record<string, LucideIcon> = {
   Settings: Settings,
   "Team Roster": Users,
   Development: TrendingUp,
+  Account: UserRound,
 };
 
 function isActive(pathname: string, href: string): boolean {

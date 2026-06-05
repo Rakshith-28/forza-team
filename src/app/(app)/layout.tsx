@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
 import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
 import { PlatformBanner } from "@/components/app/platform-banner";
-import { SignOutButton } from "@/components/app/sign-out-button";
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ROLE_LABELS, type Role } from "@/lib/rbac";
 import { getMyPlatformBanners } from "@/modules/announcements/platform-service";
@@ -23,6 +22,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Announcements", href: "/platform-announcements" },
     { label: "Audit Logs", href: "/audit-logs" },
     { label: "System Settings", href: "/system-settings" },
+    { label: "Account", href: "/account" },
   ],
   CLUB_ADMIN: [
     { label: "Dashboard", href: "/dashboard/club" },
@@ -42,6 +42,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Evaluations", href: "/evaluations" },
     { label: "Reports", href: "/dashboard/club" },
     { label: "Settings", href: "/settings" },
+    { label: "Account", href: "/account" },
   ],
   COACH: [
     { label: "Dashboard", href: "/dashboard/coach" },
@@ -53,6 +54,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Attendance", href: "/schedule" },
     { label: "Evaluations", href: "/evaluations" },
     { label: "Development" },
+    { label: "Account", href: "/account" },
   ],
   PARENT: [
     { label: "My Kids", href: "/dashboard/parent" },
@@ -105,7 +107,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
             {ROLE_LABELS[ctx.role]}
           </span>
-          <SignOutButton />
         </div>
       </header>
 
