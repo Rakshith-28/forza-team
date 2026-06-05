@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlatformAnnouncementsPanel } from "@/components/app/platform-announcements-panel";
 import { requireRole } from "@/lib/auth-guards";
+import { getMyPlatformAnnouncements, getMyUnreadPlatformAnnouncementCount } from "@/modules/announcements/platform-service";
 import { countEventsNeedingAttendance, listUpcomingEvents } from "@/modules/events/service";
 import { EVENT_TYPE_LABELS, type EventType } from "@/modules/events/schemas";
 import { formatEventTime } from "@/modules/events/format";
@@ -19,10 +21,12 @@ export default async function CoachDashboard() {
   }
 
   const clubId = ctx.activeClubId;
-  const [upcoming, needsAttendance, evalsToComplete] = await Promise.all([
+  const [upcoming, needsAttendance, evalsToComplete, announcements, unread] = await Promise.all([
     listUpcomingEvents(ctx, clubId, 6),
     countEventsNeedingAttendance(ctx, clubId),
     countEvaluationsToComplete(ctx, clubId),
+    getMyPlatformAnnouncements(ctx),
+    getMyUnreadPlatformAnnouncementCount(ctx),
   ]);
 
   return (
@@ -86,6 +90,10 @@ export default async function CoachDashboard() {
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <PlatformAnnouncementsPanel items={announcements} unread={unread} />
+      </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Link href="/players">

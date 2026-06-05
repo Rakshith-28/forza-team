@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { PlatformAnnouncementsPanel } from "@/components/app/platform-announcements-panel";
 import { requireRole } from "@/lib/auth-guards";
+import { getMyPlatformAnnouncements, getMyUnreadPlatformAnnouncementCount } from "@/modules/announcements/platform-service";
 import { listLinkedChildren } from "@/modules/roster/service";
 import { getChildAttendance, listParentSchedule } from "@/modules/events/service";
 import { listAnnouncements, listChatTeams } from "@/modules/comms/service";
@@ -24,10 +26,12 @@ import { RsvpControl } from "../../schedule/rsvp-control";
 export default async function ParentHome() {
   const ctx = await requireRole("PARENT");
 
-  const [children, schedule, chatTeams] = await Promise.all([
+  const [children, schedule, chatTeams, platformAnnouncements, platformUnread] = await Promise.all([
     listLinkedChildren(ctx),
     listParentSchedule(ctx, { upcomingOnly: true, limit: 5 }),
     listChatTeams(ctx),
+    getMyPlatformAnnouncements(ctx),
+    getMyUnreadPlatformAnnouncementCount(ctx),
   ]);
 
   if (children.length === 0) {
@@ -136,6 +140,10 @@ export default async function ParentHome() {
       </div>
 
       <XpBar level={level} progress={progress} />
+
+      {platformAnnouncements.length > 0 ? (
+        <PlatformAnnouncementsPanel items={platformAnnouncements} unread={platformUnread} />
+      ) : null}
 
       <Link href="/chat" className="app-card flex items-center justify-between p-4">
         <div>

@@ -1,16 +1,19 @@
 import Link from "next/link";
 
-import { PageHeader, SummaryCard } from "@/components/console";
+import { PageHeader, StatusBadge, SummaryCard } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
+import { getPlatformAnnouncementsSummary } from "@/modules/announcements/platform-service";
 import { getMasterClubs, getMasterDashboardSummary } from "@/modules/master/service";
 
 import { ClubsPanel } from "./clubs-panel";
+import { SeverityBadge } from "../../platform-announcements/severity-badge";
 
 export default async function AdminDashboard() {
   const ctx = await requireRole("MASTER_ADMIN");
-  const [summary, clubs] = await Promise.all([
+  const [summary, clubs, announcements] = await Promise.all([
     getMasterDashboardSummary(ctx),
     getMasterClubs(ctx, { pageSize: 12 }),
+    getPlatformAnnouncementsSummary(ctx),
   ]);
 
   // Three headline counts get prominent cards; everything else is condensed
@@ -71,6 +74,32 @@ export default async function AdminDashboard() {
             );
           })}
         </dl>
+      </section>
+
+      <section className="mt-8 rounded-xl border bg-card p-5 shadow-sm">
+        <div className="mb-3 flex items-end justify-between">
+          <h2 className="font-sport text-lg font-bold tracking-tight text-foreground">Platform announcements</h2>
+          <Link href="/platform-announcements" className="text-sm font-medium text-primary hover:underline">
+            Manage
+          </Link>
+        </div>
+        {announcements.recent.length === 0 ? (
+          <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+            No broadcasts yet. Create one to notify clubs.
+          </p>
+        ) : (
+          <ul className="divide-y">
+            {announcements.recent.map((a) => (
+              <li key={a.id} className="flex items-center gap-3 py-2.5">
+                <SeverityBadge severity={a.severity} />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{a.title}</span>
+                <StatusBadge status={a.status} />
+                <span className="shrink-0 text-xs text-muted-foreground">{a.reads} reads</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-muted-foreground">{announcements.totalLive} live right now</p>
       </section>
 
       <section className="mt-8">

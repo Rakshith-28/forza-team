@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlatformAnnouncementsPanel } from "@/components/app/platform-announcements-panel";
 import { requireRole } from "@/lib/auth-guards";
+import { getMyPlatformAnnouncements, getMyUnreadPlatformAnnouncementCount } from "@/modules/announcements/platform-service";
 import { getClub, getClubSummary } from "@/modules/clubs/service";
 import { countEventsNeedingAttendance, listUpcomingEvents } from "@/modules/events/service";
 import { EVENT_TYPE_LABELS, type EventType } from "@/modules/events/schemas";
@@ -21,11 +23,13 @@ export default async function ClubDashboard() {
   }
 
   const clubId = ctx.activeClubId;
-  const [club, summary, upcoming, needsAttendance] = await Promise.all([
+  const [club, summary, upcoming, needsAttendance, announcements, unread] = await Promise.all([
     getClub(ctx, clubId),
     getClubSummary(ctx, clubId),
     listUpcomingEvents(ctx, clubId, 5),
     countEventsNeedingAttendance(ctx, clubId),
+    getMyPlatformAnnouncements(ctx),
+    getMyUnreadPlatformAnnouncementCount(ctx),
   ]);
 
   const stats = [
@@ -72,6 +76,10 @@ export default async function ClubDashboard() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      <div className="mt-6">
+        <PlatformAnnouncementsPanel items={announcements} unread={unread} />
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

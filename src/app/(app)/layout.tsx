@@ -2,9 +2,11 @@ import Link from "next/link";
 
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
 import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
+import { PlatformBanner } from "@/components/app/platform-banner";
 import { SignOutButton } from "@/components/app/sign-out-button";
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ROLE_LABELS, type Role } from "@/lib/rbac";
+import { getMyPlatformBanners } from "@/modules/announcements/platform-service";
 import { getAppearanceTheme } from "@/modules/identity/appearance";
 
 /**
@@ -70,6 +72,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { session, ctx } = await requireUserAndContext();
   const displayName = session.user.name || session.user.email;
 
+  // Live platform broadcasts (WARNING/CRITICAL) surface as a banner in every shell.
+  const banners = await getMyPlatformBanners(ctx);
+
   // Player/parent surface: the themed mobile app shell (Vibrant/Classic).
   // The Console (admin/coach) keeps its fixed look below — never themed.
   if (ctx.role === "PARENT") {
@@ -77,6 +82,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
     return (
       <ParentAppShell theme={theme} initial={initial}>
+        <PlatformBanner items={banners} />
         {children}
       </ParentAppShell>
     );
@@ -109,7 +115,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           profile={{ name: displayName, initial, roleLabel: ROLE_LABELS[ctx.role] }}
         />
 
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4">
+          <PlatformBanner items={banners} />
+          {children}
+        </main>
       </div>
     </div>
   );
