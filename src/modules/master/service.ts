@@ -555,11 +555,13 @@ export async function updateSystemSettings(
       update: { ...input, updatedBy: ctx.userId },
     });
     await recordAudit(tx, {
+      // resource_id is a UUID column; the singleton's id ("system") isn't a UUID,
+      // so record it in metadata and leave resourceId null.
       action: "system_settings.update",
       resourceType: "system_settings",
-      resourceId: SYSTEM_SETTINGS_ID,
+      resourceId: null,
       actorUserId: ctx.userId,
-      metadata: { ...input },
+      metadata: { id: SYSTEM_SETTINGS_ID, ...input },
     });
     return toSystemSettingsData(updated);
   });
