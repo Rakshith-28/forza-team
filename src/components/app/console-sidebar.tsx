@@ -108,8 +108,10 @@ export function ConsoleSidebar({ items, profile }: { items: NavItem[]; profile: 
 
       <div className="mx-3 mb-1 border-t border-white/10" />
 
-      {/* Nav (scrolls internally only when the menu is taller than the viewport) */}
-      <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1">
+      {/* Nav scrolls internally when the menu is taller than the viewport, but the
+          scrollbar is hidden (scrollbar-width:none + WebKit pseudo) so the rail
+          stays clean — wheel/trackpad scrolling still works. */}
+      <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ul className="flex flex-col gap-0.5">
           {items.map((item) => {
             const Icon = ICONS[item.label] ?? Building2;
