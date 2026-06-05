@@ -18,6 +18,22 @@ import { passwordResetEmail, sendEmail } from "@/lib/email";
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.AUTH_SECRET,
+  // In development `next dev` falls back to another port (3001/3002) when 3000 is
+  // busy; the browser's Origin would then fail Better Auth's check ("Invalid
+  // origin"). Trust the common localhost dev ports so sign-in works regardless of
+  // which one the dev server picks. Production relies on baseURL only.
+  ...(env.NODE_ENV === "development"
+    ? {
+        trustedOrigins: [
+          "http://localhost:3000",
+          "http://localhost:3001",
+          "http://localhost:3002",
+          "http://127.0.0.1:3000",
+          "http://127.0.0.1:3001",
+          "http://127.0.0.1:3002",
+        ],
+      }
+    : {}),
   database: prismaAdapter(prisma, { provider: "postgresql" }),
 
   // Generate UUIDs so ids fit our `@db.Uuid` columns.
