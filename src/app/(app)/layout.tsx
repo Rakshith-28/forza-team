@@ -1,10 +1,12 @@
 import Link from "next/link";
 
+import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
 import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
 import { PlatformBanner } from "@/components/app/platform-banner";
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ROLE_LABELS, type Role } from "@/lib/rbac";
+import { getMyAnnouncementsUnreadCount } from "@/modules/announcements/inbox";
 import { getMyPlatformBanners } from "@/modules/announcements/platform-service";
 import { getAppearanceTheme } from "@/modules/identity/appearance";
 
@@ -76,6 +78,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Live platform broadcasts (WARNING/CRITICAL) surface as a banner in every shell.
   const banners = await getMyPlatformBanners(ctx);
+  // Combined unread (platform + club) drives the navbar bell badge.
+  const unreadAnnouncements = await getMyAnnouncementsUnreadCount(ctx);
 
   // Player/parent surface: the themed mobile app shell (Vibrant/Classic).
   // The Console (admin/coach) keeps its fixed look below — never themed.
@@ -83,7 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const theme = await getAppearanceTheme(session.user.id);
     const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
     return (
-      <ParentAppShell theme={theme} initial={initial}>
+      <ParentAppShell theme={theme} initial={initial} unreadAnnouncements={unreadAnnouncements}>
         <PlatformBanner items={banners} />
         {children}
       </ParentAppShell>
@@ -104,6 +108,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="ml-[0.32em] text-primary">Team</span>
         </Link>
         <div className="flex items-center gap-3">
+          <AnnouncementsBell initialCount={unreadAnnouncements} />
           <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
             {ROLE_LABELS[ctx.role]}
           </span>

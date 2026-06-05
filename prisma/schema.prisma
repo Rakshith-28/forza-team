@@ -554,14 +554,31 @@ model Announcement {
   updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy    String?   @map("updated_by") @db.Uuid
 
-  club Club  @relation(fields: [clubId], references: [id])
-  team Team? @relation(fields: [teamId], references: [id])
+  club  Club               @relation(fields: [clubId], references: [id])
+  team  Team?              @relation(fields: [teamId], references: [id])
+  reads AnnouncementRead[]
 
   @@index([clubId])
   @@index([teamId])
   @@index([status])
   @@index([publishedAt(sort: Desc)])
   @@map("announcements")
+}
+
+// Read tracking for club announcements — one row per (announcement, user),
+// written only on interaction (mirrors platform_announcement_reads). Powers the
+// navbar bell's unread count without a per-user fan-out on publish.
+model AnnouncementRead {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  readAt         DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId], name: "uq_announcement_read")
+  @@index([userId])
+  @@map("announcement_reads")
 }
 
 model Chat {

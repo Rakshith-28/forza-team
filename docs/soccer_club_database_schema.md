@@ -1770,6 +1770,26 @@ CREATE TABLE platform_announcement_templates (
 
 ---
 
+## 7.57 `announcement_reads`
+
+Read tracking for **club** `announcements` (distinct from
+`platform_announcement_reads`). One row per (announcement, user), written only on
+interaction. Powers the navbar bell's club-announcement unread count without a
+per-user fan-out on publish.
+
+```sql
+CREATE TABLE announcement_reads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  announcement_id UUID NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (announcement_id, user_id)
+);
+CREATE INDEX idx_announcement_reads_user_id ON announcement_reads(user_id);
+```
+
+---
+
 ## 8. Relationship Summary
 
 ### One-to-Many

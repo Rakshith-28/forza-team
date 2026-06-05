@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git add *)",
-      "Bash(git commit -q -m ' *)"
+      "Bash(git commit -q -m ' *)",
+      "PowerShell(npx prisma migrate dev --name announcement_reads --create-only 2>&1)"
     ]
   }
 }

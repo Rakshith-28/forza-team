@@ -113,6 +113,84 @@ export async function listAnnouncements(ctx: AuthContext, clubId: string) {
   });
 }
 
+/** PUBLISHED club announcements visible to a recipient (mirrors listAnnouncements). */
+function publishedVisibleWhere(ctx: AuthContext, clubId: string): Prisma.AnnouncementWhereInput {
+  const base: Prisma.AnnouncementWhereInput = { clubId, status: "PUBLISHED" };
+  if (ctx.role === "MASTER_ADMIN" || ctx.role === "CLUB_ADMIN") return base;
+  if (ctx.role === "COACH") {
+    return {
+      ...base,
+      OR: [
+        { audienceType: { in: ["CLUB_ALL", "COACHES_ONLY"] } },
+        { audienceType: "TEAM_ONLY", teamId: { in: ctx.coachTeamIds } },
+      ],
+    };
+  }
+  return {
+    ...base,
+    OR: [
+      { audienceType: { in: ["CLUB_ALL", "PARENTS_ONLY"] } },
+      { audienceType: "TEAM_ONLY", teamId: { in: ctx.childTeamIds } },
+    ],
+  };
+}
+
+/** Count of PUBLISHED club announcements visible to the caller that they haven't read. */
+export async function getMyUnreadClubAnnouncementCount(ctx: AuthContext): Promise<number> {
+  if (!ctx.activeClubId) return 0;
+  const visible = await prisma.announcement.findMany({
+    where: publishedVisibleWhere(ctx, ctx.activeClubId),
+    select: { id: true },
+    take: 200,
+  });
+  if (visible.length === 0) return 0;
+  const read = await prisma.announcementRead.count({
+    where: { userId: ctx.userId, announcementId: { in: visible.map((v) => v.id) } },
+  });
+  return visible.length - read;
+}
+
+export interface MyClubAnnouncement {
+  id: string;
+  title: string;
+  publishedAt: Date | null;
+  read: boolean;
+}
+
+/** Recent PUBLISHED club announcements visible to the caller, newest first, with read state. */
+export async function listMyRecentClubAnnouncements(ctx: AuthContext, limit = 10): Promise<MyClubAnnouncement[]> {
+  if (!ctx.activeClubId) return [];
+  const rows = await prisma.announcement.findMany({
+    where: publishedVisibleWhere(ctx, ctx.activeClubId),
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    take: limit,
+    select: { id: true, title: true, publishedAt: true },
+  });
+  if (rows.length === 0) return [];
+  const reads = await prisma.announcementRead.findMany({
+    where: { userId: ctx.userId, announcementId: { in: rows.map((r) => r.id) } },
+    select: { announcementId: true },
+  });
+  const readSet = new Set(reads.map((r) => r.announcementId));
+  return rows.map((r) => ({ id: r.id, title: r.title, publishedAt: r.publishedAt, read: readSet.has(r.id) }));
+}
+
+/** Mark a club announcement read for the caller (interaction-only; one row per pair). */
+export async function markClubAnnouncementRead(ctx: AuthContext, id: string): Promise<void> {
+  const a = await prisma.announcement.findUnique({
+    where: { id },
+    select: { clubId: true, status: true, audienceType: true, teamId: true, createdBy: true },
+  });
+  if (!a) throw new ForbiddenError("Announcement not found");
+  assertClubScope(ctx, a.clubId);
+  if (!canViewAnnouncement(ctx, a)) throw new ForbiddenError("Announcement is not available to you");
+  await prisma.announcementRead.upsert({
+    where: { uq_announcement_read: { announcementId: id, userId: ctx.userId } },
+    create: { announcementId: id, userId: ctx.userId, readAt: new Date() },
+    update: { readAt: new Date() },
+  });
+}
+
 export async function getAnnouncement(ctx: AuthContext, id: string) {
   const announcement = await prisma.announcement.findUnique({
     where: { id },
