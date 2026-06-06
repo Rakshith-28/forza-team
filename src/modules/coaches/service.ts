@@ -121,7 +121,7 @@ export async function listCoaches(ctx: AuthContext, clubId: string, filters: Coa
 }
 
 /**
- * Invite a coach by email (mirrors inviteParent). Optionally seeds an initial
+ * Invite a coach by email (mirrors inviteParentForPlayer). Optionally seeds an initial
  * team + role type, applied on acceptance. Refuses to duplicate an existing club
  * member — the caller should use "Assign to team" instead. Best-effort email
  * (the invitation record is committed regardless).

@@ -66,8 +66,11 @@ server console** (look for the `──── EMAIL (dev fallback) ────` 
   players yet). Prints a fresh `CLUB_ADMIN` accept link.
 
 To exercise Coach / Parent logins, sign in as Club Manager and **invite** a coach
-and a parent from the UI (Parents page / coach assignment); with the console
-email provider the accept links appear in the server logs.
+from the Coaches page, then invite a parent from a **player's Guardians section**
+(parent invites are always child-linked — there is no standalone parent invite).
+A coach can likewise invite a parent for an assigned-team player when the club's
+*Allow coaches to invite parents* setting is on. With the console email provider
+the accept links appear in the server logs.
 
 ---
 
@@ -125,8 +128,9 @@ Seed first (`npm run db:seed`), accept the Club Manager invite, then:
 - [ ] **(2 Clubs/Seasons/Teams)** Dashboard shows teams/players/seasons; create a
       team & season.
 - [ ] **(3 Players & Parents)** Players list populated; open a player (full
-      detail incl. medical/emergency). Parents list shows linked counts; invite a
-      parent (link appears in console).
+      detail incl. medical/emergency) and invite a parent from its **Guardians**
+      section (child-linked; accept link appears in console). The Parents page is
+      view + link only — it has no standalone invite.
 - [ ] **(4 Announcements/Files)** Publish a club announcement; upload a club &
       team document on `/documents`; they download via the proxy.
 - [ ] **(5 Schedule)** See events; create one; record attendance.
@@ -138,6 +142,9 @@ Seed first (`npm run db:seed`), accept the Club Manager invite, then:
 ### Coach (`coach@demo.test`, via UI invite)
 - [ ] **(RBAC scope)** Sees only assigned teams' players/events; cannot reach
       another team. Dashboard shows attendance-needed + evaluations-to-complete.
+- [ ] **(3 Invite parent)** With *Allow coaches to invite parents* on, open an
+      assigned-team player and invite a parent from its Guardians section; the
+      invite is rejected for a player outside the coach's teams.
 - [ ] **(4 Chat)** Open a team chat thread; post a message (5s polling updates).
 - [ ] **(5 Attendance)** Take attendance via quick-entry for an assigned team.
 - [ ] **(7 Evaluations)** Evaluate an assigned-team player (scores + notes).

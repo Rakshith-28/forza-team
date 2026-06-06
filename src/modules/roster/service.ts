@@ -24,7 +24,6 @@ import {
   type AddMembershipInput,
   type CreatePlayerInput,
   type InviteParentForPlayerInput,
-  type InviteParentInput,
   type LinkParentInput,
   type ParentUpdatePlayerInput,
   type UpdateParentInput,
@@ -323,25 +322,6 @@ export async function listPendingParentInvitations(ctx: AuthContext, clubId: str
     orderBy: { createdAt: "desc" },
     select: { id: true, email: true, createdAt: true, expiresAt: true },
   });
-}
-
-export async function inviteParent(ctx: AuthContext, clubId: string, input: InviteParentInput) {
-  assertCan(ctx, "parents.manage", { clubId });
-  const invitation = await createInvitation({
-    clubId,
-    email: input.email,
-    roleCode: "PARENT",
-    invitedByUserId: ctx.userId,
-  });
-  await recordAuditStandalone({
-    action: "parent.invite",
-    resourceType: "invitation",
-    resourceId: invitation.id,
-    clubId,
-    actorUserId: ctx.userId,
-    metadata: { roleCode: "PARENT", email: input.email },
-  });
-  return invitation;
 }
 
 export async function getParent(ctx: AuthContext, parentId: string) {

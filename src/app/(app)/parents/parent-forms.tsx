@@ -1,49 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { inviteParentAction, linkParentAction, updateParentAction } from "@/modules/roster/actions";
+import { linkParentAction, updateParentAction } from "@/modules/roster/actions";
 import { INITIAL_STATE } from "@/modules/roster/action-state";
 import { CONTACT_METHODS, RELATIONSHIP_LABELS, RELATIONSHIP_TYPES } from "@/modules/roster/schemas";
-
-export function InviteParentForm() {
-  const [state, action, pending] = useActionState(inviteParentAction, INITIAL_STATE);
-  const ref = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (state.ok) ref.current?.reset();
-  }, [state]);
-
-  return (
-    <form ref={ref} action={action} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-      <div className="flex flex-1 flex-col gap-1.5">
-        <Label htmlFor="email">Parent email</Label>
-        <Input id="email" name="email" type="email" placeholder="parent@example.com" required />
-      </div>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Sending…" : "Send invite"}
-      </Button>
-      {state.error ? (
-        <p className="text-sm text-destructive sm:basis-full" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-      {state.ok && !state.notice ? (
-        <p className="text-sm text-primary sm:basis-full" role="status">
-          Invitation sent.
-        </p>
-      ) : null}
-      {state.ok && state.notice ? (
-        <p className="text-sm text-amber-600 sm:basis-full" role="status">
-          {state.notice}
-        </p>
-      ) : null}
-    </form>
-  );
-}
 
 export interface ParentEditData {
   id: string;

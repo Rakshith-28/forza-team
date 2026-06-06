@@ -250,11 +250,25 @@ Parent can only fully access:
 - Coach: View contact summary for parents of assigned team(s) if club policy allows
 - Parent: No general parent list access
 
-### Create / Invite Parent
-- Master Admin: Yes
-- Club Manager: Yes
-- Coach: Optional invite request only if club allows; otherwise No
+### Create / Invite Parent (always child-linked)
+Parent invitations are **always created from a specific player's context** (the
+player's *Guardians* section), never as a standalone parent record. The invite
+carries which child to link; on acceptance the parent account is provisioned and
+the `player_parent_link` is created together. There is intentionally **no
+standalone "invite a parent" action** on the Club Admin Parents page (that page
+is view + link only).
+- Master Admin: Yes (any player, within scope)
+- Club Manager: Yes (any player in own club, from the player's detail page)
+- Coach: Yes for a player on an assigned team, when the club's
+  `allow_coach_invite_parents` setting is on; otherwise No
 - Parent: No
+
+> **Access pattern.** This repo has no committed OpenAPI/REST contract for these
+> flows. Coach and parent invites (and invite acceptance) are implemented as
+> **Next.js server actions** (`inviteCoach` / `inviteGuardianAction` →
+> `inviteParentForPlayer`; `acceptInviteAction` → `acceptInvitation`), not public
+> `/api/v1/...` REST endpoints. A REST surface is **TBD** and would only be added
+> when a non-web client (e.g. mobile) needs one.
 
 ### Edit Parent Profile
 - Master Admin: Yes

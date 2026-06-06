@@ -81,6 +81,25 @@ run("accept → grant application", () => {
     expect(tc?.roleType).toBe("HEAD_COACH");
   });
 
+  it("re-applying an accepted invite's grants is idempotent (no duplicate link / team_coach)", async () => {
+    // Mirrors a re-accept: acceptInvitation gates a used token via invitationState,
+    // and the grant writes are upserts — applying twice must not duplicate rows.
+    const parentInv = inv({
+      roleCode: "PARENT",
+      linkMetadata: { playerId: ids.player, relationshipType: "MOTHER", isPrimaryGuardian: false, canPickup: true, canPay: true },
+    });
+    await prisma.$transaction((tx) => applyInvitationGrants(tx, { invitation: parentInv, userId: ids.parentUser, parentId: ids.parent }));
+    await prisma.$transaction((tx) => applyInvitationGrants(tx, { invitation: parentInv, userId: ids.parentUser, parentId: ids.parent }));
+    const links = await prisma.playerParentLink.findMany({ where: { playerId: ids.player, parentId: ids.parent } });
+    expect(links).toHaveLength(1);
+
+    const coachInv = inv({ roleCode: "COACH", teamId: ids.team, teamRoleType: "ASSISTANT_COACH" });
+    await prisma.$transaction((tx) => applyInvitationGrants(tx, { invitation: coachInv, userId: ids.coachUser }));
+    await prisma.$transaction((tx) => applyInvitationGrants(tx, { invitation: coachInv, userId: ids.coachUser }));
+    const tcs = await prisma.teamCoach.findMany({ where: { teamId: ids.team, userId: ids.coachUser } });
+    expect(tcs).toHaveLength(1);
+  });
+
   it("skips a link to a missing player gracefully (no orphan/partial write)", async () => {
     const before = await prisma.playerParentLink.count({ where: { parentId: ids.parent } });
     const result = await prisma.$transaction((tx) =>

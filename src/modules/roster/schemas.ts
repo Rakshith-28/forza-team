@@ -113,11 +113,6 @@ export const parentUpdatePlayerSchema = z
 export type ParentUpdatePlayerInput = z.infer<typeof parentUpdatePlayerSchema>;
 
 // --- Parents ---------------------------------------------------------------
-export const inviteParentSchema = z.object({
-  email: z.string().trim().toLowerCase().email("Valid email required").max(255),
-});
-export type InviteParentInput = z.infer<typeof inviteParentSchema>;
-
 /**
  * Coach/admin invites a parent FOR a specific player (no name fields — collected
  * at accept). The link metadata is carried on the invitation and applied as a

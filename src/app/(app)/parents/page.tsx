@@ -4,8 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth-guards";
 import { listParents, listPendingParentInvitations } from "@/modules/roster/service";
 
-import { InviteParentForm } from "./parent-forms";
-
 export default async function ParentsPage() {
   const ctx = await requireRole("MASTER_ADMIN", "CLUB_ADMIN");
   if (!ctx.activeClubId) {
@@ -27,21 +25,9 @@ export default async function ParentsPage() {
     <div className="mx-auto max-w-3xl">
       <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Parents</h1>
       <p className="mt-1 text-muted-foreground">
-        Invite parents and guardians, then link them to their children.
+        View parents and guardians and link them to their children. Parents are invited from a player&apos;s
+        roster — open a player and use its <span className="font-medium">Guardians</span> section to invite one.
       </p>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="font-sport text-base">Invite a parent</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <InviteParentForm />
-          <p className="mt-3 text-xs text-muted-foreground">
-            The parent sets their password via the invite link; their profile is created on acceptance, after
-            which you can link their children.
-          </p>
-        </CardContent>
-      </Card>
 
       {pending.length > 0 ? (
         <Card className="mt-6">
@@ -64,7 +50,7 @@ export default async function ParentsPage() {
       <div className="mt-6 flex flex-col gap-3">
         {parents.length === 0 ? (
           <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            No parents have joined yet. Invite one above.
+            No parents have joined yet. Invite one from a player&apos;s Guardians section.
           </p>
         ) : (
           parents.map((p) => (
