@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/db/client";
+import { ForbiddenError } from "@/lib/rbac";
 import { assignCoach, removeCoach } from "@/modules/clubs/service";
 import { ConflictError, inviteCoach, listCoaches } from "@/modules/coaches/service";
 
@@ -66,6 +67,25 @@ run("coaches integration", () => {
     const ctx = adminCtx(ids.club);
     const existing = await prisma.user.findUnique({ where: { id: ids.coachUser }, select: { email: true } });
     await expect(inviteCoach(ctx, ids.club, { email: existing!.email })).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("rejects inviting a coach onto a team that belongs to another club (no invite created)", async () => {
+    const ctx = adminCtx(ids.club);
+    const otherClub = uid();
+    const otherTeam = uid();
+    await prisma.club.create({ data: { id: otherClub, name: "Foreign Club", shortCode: `FC-${otherClub.slice(0, 8)}` } });
+    await prisma.team.create({ data: { id: otherTeam, clubId: otherClub, name: "Foreign", teamCode: `FN-${otherTeam.slice(0, 6)}` } });
+    try {
+      await expect(
+        inviteCoach(ctx, ids.club, { email: "cross-club@it.test", teamId: otherTeam }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      // The cross-club team is rejected before any invitation row is written.
+      const inv = await prisma.invitation.findFirst({ where: { clubId: ids.club, email: "cross-club@it.test" } });
+      expect(inv).toBeNull();
+    } finally {
+      await prisma.team.deleteMany({ where: { clubId: otherClub } });
+      await prisma.club.deleteMany({ where: { id: otherClub } });
+    }
   });
 
   it("assigns an existing coach to a team and re-assign is an idempotent upsert", async () => {

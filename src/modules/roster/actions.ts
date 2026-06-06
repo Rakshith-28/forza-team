@@ -12,7 +12,6 @@ import {
   addPlayerToTeam,
   archivePlayer,
   createPlayer,
-  inviteParent,
   inviteParentForPlayer,
   linkParentToPlayer,
   removePlayerFromTeam,
@@ -26,7 +25,6 @@ import {
   addMembershipSchema,
   createPlayerSchema,
   inviteParentForPlayerSchema,
-  inviteParentSchema,
   linkParentSchema,
   parentUpdatePlayerSchema,
   updateParentSchema,
@@ -152,28 +150,9 @@ export async function removeMembershipAction(fd: FormData): Promise<void> {
 }
 
 // --- Parents ---------------------------------------------------------------
-export async function inviteParentAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { ctx, clubId } = await activeClub();
-  if (!clubId) return { ok: false, error: "No active club." };
-  const parsed = inviteParentSchema.safeParse({ email: str(fd, "email") });
-  if (!parsed.success) return failZod(parsed.error);
-  let emailDelivered = true;
-  try {
-    const result = await inviteParent(ctx, clubId, parsed.data);
-    emailDelivered = result.emailDelivered;
-  } catch (e) {
-    return failService(e);
-  }
-  revalidatePath("/parents");
-  return {
-    ok: true,
-    error: null,
-    notice: emailDelivered
-      ? null
-      : "Invitation created, but the email couldn't be sent. Check the server logs for the invite link.",
-  };
-}
-
+// NOTE: There is no standalone "invite a parent" action. Parent invites are always
+// child-linked and created from a player's roster (see inviteGuardianAction below);
+// the parent account + player_parent_link are provisioned together on acceptance.
 export async function updateParentAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { ctx } = await requireUserAndContext();
   const parentId = str(fd, "parentId");

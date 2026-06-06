@@ -5,6 +5,7 @@ import type { AuthContext } from "@/lib/rbac";
 import { loadAuthContext } from "@/modules/identity/context";
 import { applyInvitationGrants, type InvitationForGrants } from "@/modules/identity/invitations";
 import { createClub, createSeason, createTeam, updateClubSettings } from "@/modules/clubs/service";
+import { inviteCoach } from "@/modules/coaches/service";
 import { createPlayer, inviteParentForPlayer, listLinkedChildren } from "@/modules/roster/service";
 import { createAnnouncement, listAnnouncements, publishAnnouncement } from "@/modules/comms/service";
 import { createEvent, recordAttendance, submitRsvp } from "@/modules/events/service";
@@ -28,13 +29,18 @@ import { INTEGRATION, adminCtx, uid } from "./helpers";
  * directly provisioning the accepted user + applyInvitationGrants — the exact
  * grant path acceptInvitation runs post-signup (unit-tested separately).
  */
-const created: { clubId?: string; parentUserId?: string } = {};
+const created: { clubId?: string; coachUserId?: string; parentUserId?: string } = {};
 
 const run = INTEGRATION ? describe : describe.skip;
 
 run("MVP journey (service-layer end-to-end)", () => {
   beforeAll(async () => {
-    for (const [code, name] of [["MASTER_ADMIN", "Master Admin"], ["CLUB_ADMIN", "Club Manager"], ["PARENT", "Parent / Guardian"]] as const) {
+    for (const [code, name] of [
+      ["MASTER_ADMIN", "Master Admin"],
+      ["CLUB_ADMIN", "Club Manager"],
+      ["COACH", "Coach"],
+      ["PARENT", "Parent / Guardian"],
+    ] as const) {
       await prisma.role.upsert({ where: { code }, create: { code, name }, update: {} });
     }
   });
@@ -52,6 +58,7 @@ run("MVP journey (service-layer end-to-end)", () => {
       await prisma.event.deleteMany({ where: { clubId } });
       await prisma.announcement.deleteMany({ where: { clubId } });
       await prisma.playerParentLink.deleteMany({ where: { clubId } });
+      await prisma.teamCoach.deleteMany({ where: { clubId } });
       await prisma.playerTeamMembership.deleteMany({ where: { clubId } });
       await prisma.parent.deleteMany({ where: { clubId } });
       await prisma.invitation.deleteMany({ where: { clubId } });
@@ -62,7 +69,8 @@ run("MVP journey (service-layer end-to-end)", () => {
       await prisma.clubSetting.deleteMany({ where: { clubId } });
       await prisma.club.deleteMany({ where: { id: clubId } });
     }
-    if (created.parentUserId) await prisma.user.deleteMany({ where: { id: created.parentUserId } });
+    const userIds = [created.coachUserId, created.parentUserId].filter(Boolean) as string[];
+    if (userIds.length) await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.$disconnect();
   });
 
@@ -89,7 +97,7 @@ run("MVP journey (service-layer end-to-end)", () => {
     });
     const team = await createTeam(admin, club.id, { name: "U12", teamCode: `U12-${uid().slice(0, 6)}`, seasonId: season.id } as never);
 
-    // (3) Coach/admin adds a player and invites the parent FOR that player.
+    // (3) Club Manager adds a player to the team.
     const player = await createPlayer(admin, club.id, {
       firstName: "Journey",
       lastName: "Kid",
@@ -97,7 +105,46 @@ run("MVP journey (service-layer end-to-end)", () => {
       initialTeamId: team.id,
       initialSeasonId: season.id,
     } as never);
-    const invitation = await inviteParentForPlayer(admin, {
+
+    // (3a) Club Manager invites a COACH for the team; the coach accepts.
+    // (acceptInvitation's Better-Auth signup is represented directly + the real
+    // grant path applyInvitationGrants runs post-signup — here it seeds team_coaches.)
+    const coachInvite = await inviteCoach(admin, club.id, {
+      email: `journey-coach-${uid()}@it.test`,
+      teamId: team.id,
+      roleType: "HEAD_COACH",
+    });
+    const coachInvRow = await prisma.invitation.findUniqueOrThrow({ where: { id: coachInvite.id } });
+    const coachUserId = uid();
+    created.coachUserId = coachUserId;
+    const coachRoleId = (await prisma.role.findUnique({ where: { code: "COACH" }, select: { id: true } }))!.id;
+    await prisma.user.create({ data: { id: coachUserId, email: coachInvRow.email, firstName: "Journey", lastName: "Coach" } });
+    await prisma.userRoleAssignment.create({
+      data: { userId: coachUserId, roleId: coachRoleId, clubId: club.id, teamId: team.id, status: "ACTIVE" },
+    });
+    await prisma.$transaction((tx) =>
+      applyInvitationGrants(tx, { invitation: coachInvRow as unknown as InvitationForGrants, userId: coachUserId }),
+    );
+    await prisma.invitation.update({
+      where: { id: coachInvRow.id },
+      data: { status: "ACCEPTED", acceptedAt: new Date(), acceptedByUserId: coachUserId },
+    });
+
+    // Coach parent invites are gated by the club's allow_coach_invite_parents setting.
+    await updateClubSettings(admin, club.id, {
+      showPlayerPhotosToParents: false,
+      allowParentChildEvaluationView: false, // eval gate stays OFF until step (6)
+      attendanceTrackingEnabled: true,
+      allowCoachInviteParents: true,
+    });
+
+    // The coach's real context derives from the team_coaches assignment + membership.
+    const coachCtx = (await loadAuthContext(coachUserId, club.id))!;
+    expect(coachCtx.coachTeamIds).toContain(team.id);
+    expect(coachCtx.coachTeamPlayerIds).toContain(player.id);
+
+    // (3b) The COACH invites the parent FOR their assigned-team player (child-linked).
+    const invitation = await inviteParentForPlayer(coachCtx, {
       email: `journey-parent-${uid()}@it.test`,
       playerId: player.id,
       relationshipType: "GUARDIAN",
