@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Archivo, Bungee, Oswald } from "next/font/google";
+
+import { Footer } from "@/components/app/footer";
+
 import "./globals.css";
 
 // Body / UI text.
@@ -38,7 +41,10 @@ export default function RootLayout({
       lang="en"
       className={`${archivo.variable} ${oswald.variable} ${bungee.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <Footer />
+      </body>
     </html>
   );
 }
