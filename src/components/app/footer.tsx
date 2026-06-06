@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
 
+import DissolveFooter from "@/components/dissolve-footer";
+
 /**
  * Global site footer — a black band rendered at the bottom of every page
  * (mounted once in the root layout). Reuses the Console chrome's near-black
@@ -67,8 +69,12 @@ export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="w-full bg-neutral-900 text-neutral-400">
-      <div className="mx-auto w-full max-w-6xl px-6 py-12">
+    <footer className="w-full text-neutral-400">
+      {/* Pixelated dissolve top edge: transparent gaps let the page show
+          through, scattering into the footer's solid neutral-900 body. */}
+      <DissolveFooter height={120} bandRatio={0.85} color="var(--color-neutral-900, #171717)" />
+      <div className="bg-neutral-900">
+        <div className="mx-auto w-full max-w-6xl px-6 pb-12 pt-4">
         <div className="grid grid-cols-2 gap-8 lg:grid-cols-6">
           {/* Brand + contact (spans full width on mobile, 2 cols on desktop) */}
           <div className="col-span-2">
@@ -125,6 +131,7 @@ export function Footer() {
             <a href="#" className="transition-colors hover:text-white">Facebook</a>
           </nav>
         </div>
+      </div>
       </div>
     </footer>
   );
