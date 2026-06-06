@@ -64,6 +64,15 @@ export const auth = betterAuth({
 
   // Carry the active club (tenant context) on the session.
   session: {
+    // Cache the validated session in a short-lived signed cookie so every
+    // request doesn't hit the DB just to resolve the session (the single
+    // hottest query on Vercel). 60s keeps the revocation window small —
+    // `revokeSessionsOnPasswordReset` still takes effect within a minute,
+    // an acceptable tradeoff for a child-safety app vs. a DB hit per request.
+    cookieCache: {
+      enabled: true,
+      maxAge: 60,
+    },
     additionalFields: {
       activeClubId: { type: "string", required: false, input: false },
     },

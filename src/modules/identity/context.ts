@@ -63,42 +63,43 @@ export async function loadAuthContext(
   const role = rolesInClub.sort((a, b) => ROLE_PRIORITY[b] - ROLE_PRIORITY[a])[0];
 
   // COACH scope: assigned teams = team_coaches OR a scoped role assignment
-  // (matrix §11). Take the union of both sources.
-  const coachTeams = await prisma.teamCoach.findMany({
-    where: { userId, clubId: activeClubId, status: "ACTIVE" },
-    select: { teamId: true },
-  });
+  // (matrix §11). PARENT scope: linked children + their teams. The coach-side
+  // and parent-side lookups are independent of each other, so resolve them
+  // concurrently — on Vercel each query is a separate Neon round-trip, and
+  // running them serially was the bulk of the context-load latency.
   const assignmentTeamIds = assignments
     .filter((a) => a.role.code === "COACH" && a.clubId === activeClubId && a.teamId != null)
     .map((a) => a.teamId as string);
-  const coachTeamIds = unique([...coachTeams.map((t) => t.teamId), ...assignmentTeamIds]);
-  const coachTeamPlayerIds = coachTeamIds.length
-    ? unique(
-        (
-          await prisma.playerTeamMembership.findMany({
-            where: { teamId: { in: coachTeamIds }, status: "ACTIVE" },
-            select: { playerId: true },
-          })
-        ).map((m) => m.playerId),
-      )
-    : [];
 
-  // PARENT scope: linked children + the teams those children are on.
-  const parentRows = await prisma.parent.findMany({
-    where: { userId, clubId: activeClubId, status: "ACTIVE" },
-    select: { id: true },
-  });
+  const [coachTeams, parentRows] = await Promise.all([
+    prisma.teamCoach.findMany({
+      where: { userId, clubId: activeClubId, status: "ACTIVE" },
+      select: { teamId: true },
+    }),
+    prisma.parent.findMany({
+      where: { userId, clubId: activeClubId, status: "ACTIVE" },
+      select: { id: true },
+    }),
+  ]);
+
+  const coachTeamIds = unique([...coachTeams.map((t) => t.teamId), ...assignmentTeamIds]);
   const parentIds = parentRows.map((p) => p.id);
-  const linkedPlayerIds = parentIds.length
-    ? unique(
-        (
-          await prisma.playerParentLink.findMany({
-            where: { parentId: { in: parentIds }, status: "ACTIVE" },
-            select: { playerId: true },
-          })
-        ).map((l) => l.playerId),
-      )
-    : [];
+
+  // Second wave: coached-team players and linked players are likewise
+  // independent — fetch both at once.
+  const [coachTeamPlayerIds, linkedPlayerIds] = await Promise.all([
+    coachTeamIds.length
+      ? prisma.playerTeamMembership
+          .findMany({ where: { teamId: { in: coachTeamIds }, status: "ACTIVE" }, select: { playerId: true } })
+          .then((rows) => unique(rows.map((m) => m.playerId)))
+      : Promise.resolve<string[]>([]),
+    parentIds.length
+      ? prisma.playerParentLink
+          .findMany({ where: { parentId: { in: parentIds }, status: "ACTIVE" }, select: { playerId: true } })
+          .then((rows) => unique(rows.map((l) => l.playerId)))
+      : Promise.resolve<string[]>([]),
+  ]);
+
   const childTeamIds = linkedPlayerIds.length
     ? unique(
         (
