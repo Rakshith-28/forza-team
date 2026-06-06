@@ -20,7 +20,7 @@ export function AuthBackdrop() {
   return (
     <div aria-hidden className="absolute inset-0 overflow-hidden">
       {/* Fallback sport-green gradient (shows if the photo isn't present). */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-background to-primary/10" />
+      <div className="absolute inset-0 bg-linear-to-br from-primary/25 via-background to-primary/10" />
       {/* The background photo — cover + center keeps it responsive on every device. */}
       <div className="absolute inset-0 bg-[url('/auth-bg.jpg')] bg-cover bg-center bg-no-repeat" />
       {/* Legibility scrim. */}
