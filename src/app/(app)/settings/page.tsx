@@ -18,7 +18,7 @@ export default async function SettingsPage() {
   const settings = await getClubSettings(ctx, ctx.activeClubId);
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-4xl">
       <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Settings</h1>
       <p className="mt-1 text-muted-foreground">Privacy and feature controls for your club.</p>
 
