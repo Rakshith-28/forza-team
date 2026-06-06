@@ -41,7 +41,7 @@ export default async function AdminDashboard() {
       <PageHeader title="Master Admin" description="System-wide overview across all clubs." />
 
       <section className="mt-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
           {headline.map((s) => (
             <SummaryCard
               key={s.label}
@@ -50,6 +50,7 @@ export default async function AdminDashboard() {
               href={s.href}
               labelPosition="top"
               labelTone="green"
+              className="p-4 sm:p-5"
             />
           ))}
         </div>
