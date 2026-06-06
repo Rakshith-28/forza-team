@@ -40,7 +40,7 @@ export function ChatThread({
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -72,7 +72,11 @@ export function ChatThread({
   }, [load]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Keep the newest message visible by scrolling the message CONTAINER only —
+    // never window.scrollIntoView, which walks up every scroll ancestor and
+    // yanks the whole page down on load/poll.
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   async function send(e: React.FormEvent) {
@@ -105,7 +109,7 @@ export function ChatThread({
 
   return (
     <div className="flex h-[70vh] flex-col rounded-lg border bg-card">
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No messages yet. Say hello 👋</p>
         ) : (
@@ -145,7 +149,6 @@ export function ChatThread({
             );
           })
         )}
-        <div ref={endRef} />
       </div>
 
       {error ? <p className="px-4 text-sm text-destructive" role="alert">{error}</p> : null}
