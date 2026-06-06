@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TwoPane } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
 import { listSeasons } from "@/modules/clubs/service";
 
@@ -24,29 +24,22 @@ export default async function SeasonsPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Seasons</h1>
-      <p className="mt-1 text-muted-foreground">Define the seasons your teams play in.</p>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="font-sport text-base">New season</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CreateSeasonForm />
-        </CardContent>
-      </Card>
-
-      <div className="mt-6 flex flex-col gap-3">
+    <TwoPane
+      title="Seasons"
+      description="Define the seasons your teams play in."
+      formTitle="New season"
+      form={<CreateSeasonForm />}
+    >
+      <div className="flex flex-col gap-3">
         {views.length === 0 ? (
           <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            No seasons yet. Add your first season above.
+            No seasons yet. Use the form to add your first season.
           </p>
         ) : (
           views.map((s) => <SeasonRow key={`${s.id}-${s.version}`} season={s} />)
         )}
       </div>
-    </div>
+    </TwoPane>
   );
 }
 

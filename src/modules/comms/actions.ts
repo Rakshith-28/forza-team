@@ -9,6 +9,7 @@ import type { FormState } from "@/modules/comms/action-state";
 import {
   archiveAnnouncement,
   createAnnouncement,
+  markClubAnnouncementRead,
   publishAnnouncement,
   updateAnnouncement,
 } from "@/modules/comms/service";
@@ -67,6 +68,16 @@ export async function updateAnnouncementAction(_prev: FormState, fd: FormData): 
   revalidatePath("/announcements");
   revalidatePath(`/announcements/${id}`);
   return { ok: true, error: null };
+}
+
+/** Best-effort: mark a club announcement read for the caller (e.g. from a dashboard panel). */
+export async function markClubAnnouncementReadAction(id: string): Promise<void> {
+  const { ctx } = await requireUserAndContext();
+  try {
+    await markClubAnnouncementRead(ctx, id);
+  } catch {
+    // Read-tracking is non-critical; never surface an error to the UI.
+  }
 }
 
 export async function publishAnnouncementAction(fd: FormData): Promise<void> {

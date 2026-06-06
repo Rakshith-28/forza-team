@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AccountMenu } from "@/components/app/account-menu";
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import type { AppearanceTheme } from "@/lib/appearance";
 
@@ -16,11 +17,15 @@ import { ParentThemeProvider } from "./theme-provider";
 export function ParentAppShell({
   theme,
   initial,
+  name,
+  email,
   unreadAnnouncements = 0,
   children,
 }: {
   theme: AppearanceTheme;
   initial: string;
+  name: string;
+  email: string;
   unreadAnnouncements?: number;
   children: React.ReactNode;
 }) {
@@ -32,13 +37,13 @@ export function ParentAppShell({
         </Link>
         <div className="flex items-center gap-2">
           <AnnouncementsBell initialCount={unreadAnnouncements} />
-          <Link
-            href="/me"
-            aria-label="Profile"
-            className="app-pill flex size-9 items-center justify-center bg-primary text-sm font-bold text-primary-foreground"
-          >
-            {initial}
-          </Link>
+          <AccountMenu
+            name={name}
+            email={email}
+            initial={initial}
+            roleLabel="Parent / Guardian"
+            profileHref="/me"
+          />
         </div>
       </header>
 

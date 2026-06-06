@@ -1,9 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FilterBar, FilterSelect, FilterText, PageHeader, Pagination } from "@/components/console";
+import { FilterBar, FilterSelect, FilterText, PageHeader, Pagination, TwoPane } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
 import { listTeams } from "@/modules/clubs/service";
 import { COACH_ROLE_LABELS, COACH_ROLE_TYPES } from "@/modules/clubs/schemas";
@@ -133,21 +132,14 @@ export default async function CoachesPage({
   const teamOptions = teams.filter((t) => t.status !== "ARCHIVED").map((t) => ({ id: t.id, name: t.name }));
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Coaches</h1>
-      <p className="mt-1 text-muted-foreground">Invite coaches and assign them to teams.</p>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="font-sport text-base">Invite a coach</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <InviteCoachForm teams={teamOptions} />
-        </CardContent>
-      </Card>
-
+    <TwoPane
+      title="Coaches"
+      description="Invite coaches and assign them to teams."
+      formTitle="Invite a coach"
+      form={<InviteCoachForm teams={teamOptions} />}
+    >
       {/* Filters */}
-      <form className="mt-6 flex flex-wrap items-end gap-3" method="get">
+      <form className="flex flex-wrap items-end gap-3" method="get">
         <div className="flex flex-1 flex-col gap-1.5">
           <Label htmlFor="f-search">Search</Label>
           <Input id="f-search" name="search" defaultValue={sp.search ?? ""} placeholder="Name or email" />
@@ -188,7 +180,7 @@ export default async function CoachesPage({
           coaches.map((c) => <CoachCard key={`${c.kind}-${c.id}`} coach={c} teamOptions={teamOptions} />)
         )}
       </div>
-    </div>
+    </TwoPane>
   );
 }
 
