@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 # Cancel superseded runs on the same ref.
 concurrency:
@@ -46,3 +47,70 @@ jobs:
           DATABASE_URL: postgresql://user:pass@localhost:5432/forza
           DIRECT_URL: postgresql://user:pass@localhost:5432/forza
           AUTH_SECRET: ci-placeholder-secret-min-32-characters-long
+
+  test:
+    name: Unit & integration tests
+    runs-on: ubuntu-latest
+    # Ephemeral, throwaway Postgres for this run only. These are CI-only
+    # credentials on a localhost service — NOT the app/dev database, and never
+    # real Neon secrets. The integration isolation guard (tests-integration/
+    # helpers.ts) passes naturally because this service URL is not the app DB.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: forza_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # Apply all committed migrations to the throwaway service DB. Prisma CLI
+      # (prisma.config.ts) connects via DIRECT_URL.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/forza_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/forza_test
+
+      # Seed the four roles only (production path skips the Demo FC fixture). The
+      # integration suites require the roles table to be populated.
+      - name: Seed roles
+        run: npm run db:seed
+        env:
+          NODE_ENV: production
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/forza_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/forza_test
+
+      # Unit / RBAC suite. vitest.config.ts supplies its own dummy env; it never
+      # connects to a database.
+      - name: Unit tests
+        run: npm test
+
+      # DB-backed integration suite (parent-safe projections, RBAC scope,
+      # invite-accept linkage + idempotency). Only TEST_DATABASE_URL is set here:
+      # the guard captures the ambient DATABASE_URL as the "app" URL, so leaving
+      # it unset keeps the guard satisfied without being bypassed.
+      - name: Integration tests
+        run: npm run test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/forza_test
