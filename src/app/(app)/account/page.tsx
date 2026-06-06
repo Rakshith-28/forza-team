@@ -10,7 +10,7 @@ export default async function AccountPage() {
   const account = await getMyAccount(ctx);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-5xl">
       <PageHeader title="Account" description="Your profile, notifications, and session." />
 
       <div className="mt-6">
