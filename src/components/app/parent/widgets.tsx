@@ -16,7 +16,7 @@ export function AttendanceRing({ present, total }: { present: number; total: num
   const circumference = 2 * Math.PI * r;
   const dash = (pct / 100) * circumference;
   return (
-    <div className="relative grid size-[88px] place-items-center">
+    <div className="relative grid size-22 place-items-center">
       <svg width="88" height="88" viewBox="0 0 88 88" className="-rotate-90">
         <circle cx="44" cy="44" r={r} fill="none" stroke="var(--secondary)" strokeWidth="9" />
         <circle
@@ -47,7 +47,7 @@ export function XpBar({ level, progress }: { level: number; progress: number }) 
       </div>
       <div className="mt-2 h-3 overflow-hidden rounded-full bg-secondary">
         <div
-          className="h-full rounded-full bg-[var(--pop-1)]"
+          className="h-full rounded-full bg-(--pop-1)"
           style={{ width: `${Math.max(4, progress)}%` }}
         />
       </div>
