@@ -74,10 +74,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { session, ctx } = await requireUserAndContext();
   const displayName = session.user.name || session.user.email;
 
-  // Live platform broadcasts (WARNING/CRITICAL) surface as a banner in every shell.
-  const banners = await getMyPlatformBanners(ctx);
-  // Combined unread (platform + club) drives the navbar bell badge.
-  const unreadAnnouncements = await getMyAnnouncementsUnreadCount(ctx);
+  // Live platform broadcasts (WARNING/CRITICAL) surface as a banner in every
+  // shell; the combined unread (platform + club) count drives the navbar bell
+  // badge. The two are independent, so fetch them concurrently rather than
+  // paying two serial Neon round-trips.
+  const [banners, unreadAnnouncements] = await Promise.all([
+    getMyPlatformBanners(ctx),
+    getMyAnnouncementsUnreadCount(ctx),
+  ]);
 
   // Player/parent surface: the themed mobile app shell (Vibrant/Classic).
   // The Console (admin/coach) keeps its fixed look below — never themed.
