@@ -7,15 +7,13 @@ import { listLinkedChildren } from "@/modules/roster/service";
 import { getChildAttendance, listParentSchedule } from "@/modules/events/service";
 import { listAnnouncements, listChatTeams } from "@/modules/comms/service";
 import { formatEventTime } from "@/modules/events/format";
+import { NextUpCarousel } from "@/components/app/parent/next-up-carousel";
 import {
   AttendanceRing,
   CollectibleCard,
-  StatTile,
   StoriesStrip,
   XpBar,
 } from "@/components/app/parent/widgets";
-
-import { RsvpControl } from "../../schedule/rsvp-control";
 
 /**
  * Player/parent HOME — a bento-grid dashboard inside the themed mobile shell.
@@ -67,6 +65,16 @@ export default async function ParentHome() {
     .slice(0, 6)
     .map((a) => ({ id: a.id, title: a.title }));
 
+  // Next up carousel slides (time pre-formatted server-side).
+  const nextUpSlides = upcoming.map((m) => ({
+    id: m.event.id,
+    title: m.event.title,
+    subtitle:
+      formatEventTime(m.event.startAt, m.event.timezone) +
+      (m.event.teamName ? ` · ${m.event.teamName}` : ""),
+    children: m.children.map((c) => ({ playerId: c.playerId, name: c.name, rsvpStatus: c.rsvpStatus })),
+  }));
+
   return (
     <div className="flex flex-col gap-4 pt-2">
       {children.length > 1 ? (
@@ -92,42 +100,15 @@ export default async function ParentHome() {
         href={`/my-kids/${primary.id}`}
       />
 
-      {/* Next up — a horizontal swipe carousel when more than one session is
-          scheduled (scroll-snap; each session is one full-width slide). */}
-      <div className="app-card p-4">
-        <div className="flex items-center justify-between">
+      {/* Next up — swipeable carousel of upcoming sessions (see component). */}
+      {nextUpSlides.length > 0 ? (
+        <NextUpCarousel slides={nextUpSlides} />
+      ) : (
+        <div className="app-card p-4">
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Next up</p>
-          {upcoming.length > 1 ? (
-            <p className="text-[11px] font-medium text-muted-foreground">Swipe for more →</p>
-          ) : null}
-        </div>
-        {upcoming.length > 0 ? (
-          <div className="-mx-4 mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {upcoming.map((m) => (
-              <div key={m.event.id} className="w-full shrink-0 snap-start">
-                <p className="font-sport text-lg font-bold text-foreground">{m.event.title}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatEventTime(m.event.startAt, m.event.timezone)}
-                  {m.event.teamName ? ` · ${m.event.teamName}` : ""}
-                </p>
-                <div className="mt-3 flex flex-col gap-1.5 border-t pt-3">
-                  {m.children.map((c) => (
-                    <RsvpControl
-                      key={c.playerId}
-                      eventId={m.event.id}
-                      playerId={c.playerId}
-                      playerName={c.name}
-                      current={c.rsvpStatus}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
           <p className="mt-1 text-sm text-muted-foreground">Nothing scheduled. Enjoy the break! ⚽</p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Announcements — moved below the Next up session details. */}
       <StoriesStrip items={stories} />
@@ -141,7 +122,11 @@ export default async function ParentHome() {
           </div>
           <AttendanceRing present={present} total={attendance.length} />
         </div>
-        <StatTile label="Upcoming events" value={String(upcoming.length)} accent="var(--pop-5)" dot={false} />
+        <div className="app-card flex flex-col justify-center p-4">
+          <p className="text-xs font-medium text-foreground">There are</p>
+          <p className="font-sport text-3xl font-extrabold leading-none text-primary">{upcoming.length}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Upcoming events</p>
+        </div>
       </div>
 
       <XpBar level={level} progress={progress} />
