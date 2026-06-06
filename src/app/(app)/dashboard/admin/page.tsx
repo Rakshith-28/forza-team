@@ -6,6 +6,7 @@ import { getPlatformAnnouncementsSummary } from "@/modules/announcements/platfor
 import { getMasterClubs, getMasterDashboardSummary } from "@/modules/master/service";
 
 import { ClubsPanel } from "./clubs-panel";
+import { SystemSnapshot } from "./system-snapshot";
 import { SeverityBadge } from "../../platform-announcements/severity-badge";
 
 export default async function AdminDashboard() {
@@ -58,23 +59,7 @@ export default async function AdminDashboard() {
 
       <section className="mt-6 rounded-xl border bg-card p-5 shadow-sm">
         <h2 className="font-sport text-base font-bold tracking-tight text-foreground">System snapshot</h2>
-        <dl className="mt-4 grid gap-x-8 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-          {snapshot.map((s) => {
-            const row = (
-              <div className="flex items-center justify-between border-b border-border/60 py-2">
-                <dt className="text-sm text-muted-foreground">{s.label}</dt>
-                <dd className="font-sport text-lg font-bold tabular-nums text-foreground">{s.value}</dd>
-              </div>
-            );
-            return s.href ? (
-              <Link key={s.label} href={s.href} className="rounded-md transition-colors hover:text-primary [&_dt]:hover:text-primary">
-                {row}
-              </Link>
-            ) : (
-              <div key={s.label}>{row}</div>
-            );
-          })}
-        </dl>
+        <SystemSnapshot items={snapshot} />
       </section>
 
       <section className="mt-8 rounded-xl border bg-card p-5 shadow-sm">
