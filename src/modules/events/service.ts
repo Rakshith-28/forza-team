@@ -6,6 +6,7 @@ import { recordAudit } from "@/lib/audit";
 import {
   assertCan,
   assertClubScope,
+  assertTeamScope,
   ForbiddenError,
   type AuthContext,
 } from "@/lib/rbac";
@@ -353,6 +354,84 @@ export async function getChildAttendance(ctx: AuthContext, playerId: string) {
     orderBy: { recordedAt: "desc" },
     include: { event: { select: { id: true, title: true, startAt: true, eventType: true, timezone: true } } },
   });
+}
+
+// ===========================================================================
+// Attendance — dedicated team roster summary + per-player record (staff)
+// ===========================================================================
+
+export interface TeamAttendanceRow {
+  playerId: string;
+  name: string;
+  /** Events on this team where the player was PRESENT or LATE. */
+  attended: number;
+  /** Events on this team where attendance was recorded for the player. */
+  total: number;
+  /** attended/total as a percentage, or null when nothing has been recorded yet. */
+  pct: number | null;
+}
+
+/**
+ * Per-player attendance summary across a team's events (the Attendance section,
+ * separate from Schedule). Staff-only; a coach must be assigned to the team.
+ * "Attended" counts PRESENT or LATE (mirrors the parent dashboard ring).
+ */
+export async function listTeamAttendance(ctx: AuthContext, teamId: string): Promise<TeamAttendanceRow[]> {
+  const team = await prisma.team.findFirst({ where: { id: teamId, deletedAt: null }, select: { clubId: true } });
+  if (!team) throw new ForbiddenError("Team not found");
+  assertTeamScope(ctx, { clubId: team.clubId, teamId });
+
+  const memberships = await prisma.playerTeamMembership.findMany({
+    where: { teamId, clubId: team.clubId, status: "ACTIVE" },
+    select: { player: { select: { id: true, firstName: true, lastName: true, preferredName: true } } },
+    orderBy: { player: { lastName: "asc" } },
+  });
+  const players = memberships.map((m) => m.player);
+  if (players.length === 0) return [];
+
+  const records = await prisma.attendanceRecord.findMany({
+    where: { playerId: { in: players.map((p) => p.id) }, event: { teamId } },
+    select: { playerId: true, attendanceStatus: true },
+  });
+  const agg = new Map<string, { attended: number; total: number }>();
+  for (const r of records) {
+    const cur = agg.get(r.playerId) ?? { attended: 0, total: 0 };
+    cur.total += 1;
+    if (r.attendanceStatus === "PRESENT" || r.attendanceStatus === "LATE") cur.attended += 1;
+    agg.set(r.playerId, cur);
+  }
+  return players.map((p) => {
+    const a = agg.get(p.id) ?? { attended: 0, total: 0 };
+    return {
+      playerId: p.id,
+      name: p.preferredName ?? `${p.firstName} ${p.lastName}`,
+      attended: a.attended,
+      total: a.total,
+      pct: a.total > 0 ? Math.round((a.attended / a.total) * 100) : null,
+    };
+  });
+}
+
+/**
+ * One player's full event-by-event attendance record, for the staff drill-down.
+ * Scoped via roster.view_full (admin club-wide; coach assigned-team players only).
+ */
+export async function getPlayerAttendanceForStaff(ctx: AuthContext, playerId: string) {
+  const player = await prisma.player.findFirst({
+    where: { id: playerId, deletedAt: null },
+    select: { id: true, clubId: true, firstName: true, lastName: true, preferredName: true },
+  });
+  if (!player) throw new ForbiddenError("Player not found");
+  assertCan(ctx, "roster.view_full", { clubId: player.clubId, playerId });
+
+  const records = await prisma.attendanceRecord.findMany({
+    where: { playerId },
+    orderBy: { recordedAt: "desc" },
+    include: {
+      event: { select: { id: true, title: true, startAt: true, eventType: true, timezone: true, team: { select: { name: true } } } },
+    },
+  });
+  return { player, records };
 }
 
 // ===========================================================================

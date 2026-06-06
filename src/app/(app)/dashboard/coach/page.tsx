@@ -100,7 +100,7 @@ export default async function CoachDashboard() {
         <AnnouncementsPanel items={announcementItems} />
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <Link href="/players">
           <Card className="h-full transition-colors hover:border-primary">
             <CardHeader>
@@ -111,7 +111,14 @@ export default async function CoachDashboard() {
         <Link href="/schedule">
           <Card className="h-full transition-colors hover:border-primary">
             <CardHeader>
-              <CardTitle className="font-sport text-base">Schedule &amp; Attendance</CardTitle>
+              <CardTitle className="font-sport text-base">Schedule</CardTitle>
+            </CardHeader>
+          </Card>
+        </Link>
+        <Link href="/attendance">
+          <Card className="h-full transition-colors hover:border-primary">
+            <CardHeader>
+              <CardTitle className="font-sport text-base">Attendance</CardTitle>
             </CardHeader>
           </Card>
         </Link>
