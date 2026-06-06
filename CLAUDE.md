@@ -42,32 +42,41 @@ Do not swap these without updating the plan first.
 - **Tailwind CSS v4** + **shadcn/ui** (Radix); **React Hook Form + Zod** for forms.
 - **Resend** (email), **Vercel Blob** (files), **Upstash** (rate limiting),
   **Sentry** (errors) — wired in their respective phases.
-- **Package manager: npm.** **Hosting: Vercel.**
+- **Package manager: pnpm** (pinned via `packageManager` in `package.json`). Use
+  pnpm only — **never npm**. **Hosting: Vercel.**
 
 ## Commands
 
 ```bash
-npm run dev          # local dev server (Turbopack)
-npm run build        # production build
-npm run lint         # ESLint (next lint config)
-npm run typecheck    # tsc --noEmit
-npm run db:generate  # regenerate the Prisma client (after schema edits)
-npm run db:migrate   # prisma migrate dev (needs DATABASE_URL/DIRECT_URL)
-npm run db:studio    # Prisma Studio
+pnpm dev          # local dev server (Turbopack)
+pnpm build        # production build
+pnpm lint         # ESLint (next lint config)
+pnpm typecheck    # tsc --noEmit
+pnpm db:generate  # regenerate the Prisma client (after schema edits)
+pnpm db:migrate   # prisma migrate dev (needs DATABASE_URL/DIRECT_URL)
+pnpm db:studio    # Prisma Studio
 ```
 
 CI runs `lint`, `typecheck`, and `build` on every PR (`.github/workflows/ci.yml`).
 
-For a **named** migration use `npx prisma migrate dev --name <x>` directly — `npm run db:migrate -- --name <x>` swallows the flag and hangs on the interactive prompt.
+For a **named** migration use `pnpm exec prisma migrate dev --name <x>` — pnpm
+passes the flag through cleanly (no npm flag-swallowing issue).
 
-After ANY `schema.prisma` change, run `npm run db:generate` and restart the dev server — the generated client is otherwise stale (e.g. a column that became nullable still reads as required).
+After ANY `schema.prisma` change, run `pnpm db:generate` and restart the dev server — the generated client is otherwise stale (e.g. a column that became nullable still reads as required).
+
+pnpm v10+ blocks dependency build scripts by default
+(`ERR_PNPM_IGNORED_BUILDS`); the approved set (prisma, @prisma/engines, esbuild,
+sharp, unrs-resolver) is persisted in `pnpm-workspace.yaml`. pnpm 10+ reads
+`overrides` (e.g. the kysely 0.28.17 pin) and these settings from
+`pnpm-workspace.yaml`, **not** from the `pnpm` field in `package.json`.
 
 ### Node version
 
 Prisma 7 supports **Node 20.19+, 22.12+, or 24+** — odd-numbered releases like
-**23.x are unsupported** and their install guard fails. CI uses Node 22. On an
-unsupported local Node you can install with `npm install --ignore-scripts` then
-`npm rebuild` and `npm run db:generate` (the Prisma CLI runtime itself works).
+**23.x are unsupported** and their install guard fails. CI uses Node 22 (pinned
+in `.nvmrc`). On an unsupported local Node you can install with
+`pnpm install --ignore-scripts` then `pnpm rebuild` and `pnpm db:generate` (the
+Prisma CLI runtime itself works).
 
 ## Repository layout
 
