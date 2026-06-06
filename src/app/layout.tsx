@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, Bungee, Oswald } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 
 import { Footer } from "@/components/app/footer";
 
@@ -44,6 +46,8 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col overflow-x-clip">
         {children}
         <Footer />
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
