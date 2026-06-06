@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { updateClubSettingsAction } from "@/modules/clubs/actions";
 import { INITIAL_STATE } from "@/modules/clubs/action-state";
 
@@ -41,26 +42,17 @@ export function ClubSettingsForm({ settings }: { settings: ClubSettingsData }) {
 
   return (
     <form action={action} className="flex flex-col gap-5">
-      {TOGGLES.map((t) => (
-        <label key={t.name} className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            name={t.name}
-            defaultChecked={settings[t.name]}
-            className="mt-1 size-4"
-          />
-          <span>
-            <span className="block text-sm font-medium text-foreground">{t.label}</span>
-            <span className="block text-xs text-muted-foreground">{t.help}</span>
-          </span>
-        </label>
-      ))}
-      {state.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
-      {state.ok ? <p className="text-sm text-primary" role="status">Settings saved.</p> : null}
-      <div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {TOGGLES.map((t) => (
+          <ToggleSwitch key={t.name} name={t.name} label={t.label} help={t.help} defaultChecked={settings[t.name]} />
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save settings"}
         </Button>
+        {state.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
+        {state.ok ? <p className="text-sm text-primary" role="status">Settings saved.</p> : null}
       </div>
     </form>
   );

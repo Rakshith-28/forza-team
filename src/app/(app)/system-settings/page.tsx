@@ -9,7 +9,7 @@ export default async function SystemSettingsPage() {
   const settings = await getSystemSettings(ctx);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-4xl">
       <PageHeader title="System Settings" description="Global, platform-wide configuration and new-club defaults." />
       <div className="mt-6">
         <SystemSettingsForm settings={settings} />
