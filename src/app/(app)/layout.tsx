@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AccountMenu } from "@/components/app/account-menu";
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import { ConsoleMobileNav } from "@/components/app/console-mobile-nav";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
@@ -126,6 +127,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
             {ROLE_LABELS[ctx.role]}
           </span>
+          <AccountMenu
+            name={displayName}
+            email={session.user.email}
+            initial={initial}
+            roleLabel={ROLE_LABELS[ctx.role]}
+          />
         </div>
       </header>
 
