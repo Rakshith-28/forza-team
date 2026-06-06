@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { prisma } from "@/db/client";
 import { isRole, type Role } from "@/lib/rbac/roles";
 import type { AuthContext } from "@/lib/rbac/scope";
@@ -21,20 +23,31 @@ const ROLE_PRIORITY: Record<Role, number> = {
   PARENT: 1,
 };
 
-/** Default active club for a user (their primary, else earliest assignment). */
-export async function resolveActiveClubId(userId: string): Promise<string | null> {
+/**
+ * Default active club for a user (their primary, else earliest assignment).
+ *
+ * `cache()`-wrapped: deduped per request so the layout and the page's
+ * `requireRole` share one lookup. Memoization is per-render only.
+ */
+export const resolveActiveClubId = cache(async (userId: string): Promise<string | null> => {
   const assignment = await prisma.userRoleAssignment.findFirst({
     where: { userId, status: "ACTIVE", clubId: { not: null } },
     orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
     select: { clubId: true },
   });
   return assignment?.clubId ?? null;
-}
+});
 
-export async function loadAuthContext(
+/**
+ * `cache()`-wrapped on (userId, activeClubId): the shell layout and the page
+ * guard resolve the same context once per request instead of twice. Per-render
+ * only — never shared across requests, so role/scope changes take effect on the
+ * next navigation.
+ */
+export const loadAuthContext = cache(async (
   userId: string,
   activeClubId: string | null,
-): Promise<AuthContext | null> {
+): Promise<AuthContext | null> => {
   const assignments = await prisma.userRoleAssignment.findMany({
     where: { userId, status: "ACTIVE" },
     select: { clubId: true, teamId: true, role: { select: { code: true } } },
@@ -112,7 +125,7 @@ export async function loadAuthContext(
     : [];
 
   return { userId, role, activeClubId, coachTeamIds, coachTeamPlayerIds, linkedPlayerIds, childTeamIds };
-}
+});
 
 function unique<T>(items: T[]): T[] {
   return [...new Set(items)];

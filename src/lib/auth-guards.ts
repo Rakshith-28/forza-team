@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -14,9 +15,14 @@ import { loadAuthContext, resolveActiveClubId } from "@/modules/identity/context
  * service-layer scope assertions in src/lib/rbac/scope.ts.
  */
 
-export async function getSession() {
+/**
+ * Per-request memoized: the authenticated shell layout and the page's own
+ * `requireRole` both resolve the session in a single render. `cache()` dedupes
+ * that to ONE Better Auth lookup per request — it never caches across requests.
+ */
+export const getSession = cache(async () => {
   return auth.api.getSession({ headers: await headers() });
-}
+});
 
 /** Require an authenticated user; redirect anonymous callers to sign-in. */
 export async function requireUser() {
