@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { AccountMenu } from "@/components/app/account-menu";
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import { ConsoleMobileNav } from "@/components/app/console-mobile-nav";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
@@ -26,7 +25,6 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Announcements", href: "/platform-announcements" },
     { label: "Audit Logs", href: "/audit-logs" },
     { label: "System Settings", href: "/system-settings" },
-    { label: "Account", href: "/account" },
   ],
   CLUB_ADMIN: [
     { label: "Dashboard", href: "/dashboard/club" },
@@ -46,7 +44,6 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Evaluations", href: "/evaluations" },
     { label: "Reports", href: "/dashboard/club" },
     { label: "Settings", href: "/settings" },
-    { label: "Account", href: "/account" },
   ],
   COACH: [
     { label: "Dashboard", href: "/dashboard/coach" },
@@ -58,7 +55,6 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Attendance", href: "/attendance" },
     { label: "Evaluations", href: "/evaluations" },
     { label: "Development", href: "/development" },
-    { label: "Account", href: "/account" },
   ],
   PARENT: [
     { label: "My Kids", href: "/dashboard/parent" },
@@ -123,12 +119,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <div className="flex items-center gap-3">
           <AnnouncementsBell initialCount={unreadAnnouncements} />
-          <AccountMenu
-            name={displayName}
-            email={session.user.email}
-            initial={initial}
-            roleLabel={ROLE_LABELS[ctx.role]}
-          />
+          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+            {ROLE_LABELS[ctx.role]}
+          </span>
         </div>
       </header>
 

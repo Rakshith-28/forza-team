@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   BarChart3,
   Building2,
@@ -14,6 +15,7 @@ import {
   FileText,
   LayoutDashboard,
   Lock,
+  LogOut,
   Megaphone,
   MessageSquare,
   ScrollText,
@@ -26,6 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 export interface NavItem {
@@ -83,8 +86,27 @@ const LABEL =
  * menus), and sticks while the page scrolls. Collapsed icons show native
  * tooltips; the active route gets a white pill + a thin brand-green accent.
  */
-export function ConsoleSidebar({ items, profile }: { items: NavItem[]; profile: SidebarProfile }) {
+export function ConsoleSidebar({
+  items,
+  profile,
+  profileHref = "/account",
+}: {
+  items: NavItem[];
+  profile: SidebarProfile;
+  profileHref?: string;
+}) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    await signOut();
+    router.push("/sign-in");
+    router.refresh();
+  }
+
+  const profileActive = isActive(pathname, profileHref);
 
   return (
     <aside
@@ -161,6 +183,47 @@ export function ConsoleSidebar({ items, profile }: { items: NavItem[]; profile: 
           })}
         </ul>
       </nav>
+
+      {/* Account menu pinned to the bottom — partition line above for an official,
+          app-like footer to the rail (Profile settings + Sign out). */}
+      <div className="mx-3 mt-1 border-t border-white/10" />
+      <div className="shrink-0 py-1">
+        <Link
+          href={profileHref}
+          title="Profile settings"
+          aria-current={profileActive ? "page" : undefined}
+          className={cn(
+            "relative mx-2 flex h-11 items-center rounded-xl transition-colors duration-200",
+            profileActive ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white",
+          )}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary transition-opacity",
+              profileActive ? "opacity-100" : "opacity-0",
+            )}
+          />
+          <span className="grid size-12 shrink-0 place-items-center">
+            <Settings className="size-5" />
+          </span>
+          <span className={cn(LABEL, "flex-1 text-sm font-medium")}>Profile settings</span>
+        </Link>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          title="Sign out"
+          className="relative mx-2 flex h-11 w-[calc(100%-1rem)] items-center rounded-xl text-neutral-400 transition-colors duration-200 hover:bg-white/5 hover:text-white disabled:opacity-60"
+        >
+          <span className="grid size-12 shrink-0 place-items-center">
+            <LogOut className="size-5" />
+          </span>
+          <span className={cn(LABEL, "flex-1 text-left text-sm font-medium")}>
+            {signingOut ? "Signing out…" : "Sign out"}
+          </span>
+        </button>
+      </div>
     </aside>
   );
 }
