@@ -1,0 +1,23 @@
+# pnpm 10+ reads settings from this file, NOT from the "pnpm" field in package.json.
+
+# Pin kysely to 0.28.17. kysely 0.29 breaks the Better Auth adapter, so this
+# override must hold — do not drop or loosen it.
+overrides:
+  kysely: 0.28.17
+
+# Approve build scripts that pnpm v10+ blocks by default (ERR_PNPM_IGNORED_BUILDS).
+# These packages need their postinstall/build to run for the app to work
+# (Prisma engines + client generation, esbuild/sharp/unrs-resolver native binaries).
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - esbuild
+  - prisma
+  - sharp
+  - unrs-resolver
+
+allowBuilds:
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
