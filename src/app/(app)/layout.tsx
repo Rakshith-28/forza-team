@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
+import { ConsoleMobileNav } from "@/components/app/console-mobile-nav";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
 import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
 import { PlatformBanner } from "@/components/app/platform-banner";
@@ -100,13 +101,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-full flex-1 flex-col gap-2 p-2">
       <header className="sticky top-2 z-40 flex h-14 shrink-0 items-center justify-between rounded-2xl border bg-card px-4 shadow-xl">
-        <Link
-          href="/dashboard"
-          className="font-sport text-2xl font-bold uppercase tracking-[0.32em] transition-opacity hover:opacity-80"
-        >
-          <span className="text-foreground">Forza</span>
-          <span className="ml-[0.32em] text-primary">Team</span>
-        </Link>
+        <div className="flex min-w-0 items-center gap-2">
+          <ConsoleMobileNav
+            items={navItems}
+            profile={{ name: displayName, initial, roleLabel: ROLE_LABELS[ctx.role] }}
+          />
+          <Link
+            href="/dashboard"
+            className="truncate font-sport text-xl font-bold uppercase tracking-[0.32em] transition-opacity hover:opacity-80 sm:text-2xl"
+          >
+            <span className="text-foreground">Forza</span>
+            <span className="ml-[0.32em] text-primary">Team</span>
+          </Link>
+        </div>
         <div className="flex items-center gap-3">
           <AnnouncementsBell initialCount={unreadAnnouncements} />
           <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">

@@ -40,7 +40,7 @@ export interface SidebarProfile {
 }
 
 /** Icon per nav label (Console roles only). Falls back to a neutral glyph. */
-const ICONS: Record<string, LucideIcon> = {
+export const ICONS: Record<string, LucideIcon> = {
   Dashboard: LayoutDashboard,
   Clubs: Building2,
   Coaches: UsersRound,

@@ -4,6 +4,7 @@ import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import type { AppearanceTheme } from "@/lib/appearance";
 
 import { BottomTabBar } from "./bottom-tab-bar";
+import { SideRails } from "./side-rails";
 import { ParentThemeProvider } from "./theme-provider";
 
 /**
@@ -44,6 +45,7 @@ export function ParentAppShell({
       <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28 pt-1">{children}</main>
 
       <BottomTabBar />
+      <SideRails unreadAnnouncements={unreadAnnouncements} />
     </ParentThemeProvider>
   );
 }

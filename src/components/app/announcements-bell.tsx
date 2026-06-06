@@ -18,8 +18,21 @@ function fmt(d: Date | string | null): string {
  * Navbar announcements bell — combined unread (platform + club) badge with a
  * lazy-loaded dropdown. Opening an item marks it read; club items deep-link to
  * the announcements page. Works in any shell (console + parent).
+ *
+ * `variant` controls only the trigger's appearance: `"icon"` (default) is the
+ * compact header button; `"tab"` matches the parent app's nav buttons (stacked
+ * icon + label) so the bell can dock in a desktop side rail. The dropdown and
+ * click behavior are identical for both.
  */
-export function AnnouncementsBell({ initialCount }: { initialCount: number }) {
+export function AnnouncementsBell({
+  initialCount,
+  variant = "icon",
+  label = "Notifications",
+}: {
+  initialCount: number;
+  variant?: "icon" | "tab";
+  label?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(initialCount);
@@ -60,9 +73,15 @@ export function AnnouncementsBell({ initialCount }: { initialCount: number }) {
         aria-label={`Announcements${count > 0 ? `, ${count} unread` : ""}`}
         aria-expanded={open}
         onClick={toggle}
-        className="relative rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className={cn(
+          "relative transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          variant === "tab"
+            ? "flex w-16 flex-col items-center gap-0.5 rounded-full px-2 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+            : "rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
+        )}
       >
-        <Bell className="size-5" />
+        <Bell className="size-5" aria-hidden />
+        {variant === "tab" ? label : null}
         {count > 0 ? (
           <span className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-4 text-destructive-foreground">
             {count > 9 ? "9+" : count}
@@ -75,7 +94,7 @@ export function AnnouncementsBell({ initialCount }: { initialCount: number }) {
           <div className="fixed inset-0 z-40" aria-hidden onClick={() => setOpen(false)} />
           <div
             role="menu"
-            className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border bg-popover shadow-lg"
+            className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border bg-popover shadow-lg"
           >
             <div className="border-b px-4 py-2.5">
               <p className="text-sm font-semibold text-foreground">Announcements</p>

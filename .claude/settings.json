@@ -7,7 +7,20 @@
       "PowerShell(\"----\")",
       "PowerShell(\"---- local branches ----\")",
       "PowerShell(\"---- remote branches ----\")",
-      "PowerShell(\"---- current ----\")"
+      "PowerShell(\"---- current ----\")",
+      "PowerShell(git checkout main 2>&1)",
+      "PowerShell(git merge --ff-only master-admin-portal 2>&1)",
+      "PowerShell(\"---- ff merge ----\")",
+      "PowerShell(\"---- head ----\")",
+      "PowerShell(git restore .claude/settings.json)",
+      "PowerShell(\"---- main head ----\")",
+      "PowerShell(git push origin main 2>&1)",
+      "PowerShell(git branch -d master-admin-portal 2>&1)",
+      "PowerShell(git push origin --delete master-admin-portal 2>&1)",
+      "PowerShell(\"---- delete local ----\")",
+      "PowerShell(\"---- delete remote ----\")",
+      "PowerShell(\"---- status ----\")",
+      "PowerShell(git add -A)"
     ]
   }
 }
