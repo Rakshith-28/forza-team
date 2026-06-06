@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { cn } from "@/lib/utils";
+
 /**
  * Presentational widgets for the player/parent home (bento tiles, collectible
  * card, attendance ring, XP bar, stories strip). All styling is token-driven via
@@ -112,11 +114,22 @@ export function StoriesStrip({ items }: { items: { id: string; title: string }[]
   );
 }
 
-export function StatTile({ label, value, accent = "var(--pop-1)" }: { label: string; value: string; accent?: string }) {
+export function StatTile({
+  label,
+  value,
+  accent = "var(--pop-1)",
+  dot = true,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+  /** Small accent dot above the value. Off for tiles where the number leads. */
+  dot?: boolean;
+}) {
   return (
     <div className="app-card p-3.5">
-      <span className="inline-block size-2.5 rounded-full" style={{ background: accent }} />
-      <p className="mt-2 font-sport text-2xl font-extrabold text-foreground">{value}</p>
+      {dot ? <span className="inline-block size-2.5 rounded-full" style={{ background: accent }} /> : null}
+      <p className={cn("font-sport text-2xl font-extrabold text-foreground", dot && "mt-2")}>{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );

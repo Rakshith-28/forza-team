@@ -31,7 +31,10 @@ export function ParentAppShell({
 }) {
   return (
     <ParentThemeProvider initialTheme={theme}>
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-(--app-bg) px-4">
+      <header
+        className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-black/5 px-4 shadow-sm"
+        style={{ background: "var(--app-bg)" }}
+      >
         <Link href="/dashboard/parent" className="font-display text-lg uppercase tracking-tight text-primary">
           Forza
         </Link>

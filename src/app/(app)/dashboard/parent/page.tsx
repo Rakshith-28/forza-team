@@ -47,7 +47,6 @@ export default async function ParentHome() {
 
   const primary = children[0];
   const upcoming = schedule.filter((s) => s.event.status !== "CANCELLED");
-  const nextMatch = upcoming[0] ?? null;
 
   // Attendance ring + XP (derived, deterministic) for the primary child.
   const attendance = await getChildAttendance(ctx, primary.id);
@@ -70,11 +69,6 @@ export default async function ParentHome() {
 
   return (
     <div className="flex flex-col gap-4 pt-2">
-      <div>
-        <p className="text-sm text-muted-foreground">Welcome back</p>
-        <h1 className="font-display text-2xl uppercase leading-none text-foreground">{primary.displayName}</h1>
-      </div>
-
       {children.length > 1 ? (
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1">
           {children.map((c) => (
@@ -89,8 +83,6 @@ export default async function ParentHome() {
         </div>
       ) : null}
 
-      <StoriesStrip items={stories} />
-
       <CollectibleCard
         name={primary.displayName}
         jerseyNumber={primary.jerseyNumber}
@@ -100,34 +92,47 @@ export default async function ParentHome() {
         href={`/my-kids/${primary.id}`}
       />
 
-      {/* Next match + RSVP */}
+      {/* Next up — a horizontal swipe carousel when more than one session is
+          scheduled (scroll-snap; each session is one full-width slide). */}
       <div className="app-card p-4">
-        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Next up</p>
-        {nextMatch ? (
-          <>
-            <p className="mt-1 font-sport text-lg font-bold text-foreground">{nextMatch.event.title}</p>
-            <p className="text-sm text-muted-foreground">
-              {formatEventTime(nextMatch.event.startAt, nextMatch.event.timezone)}
-              {nextMatch.event.teamName ? ` · ${nextMatch.event.teamName}` : ""}
-            </p>
-            <div className="mt-3 flex flex-col gap-1.5 border-t pt-3">
-              {nextMatch.children.map((c) => (
-                <RsvpControl
-                  key={c.playerId}
-                  eventId={nextMatch.event.id}
-                  playerId={c.playerId}
-                  playerName={c.name}
-                  current={c.rsvpStatus}
-                />
-              ))}
-            </div>
-          </>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Next up</p>
+          {upcoming.length > 1 ? (
+            <p className="text-[11px] font-medium text-muted-foreground">Swipe for more →</p>
+          ) : null}
+        </div>
+        {upcoming.length > 0 ? (
+          <div className="-mx-4 mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {upcoming.map((m) => (
+              <div key={m.event.id} className="w-full shrink-0 snap-start">
+                <p className="font-sport text-lg font-bold text-foreground">{m.event.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formatEventTime(m.event.startAt, m.event.timezone)}
+                  {m.event.teamName ? ` · ${m.event.teamName}` : ""}
+                </p>
+                <div className="mt-3 flex flex-col gap-1.5 border-t pt-3">
+                  {m.children.map((c) => (
+                    <RsvpControl
+                      key={c.playerId}
+                      eventId={m.event.id}
+                      playerId={c.playerId}
+                      playerName={c.name}
+                      current={c.rsvpStatus}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <p className="mt-1 text-sm text-muted-foreground">Nothing scheduled. Enjoy the break! ⚽</p>
         )}
       </div>
 
-      {/* Bento row: attendance + XP + chat peek */}
+      {/* Announcements — moved below the Next up session details. */}
+      <StoriesStrip items={stories} />
+
+      {/* Bento row: attendance + upcoming events */}
       <div className="grid grid-cols-2 gap-4">
         <div className="app-card flex items-center justify-between p-4">
           <div>
@@ -136,7 +141,7 @@ export default async function ParentHome() {
           </div>
           <AttendanceRing present={present} total={attendance.length} />
         </div>
-        <StatTile label="Upcoming events" value={String(upcoming.length)} accent="var(--pop-5)" />
+        <StatTile label="Upcoming events" value={String(upcoming.length)} accent="var(--pop-5)" dot={false} />
       </div>
 
       <XpBar level={level} progress={progress} />
