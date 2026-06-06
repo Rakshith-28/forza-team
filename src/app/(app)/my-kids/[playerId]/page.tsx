@@ -126,7 +126,7 @@ export default async function ChildProfilePage({ params }: { params: Promise<{ p
                 <li key={t.id} className="flex items-center justify-between gap-4 rounded-lg border bg-card p-3">
                   <span className="font-medium text-foreground">{t.name}</span>
                   <Link
-                    href={`/my-kids/${child.id}/roster/${t.id}`}
+                    href={`/squad?child=${child.id}&team=${t.id}`}
                     className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                   >
                     View team roster

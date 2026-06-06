@@ -303,5 +303,6 @@ export async function updateOwnChildAction(_prev: FormState, fd: FormData): Prom
   }
   revalidatePath(`/my-kids/${playerId}`);
   revalidatePath("/dashboard/parent");
+  revalidatePath("/squad");
   return { ok: true, error: null };
 }
