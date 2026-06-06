@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AccountMenu } from "@/components/app/account-menu";
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import { ConsoleMobileNav } from "@/components/app/console-mobile-nav";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
@@ -88,7 +89,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const theme = await getAppearanceTheme(session.user.id);
     const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
     return (
-      <ParentAppShell theme={theme} initial={initial} unreadAnnouncements={unreadAnnouncements}>
+      <ParentAppShell
+        theme={theme}
+        initial={initial}
+        name={displayName}
+        email={session.user.email}
+        unreadAnnouncements={unreadAnnouncements}
+      >
         <PlatformBanner items={banners} />
         {children}
       </ParentAppShell>
@@ -116,9 +123,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <div className="flex items-center gap-3">
           <AnnouncementsBell initialCount={unreadAnnouncements} />
-          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-            {ROLE_LABELS[ctx.role]}
-          </span>
+          <AccountMenu
+            name={displayName}
+            email={session.user.email}
+            initial={initial}
+            roleLabel={ROLE_LABELS[ctx.role]}
+          />
         </div>
       </header>
 

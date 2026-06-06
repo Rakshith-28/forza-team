@@ -1,12 +1,12 @@
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlatformAnnouncementsPanel } from "@/components/app/platform-announcements-panel";
+import { AnnouncementsPanel, type AnnouncementPanelItem } from "@/components/app/announcements-panel";
+import { UpcomingEvents } from "@/components/app/upcoming-events";
 import { requireRole } from "@/lib/auth-guards";
-import { getMyPlatformAnnouncements, getMyUnreadPlatformAnnouncementCount } from "@/modules/announcements/platform-service";
+import { getMyPlatformAnnouncements } from "@/modules/announcements/platform-service";
+import { listMyRecentClubAnnouncements } from "@/modules/comms/service";
 import { countEventsNeedingAttendance, listUpcomingEvents } from "@/modules/events/service";
-import { EVENT_TYPE_LABELS, type EventType } from "@/modules/events/schemas";
-import { formatEventTime } from "@/modules/events/format";
 import { countEvaluationsToComplete } from "@/modules/evaluations/service";
 
 export default async function CoachDashboard() {
@@ -21,13 +21,36 @@ export default async function CoachDashboard() {
   }
 
   const clubId = ctx.activeClubId;
-  const [upcoming, needsAttendance, evalsToComplete, announcements, unread] = await Promise.all([
+  const [upcoming, needsAttendance, evalsToComplete, platform, club] = await Promise.all([
     listUpcomingEvents(ctx, clubId, 6),
     countEventsNeedingAttendance(ctx, clubId),
     countEvaluationsToComplete(ctx, clubId),
     getMyPlatformAnnouncements(ctx),
-    getMyUnreadPlatformAnnouncementCount(ctx),
+    listMyRecentClubAnnouncements(ctx, 10),
   ]);
+
+  // Merge platform broadcasts + the coach's club/team announcements into one feed.
+  const announcementItems: AnnouncementPanelItem[] = [
+    ...platform.map((p) => ({
+      id: p.id,
+      source: "platform" as const,
+      title: p.title,
+      body: p.body,
+      badge: p.severity,
+      pinned: p.pinned,
+      read: p.read,
+      date: p.publishedAt,
+    })),
+    ...club.map((c) => ({
+      id: c.id,
+      source: "club" as const,
+      title: c.title,
+      body: c.body,
+      badge: c.audienceType,
+      read: c.read,
+      date: c.publishedAt,
+    })),
+  ];
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -68,31 +91,13 @@ export default async function CoachDashboard() {
               No upcoming events. <Link href="/schedule/new" className="underline">Create one</Link>.
             </p>
           ) : (
-            <ul className="flex flex-col gap-2">
-              {upcoming.map((e) => (
-                <li key={e.id}>
-                  <Link
-                    href={`/schedule/${e.id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary"
-                  >
-                    <div>
-                      <p className="font-medium text-foreground">{e.title}</p>
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {EVENT_TYPE_LABELS[e.eventType as EventType] ?? e.eventType}
-                        {e.team ? ` · ${e.team.name}` : " · Club-wide"}
-                      </p>
-                    </div>
-                    <span className="text-xs text-muted-foreground">{formatEventTime(e.startAt, e.timezone)}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <UpcomingEvents events={upcoming} />
           )}
         </CardContent>
       </Card>
 
       <div className="mt-6">
-        <PlatformAnnouncementsPanel items={announcements} unread={unread} />
+        <AnnouncementsPanel items={announcementItems} />
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

@@ -40,6 +40,40 @@ export function toDatetimeLocal(date: Date, timezone: string): string {
   }
 }
 
+/** Short time-of-day in the event's timezone, e.g. "6:00 PM". */
+export function formatEventClock(iso: string | Date, timezone: string): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: timezone,
+    }).format(d);
+  } catch {
+    return d.toLocaleTimeString();
+  }
+}
+
+/** Calendar-chip parts (weekday/month/day) in the event's timezone for compact date badges. */
+export function formatEventDateChip(
+  iso: string | Date,
+  timezone: string,
+): { weekday: string; month: string; day: string } {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: timezone,
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    return { weekday: get("weekday"), month: get("month"), day: get("day") };
+  } catch {
+    return { weekday: "", month: "", day: String(d.getDate()) };
+  }
+}
+
 export function formatEventDay(iso: string | Date, timezone: string): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   try {

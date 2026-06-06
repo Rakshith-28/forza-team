@@ -153,6 +153,8 @@ export async function getMyUnreadClubAnnouncementCount(ctx: AuthContext): Promis
 export interface MyClubAnnouncement {
   id: string;
   title: string;
+  body: string;
+  audienceType: string;
   publishedAt: Date | null;
   read: boolean;
 }
@@ -164,7 +166,7 @@ export async function listMyRecentClubAnnouncements(ctx: AuthContext, limit = 10
     where: publishedVisibleWhere(ctx, ctx.activeClubId),
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     take: limit,
-    select: { id: true, title: true, publishedAt: true },
+    select: { id: true, title: true, body: true, audienceType: true, publishedAt: true },
   });
   if (rows.length === 0) return [];
   const reads = await prisma.announcementRead.findMany({
@@ -172,7 +174,14 @@ export async function listMyRecentClubAnnouncements(ctx: AuthContext, limit = 10
     select: { announcementId: true },
   });
   const readSet = new Set(reads.map((r) => r.announcementId));
-  return rows.map((r) => ({ id: r.id, title: r.title, publishedAt: r.publishedAt, read: readSet.has(r.id) }));
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    body: r.body,
+    audienceType: r.audienceType,
+    publishedAt: r.publishedAt,
+    read: readSet.has(r.id),
+  }));
 }
 
 /** Mark a club announcement read for the caller (interaction-only; one row per pair). */
