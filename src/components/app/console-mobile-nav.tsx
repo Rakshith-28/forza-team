@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Building2, Menu, X } from "lucide-react";
+import { Building2, LogOut, Menu, Settings, X } from "lucide-react";
 
+import { signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 import { ICONS, type NavItem, type SidebarProfile } from "./console-sidebar";
@@ -18,9 +19,27 @@ function isActive(pathname: string, href: string): boolean {
  * that opens a slide-in dark drawer with the full nav (the desktop sidebar is
  * hidden below md). Closes on navigation, route change, or Escape.
  */
-export function ConsoleMobileNav({ items, profile }: { items: NavItem[]; profile: SidebarProfile }) {
+export function ConsoleMobileNav({
+  items,
+  profile,
+  profileHref = "/account",
+}: {
+  items: NavItem[];
+  profile: SidebarProfile;
+  profileHref?: string;
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    await signOut();
+    setOpen(false);
+    router.push("/sign-in");
+    router.refresh();
+  }
 
   // Lock body scroll + close on Escape while open.
   useEffect(() => {
@@ -115,6 +134,34 @@ export function ConsoleMobileNav({ items, profile }: { items: NavItem[]; profile
                 })}
               </ul>
             </nav>
+
+            {/* Account menu pinned to the bottom of the drawer (partition above). */}
+            <div className="mx-3 mt-1 border-t border-white/10" />
+            <div className="shrink-0 px-2 py-2">
+              <Link
+                href={profileHref}
+                onClick={() => setOpen(false)}
+                aria-current={isActive(pathname, profileHref) ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
+                  isActive(pathname, profileHref)
+                    ? "bg-white/10 font-semibold text-white"
+                    : "text-neutral-300 hover:bg-white/5 hover:text-white",
+                )}
+              >
+                <Settings className="size-5 shrink-0" />
+                <span className="flex-1">Profile settings</span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-neutral-300 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-60"
+              >
+                <LogOut className="size-5 shrink-0" />
+                <span className="flex-1">{signingOut ? "Signing out…" : "Sign out"}</span>
+              </button>
+            </div>
           </aside>
         </div>
       ) : null}
