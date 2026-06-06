@@ -1,9 +1,14 @@
 import Link from "next/link";
+import { Mail, MapPin, Phone } from "lucide-react";
 
 /**
  * Global site footer — a black band rendered at the bottom of every page
  * (mounted once in the root layout). Reuses the Console chrome's near-black
  * neutral surface so the dark band reads consistently across all roles.
+ *
+ * NOTE: the Company / Resources / Legal links and the contact details are
+ * placeholder ("dummy") content for the marketing chrome — wire them to real
+ * pages/values when those exist.
  */
 
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -14,15 +19,59 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
   );
 }
 
+interface FooterColumn {
+  title: string;
+  links: { label: string; href: string }[];
+}
+
+const COLUMNS: FooterColumn[] = [
+  {
+    title: "Platform",
+    links: [
+      { label: "Dashboard", href: "/dashboard" },
+      { label: "Schedule", href: "/schedule" },
+      { label: "Attendance", href: "/attendance" },
+      { label: "Announcements", href: "/announcements" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "About us", href: "#" },
+      { label: "Careers", href: "#" },
+      { label: "Press", href: "#" },
+      { label: "Contact", href: "#" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
+      { label: "Help center", href: "#" },
+      { label: "Community", href: "#" },
+      { label: "System status", href: "#" },
+      { label: "Changelog", href: "#" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { label: "Privacy policy", href: "#" },
+      { label: "Terms of service", href: "#" },
+      { label: "Cookie settings", href: "#" },
+      { label: "Child safety", href: "#" },
+    ],
+  },
+];
+
 export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-neutral-900 text-neutral-400">
-      <div className="mx-auto w-full max-w-6xl px-6 py-10">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Brand + tagline */}
-          <div className="lg:col-span-2">
+    <footer className="w-full bg-neutral-900 text-neutral-400">
+      <div className="mx-auto w-full max-w-6xl px-6 py-12">
+        <div className="grid grid-cols-2 gap-8 lg:grid-cols-6">
+          {/* Brand + contact (spans full width on mobile, 2 cols on desktop) */}
+          <div className="col-span-2">
             <Link
               href="/"
               className="font-display text-lg uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80"
@@ -33,33 +82,48 @@ export function Footer() {
               Multi-tenant soccer club management — rosters, schedules, attendance, and team
               communication in one place.
             </p>
+            <ul className="mt-4 space-y-2 text-sm text-neutral-500">
+              <li className="flex items-center gap-2">
+                <MapPin className="size-4 shrink-0" aria-hidden />
+                123 Stadium Way, Boston, MA 02115
+              </li>
+              <li className="flex items-center gap-2">
+                <Mail className="size-4 shrink-0" aria-hidden />
+                <a href="mailto:hello@forzateam.app" className="transition-colors hover:text-white">
+                  hello@forzateam.app
+                </a>
+              </li>
+              <li className="flex items-center gap-2">
+                <Phone className="size-4 shrink-0" aria-hidden />
+                <a href="tel:+15550123456" className="transition-colors hover:text-white">
+                  +1 (555) 012-3456
+                </a>
+              </li>
+            </ul>
           </div>
 
-          {/* Platform links (real app routes) */}
-          <nav aria-label="Platform">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Platform</h2>
-            <ul className="mt-3 space-y-2 text-sm">
-              <li><FooterLink href="/dashboard">Dashboard</FooterLink></li>
-              <li><FooterLink href="/schedule">Schedule</FooterLink></li>
-              <li><FooterLink href="/attendance">Attendance</FooterLink></li>
-              <li><FooterLink href="/announcements">Announcements</FooterLink></li>
-            </ul>
-          </nav>
-
-          {/* Secondary links (real app routes) */}
-          <nav aria-label="More">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-300">More</h2>
-            <ul className="mt-3 space-y-2 text-sm">
-              <li><FooterLink href="/documents">Documents</FooterLink></li>
-              <li><FooterLink href="/evaluations">Evaluations</FooterLink></li>
-              <li><FooterLink href="/account">Account</FooterLink></li>
-            </ul>
-          </nav>
+          {/* Link columns */}
+          {COLUMNS.map((col) => (
+            <nav key={col.title} aria-label={col.title}>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-300">{col.title}</h2>
+              <ul className="mt-3 space-y-2 text-sm">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <FooterLink href={link.href}>{link.label}</FooterLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
 
-        <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-white/10 pt-6 text-xs text-neutral-500 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-xs text-neutral-500 sm:flex-row">
           <p>© {year} Forza Team. All rights reserved.</p>
-          <p>Built for clubs, coaches, players &amp; parents.</p>
+          <nav aria-label="Social" className="flex items-center gap-4">
+            <a href="#" className="transition-colors hover:text-white">Twitter</a>
+            <a href="#" className="transition-colors hover:text-white">Instagram</a>
+            <a href="#" className="transition-colors hover:text-white">Facebook</a>
+          </nav>
         </div>
       </div>
     </footer>
