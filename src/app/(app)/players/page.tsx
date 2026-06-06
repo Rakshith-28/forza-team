@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader, TwoPane } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
@@ -28,64 +28,65 @@ export default async function PlayersPage() {
     .filter((t) => t.status !== "ARCHIVED")
     .map((t) => ({ id: t.id, name: t.name }));
 
-  return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Players</h1>
-      <p className="mt-1 text-muted-foreground">
-        {isCoach ? "Players on the teams you coach." : "The players registered in your club."}
-      </p>
+  const description = isCoach ? "Players on the teams you coach." : "The players registered in your club.";
 
-      {canCreate ? (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="font-sport text-base">Add a player</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isCoach && teamOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                You aren&apos;t assigned to any teams yet, so you can&apos;t add players.
+  const list = (
+    <div className="flex flex-col gap-3">
+      {players.length === 0 ? (
+        <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+          {canCreate ? "No players yet. Use the form to add your first player." : "No players to show."}
+        </p>
+      ) : (
+        players.map((p) => (
+          <Link
+            key={p.id}
+            href={`/players/${p.id}`}
+            className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition-colors hover:border-primary"
+          >
+            <div>
+              <p className="font-sport text-base font-bold text-foreground">
+                {p.firstName} {p.lastName}
+                {p.jerseyNumber ? <span className="ml-2 text-muted-foreground">#{p.jerseyNumber}</span> : null}
               </p>
-            ) : (
-              <CreatePlayerForm teams={teamOptions} teamRequired={isCoach} />
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="mt-6 flex flex-col gap-3">
-        {players.length === 0 ? (
-          <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            {canCreate ? "No players yet. Add your first player above." : "No players to show."}
-          </p>
-        ) : (
-          players.map((p) => (
-            <Link
-              key={p.id}
-              href={`/players/${p.id}`}
-              className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition-colors hover:border-primary"
-            >
-              <div>
-                <p className="font-sport text-base font-bold text-foreground">
-                  {p.firstName} {p.lastName}
-                  {p.jerseyNumber ? <span className="ml-2 text-muted-foreground">#{p.jerseyNumber}</span> : null}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {p.teamMemberships.length > 0
-                    ? p.teamMemberships.map((m) => m.team.name).join(", ")
-                    : "No team"}
-                  {p.primaryPosition ? ` · ${p.primaryPosition}` : ""}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">
-                  {p._count.parentLinks} {p._count.parentLinks === 1 ? "parent" : "parents"}
-                </span>
-                <StatusBadge status={p.status} />
-              </div>
-            </Link>
-          ))
-        )}
-      </div>
+              <p className="text-sm text-muted-foreground">
+                {p.teamMemberships.length > 0
+                  ? p.teamMemberships.map((m) => m.team.name).join(", ")
+                  : "No team"}
+                {p.primaryPosition ? ` · ${p.primaryPosition}` : ""}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">
+                {p._count.parentLinks} {p._count.parentLinks === 1 ? "parent" : "parents"}
+              </span>
+              <StatusBadge status={p.status} />
+            </div>
+          </Link>
+        ))
+      )}
     </div>
+  );
+
+  if (!canCreate) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="Players" description={description} />
+        <div className="mt-6">{list}</div>
+      </div>
+    );
+  }
+
+  return (
+    <TwoPane title="Players" description={description} formTitle="Add a player" form={
+      isCoach && teamOptions.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          You aren&apos;t assigned to any teams yet, so you can&apos;t add players.
+        </p>
+      ) : (
+        <CreatePlayerForm teams={teamOptions} teamRequired={isCoach} />
+      )
+    }>
+      {list}
+    </TwoPane>
   );
 }
