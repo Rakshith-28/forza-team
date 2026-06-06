@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader, TwoPane } from "@/components/console";
 import { requireAuthContext } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
@@ -31,67 +31,69 @@ export default async function AnnouncementsPage() {
   ]);
   const teamOptions = teams.filter((t) => t.status !== "ARCHIVED").map((t) => ({ id: t.id, name: t.name }));
 
-  return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Announcements</h1>
-      <p className="mt-1 text-muted-foreground">
-        {canManage ? "Post and publish updates for your club and teams." : "Updates from your club and teams."}
-      </p>
-
-      {canManage ? (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="font-sport text-base">New announcement</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CreateAnnouncementForm teams={teamOptions} canClubWide={canPublishClub} />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="mt-6 flex flex-col gap-3">
-        {announcements.length === 0 ? (
-          <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            Nothing here yet.
-          </p>
-        ) : (
-          announcements.map((a) => (
-            <article key={a.id} className="rounded-lg border bg-card p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h2 className="font-sport text-base font-bold text-foreground">{a.title}</h2>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {ANNOUNCEMENT_AUDIENCE_LABELS[a.audienceType as AnnouncementAudience] ?? a.audienceType}
-                    {a.team ? ` · ${a.team.name}` : ""}
-                    {a.publishedAt ? ` · ${a.publishedAt.toISOString().slice(0, 10)}` : ""}
-                  </p>
-                </div>
-                <StatusBadge status={a.status} />
+  const list = (
+    <div className="flex flex-col gap-3">
+      {announcements.length === 0 ? (
+        <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+          Nothing here yet.
+        </p>
+      ) : (
+        announcements.map((a) => (
+          <article key={a.id} className="rounded-lg border bg-card p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h2 className="font-sport text-base font-bold text-foreground">{a.title}</h2>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {ANNOUNCEMENT_AUDIENCE_LABELS[a.audienceType as AnnouncementAudience] ?? a.audienceType}
+                  {a.team ? ` · ${a.team.name}` : ""}
+                  {a.publishedAt ? ` · ${a.publishedAt.toISOString().slice(0, 10)}` : ""}
+                </p>
               </div>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{a.body}</p>
+              <StatusBadge status={a.status} />
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{a.body}</p>
 
-              {canManage && a.status !== "ARCHIVED" ? (
-                <div className="mt-3 flex gap-3 border-t pt-3">
-                  {a.status === "DRAFT" ? (
-                    <form action={publishAnnouncementAction}>
-                      <input type="hidden" name="id" value={a.id} />
-                      <button type="submit" className="text-sm font-medium text-primary hover:underline">
-                        Publish
-                      </button>
-                    </form>
-                  ) : null}
-                  <form action={archiveAnnouncementAction}>
+            {canManage && a.status !== "ARCHIVED" ? (
+              <div className="mt-3 flex gap-3 border-t pt-3">
+                {a.status === "DRAFT" ? (
+                  <form action={publishAnnouncementAction}>
                     <input type="hidden" name="id" value={a.id} />
-                    <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
-                      Archive
+                    <button type="submit" className="text-sm font-medium text-primary hover:underline">
+                      Publish
                     </button>
                   </form>
-                </div>
-              ) : null}
-            </article>
-          ))
-        )}
-      </div>
+                ) : null}
+                <form action={archiveAnnouncementAction}>
+                  <input type="hidden" name="id" value={a.id} />
+                  <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
+                    Archive
+                  </button>
+                </form>
+              </div>
+            ) : null}
+          </article>
+        ))
+      )}
     </div>
+  );
+
+  if (!canManage) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="Announcements" description="Updates from your club and teams." />
+        <div className="mt-6">{list}</div>
+      </div>
+    );
+  }
+
+  return (
+    <TwoPane
+      title="Announcements"
+      description="Post and publish updates for your club and teams."
+      formTitle="New announcement"
+      form={<CreateAnnouncementForm teams={teamOptions} canClubWide={canPublishClub} />}
+    >
+      {list}
+    </TwoPane>
   );
 }
