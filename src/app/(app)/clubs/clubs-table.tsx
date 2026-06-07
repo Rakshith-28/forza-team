@@ -65,7 +65,7 @@ export function ClubsTable({ rows }: { rows: MasterClubListItem[] }) {
     },
     { key: "teams", header: "Teams", className: "text-right tabular-nums", cell: (c) => c.teamCount },
     { key: "users", header: "Users", className: "text-right tabular-nums", cell: (c) => c.userCount },
-    { key: "created", header: "Created", cell: (c) => <span className="text-muted-foreground">{fmtDate(c.createdAt)}</span> },
+    { key: "created", header: "Created", cell: (c) => <span suppressHydrationWarning className="text-muted-foreground">{fmtDate(c.createdAt)}</span> },
     {
       key: "actions",
       header: "",

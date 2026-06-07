@@ -172,7 +172,7 @@ function GoalCard({ goal }: { goal: DevelopmentGoalRow }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-sport text-base font-bold text-foreground">{goal.title}</p>
-          <p className="text-xs text-muted-foreground">
+          <p suppressHydrationWarning className="text-xs text-muted-foreground">
             {goal.playerName}
             {goal.category ? ` · ${goal.category}` : ""}
             {goal.targetDate ? ` · target ${fmtDate(goal.targetDate)}` : ""}
@@ -185,7 +185,7 @@ function GoalCard({ goal }: { goal: DevelopmentGoalRow }) {
       {goal.latestUpdate ? (
         <p className="mt-2 border-l-2 border-border pl-3 text-sm text-muted-foreground">
           {goal.latestUpdate.notes || GOAL_STATUS_LABELS[goal.latestUpdate.progressStatus as keyof typeof GOAL_STATUS_LABELS] || goal.latestUpdate.progressStatus}
-          <span className="ml-1 text-xs">· {fmtDate(goal.latestUpdate.createdAt)} · {goal.updatesCount} update{goal.updatesCount === 1 ? "" : "s"}</span>
+          <span suppressHydrationWarning className="ml-1 text-xs">· {fmtDate(goal.latestUpdate.createdAt)} · {goal.updatesCount} update{goal.updatesCount === 1 ? "" : "s"}</span>
         </p>
       ) : null}
 

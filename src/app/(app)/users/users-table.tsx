@@ -34,7 +34,7 @@ export function UsersTable({ rows }: { rows: MasterUserRow[] }) {
       cell: (u) => (u.clubNames.length ? u.clubNames.join(", ") : <span className="text-muted-foreground">—</span>),
     },
     { key: "status", header: "Status", cell: (u) => <StatusBadge status={u.status} /> },
-    { key: "lastLogin", header: "Last Login", cell: (u) => <span className="text-muted-foreground">{fmtDate(u.lastLoginAt)}</span> },
+    { key: "lastLogin", header: "Last Login", cell: (u) => <span suppressHydrationWarning className="text-muted-foreground">{fmtDate(u.lastLoginAt)}</span> },
     {
       key: "actions",
       header: "",

@@ -108,7 +108,7 @@ export function AnnouncementsTable({
     {
       key: "when",
       header: "Published / Scheduled",
-      cell: (a) => <span className="whitespace-nowrap text-muted-foreground">{fmtDateTime(a.publishedAt ?? a.scheduledAt)}</span>,
+      cell: (a) => <span suppressHydrationWarning className="whitespace-nowrap text-muted-foreground">{fmtDateTime(a.publishedAt ?? a.scheduledAt)}</span>,
     },
     { key: "reads", header: "Reads", className: "text-right tabular-nums", cell: (a) => a.reads },
     {
