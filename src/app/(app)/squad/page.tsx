@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { readActiveChildId, resolveActiveChild } from "@/lib/active-child";
 import { requireRole } from "@/lib/auth-guards";
 import { ForbiddenError } from "@/lib/rbac";
 import { listLinkedChildren, listSafeTeamRoster } from "@/modules/roster/service";
@@ -36,8 +37,9 @@ export default async function SquadPage({
     );
   }
 
-  // Resolve the selected child + team from the URL, falling back to the first.
-  const child = children.find((c) => c.id === sp.child) ?? children[0];
+  // Selected child: an explicit ?child wins; otherwise the portal-wide active
+  // child (shared with the dashboard via cookie); otherwise the first.
+  const child = children.find((c) => c.id === sp.child) ?? resolveActiveChild(children, await readActiveChildId());
   const team = child.teams.find((t) => t.id === sp.team) ?? child.teams[0] ?? null;
 
   // Parent-safe roster for the selected team (identical projection + scope check).

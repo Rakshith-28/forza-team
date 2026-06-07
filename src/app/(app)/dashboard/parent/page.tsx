@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { PlatformAnnouncementsPanel } from "@/components/app/platform-announcements-panel";
+import { ChildSwitcher } from "@/components/app/parent/child-switcher";
+import { readActiveChildId, resolveActiveChild } from "@/lib/active-child";
 import { requireRole } from "@/lib/auth-guards";
 import { getMyPlatformAnnouncements, getMyUnreadPlatformAnnouncementCount } from "@/modules/announcements/platform-service";
 import { listLinkedChildren } from "@/modules/roster/service";
@@ -43,7 +45,8 @@ export default async function ParentHome() {
     );
   }
 
-  const primary = children[0];
+  // Focus on the child the parent selected (active-child switcher), else the first.
+  const primary = resolveActiveChild(children, await readActiveChildId());
   const upcoming = schedule.filter((s) => s.event.status !== "CANCELLED");
 
   // Attendance ring + XP (derived, deterministic) for the primary child.
@@ -77,19 +80,10 @@ export default async function ParentHome() {
 
   return (
     <div className="flex flex-col gap-4 pt-2">
-      {children.length > 1 ? (
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1">
-          {children.map((c) => (
-            <Link
-              key={c.id}
-              href={`/my-kids/${c.id}`}
-              className="app-pill shrink-0 bg-card px-3 py-1.5 text-xs font-semibold text-foreground"
-            >
-              {c.displayName}
-            </Link>
-          ))}
-        </div>
-      ) : null}
+      <ChildSwitcher
+        kids={children.map((c) => ({ id: c.id, displayName: c.displayName }))}
+        activeId={primary.id}
+      />
 
       <CollectibleCard
         name={primary.displayName}
