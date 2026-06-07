@@ -74,6 +74,22 @@ export function formatEventDateChip(
   }
 }
 
+/** Calendar day key (`YYYY-MM-DD`) in the event's timezone, for grouping by day. */
+export function eventDayKey(iso: string | Date, timezone: string): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  try {
+    // en-CA renders as YYYY-MM-DD.
+    return new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: timezone,
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
 export function formatEventDay(iso: string | Date, timezone: string): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   try {

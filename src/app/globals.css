@@ -63,6 +63,16 @@
   --chart-4: oklch(0.55 0.18 27);
   --chart-5: oklch(0.5 0.1 300);
 
+  /* Event-type accents — calendar day-dots, card left-edge, badge background
+   * (badge text stays --foreground). Console uses a restrained, desaturated
+   * professional set; the parent themes re-skin these in their layers below. */
+  --event-game: var(--primary);
+  --event-practice: oklch(0.62 0.1 230); /* muted blue */
+  --event-tournament: oklch(0.7 0.11 75); /* muted amber */
+  --event-meeting: oklch(0.55 0.11 300); /* muted violet */
+  --event-team-event: oklch(0.62 0.08 195); /* muted teal */
+  --event-club-event: oklch(0.62 0.13 25); /* muted coral */
+
   /* App shell — white sidebar, green accents */
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.2345 0.0195 167.05);
@@ -172,6 +182,14 @@
   --accent-amber: oklch(0.82 0.1 85);
   --card-premium: oklch(0.3 0.06 158);
   --card-premium-fg: oklch(0.97 0.02 150);
+  /* No-rainbow rule: green family (differentiated by label, not hue), with the
+   * single muted amber accent reserved for tournaments. */
+  --event-game: var(--primary);
+  --event-practice: var(--pop-2);
+  --event-tournament: var(--accent-amber);
+  --event-meeting: var(--pop-1);
+  --event-team-event: var(--pop-2);
+  --event-club-event: var(--pop-1);
 }
 
 /* Vibrant — loud, neobrutalist: warm paper bg, thick ink borders, hard offset
@@ -207,6 +225,13 @@
   --accent-amber: oklch(0.83 0.16 75);
   --card-premium: oklch(0.55 0.18 145);
   --card-premium-fg: oklch(0.99 0.01 92);
+  /* Full rainbow via the existing pop palette. */
+  --event-game: var(--primary); /* green */
+  --event-practice: var(--pop-1); /* lime */
+  --event-tournament: var(--pop-3); /* amber */
+  --event-meeting: var(--pop-4); /* violet */
+  --event-team-event: var(--pop-5); /* sky/blue */
+  --event-club-event: var(--pop-2); /* coral */
 }
 
 @layer components {

@@ -29,6 +29,24 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
 
 export const EVENT_STATUSES = ["SCHEDULED", "CANCELLED", "COMPLETED", "POSTPONED"] as const;
 
+/**
+ * Event-type accent — a CSS variable per type (defined in globals.css across
+ * Console + Vibrant/Classic). Consumed for calendar day-dots, the card
+ * left-edge, and badge backgrounds; 100% token-driven, themed via data-theme.
+ */
+export const EVENT_ACCENT_VAR: Record<EventType, string> = {
+  GAME: "var(--event-game)",
+  PRACTICE: "var(--event-practice)",
+  TOURNAMENT: "var(--event-tournament)",
+  TEAM_MEETING: "var(--event-meeting)",
+  TEAM_EVENT: "var(--event-team-event)",
+  CLUB_EVENT: "var(--event-club-event)",
+};
+
+export function eventAccentVar(eventType: string): string {
+  return EVENT_ACCENT_VAR[eventType as EventType] ?? "var(--muted-foreground)";
+}
+
 /** Canonical event audience (replaces reliance on events.team_id). */
 export const AUDIENCE_SCOPES = ["CLUB_WIDE", "TEAMS"] as const;
 export type AudienceScope = (typeof AUDIENCE_SCOPES)[number];
