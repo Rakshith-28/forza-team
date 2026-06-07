@@ -113,7 +113,7 @@ export function AnnouncementsPanel({ items }: { items: AnnouncementPanelItem[] }
                     {item.pinned ? "📌 " : ""}
                     {item.title}
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{fmt(item.date)}</span>
+                  <span suppressHydrationWarning className="shrink-0 text-xs text-muted-foreground">{fmt(item.date)}</span>
                 </button>
                 {isOpen ? (
                   <p className="whitespace-pre-wrap pb-3 pl-5 text-sm text-muted-foreground">{item.body}</p>

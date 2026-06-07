@@ -46,7 +46,7 @@ export function AuditTable({ rows }: { rows: MasterAuditRow[] }) {
   const [selected, setSelected] = useState<MasterAuditRow | null>(null);
 
   const columns: Column<MasterAuditRow>[] = [
-    { key: "ts", header: "Timestamp", cell: (r) => <span className="whitespace-nowrap text-muted-foreground">{fmtDateTime(r.createdAt)}</span> },
+    { key: "ts", header: "Timestamp", cell: (r) => <span suppressHydrationWarning className="whitespace-nowrap text-muted-foreground">{fmtDateTime(r.createdAt)}</span> },
     { key: "actor", header: "Actor", cell: (r) => r.actorName ?? <span className="text-muted-foreground">System</span> },
     { key: "club", header: "Club", cell: (r) => r.clubName ?? <span className="text-muted-foreground">—</span> },
     { key: "action", header: "Action", cell: (r) => <span className="font-medium text-foreground">{r.action}</span> },

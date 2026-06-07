@@ -51,7 +51,7 @@ export function MasterCoachesTable({ rows }: { rows: MasterCoachRow[] }) {
       cell: (c) => (c.roleTypes.length ? c.roleTypes.map(roleLabel).join(", ") : <span className="text-muted-foreground">—</span>),
     },
     { key: "status", header: "Status", cell: (c) => <StatusBadge status={c.status} /> },
-    { key: "lastLogin", header: "Last Login", cell: (c) => <span className="text-muted-foreground">{fmtDate(c.lastLoginAt)}</span> },
+    { key: "lastLogin", header: "Last Login", cell: (c) => <span suppressHydrationWarning className="text-muted-foreground">{fmtDate(c.lastLoginAt)}</span> },
     {
       key: "actions",
       header: "",
