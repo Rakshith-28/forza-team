@@ -43,7 +43,9 @@ function readEventForm(fd: FormData) {
   return {
     title: str(fd, "title"),
     eventType: str(fd, "eventType"),
-    teamId: optStr(fd, "teamId") ?? null,
+    // Canonical audience (the service validates RBAC + normalizes these).
+    audienceScope: optStr(fd, "audienceScope"),
+    teamIds: fd.getAll("teamIds").filter((v): v is string => typeof v === "string"),
     description: optStr(fd, "description"),
     startAt: str(fd, "startAt"),
     endAt: str(fd, "endAt"),

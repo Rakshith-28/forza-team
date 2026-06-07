@@ -19,7 +19,8 @@ export interface EventFormData {
   id: string;
   title: string;
   eventType: string;
-  teamId: string | null;
+  audienceScope: string; // "CLUB_WIDE" | "TEAMS"
+  teamIds: string[];
   description: string | null;
   startAtLocal: string; // yyyy-MM-ddTHH:mm
   endAtLocal: string;
@@ -49,6 +50,8 @@ export function EventForm({
   );
   const [eventType, setEventType] = useState(event?.eventType ?? "PRACTICE");
   const isGame = eventType === "GAME" || eventType === "TOURNAMENT";
+  const [scope, setScope] = useState(event?.audienceScope ?? (canClubWide ? "CLUB_WIDE" : "TEAMS"));
+  const [teamIds, setTeamIds] = useState<string[]>(event?.teamIds ?? []);
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -66,16 +69,57 @@ export function EventForm({
             ))}
           </Select>
         </Field>
-        <Field id="teamId" label={canClubWide ? "Team (blank = club-wide)" : "Team"}>
-          <Select id="teamId" name="teamId" defaultValue={event?.teamId ?? ""} required={!canClubWide}>
-            {canClubWide ? <option value="">— Club-wide —</option> : <option value="" disabled>Select a team…</option>}
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Label>Audience</Label>
+          {/* The chosen scope is what the service reads; coaches are TEAMS-only. */}
+          <input type="hidden" name="audienceScope" value={scope} />
+          {canClubWide ? (
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="audienceScopeRadio"
+                  checked={scope === "CLUB_WIDE"}
+                  onChange={() => setScope("CLUB_WIDE")}
+                />
+                Whole club
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="audienceScopeRadio"
+                  checked={scope === "TEAMS"}
+                  onChange={() => setScope("TEAMS")}
+                />
+                Specific teams
+              </label>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Pick the team(s) this event is for.</p>
+          )}
+          {scope === "TEAMS" ? (
+            <div className="flex flex-col gap-1.5 rounded-md border p-3">
+              {teams.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No teams available.</p>
+              ) : (
+                teams.map((t) => (
+                  <label key={t.id} className="flex items-center gap-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      name="teamIds"
+                      value={t.id}
+                      checked={teamIds.includes(t.id)}
+                      onChange={(e) =>
+                        setTeamIds(e.target.checked ? [...teamIds, t.id] : teamIds.filter((x) => x !== t.id))
+                      }
+                    />
+                    {t.name}
+                  </label>
+                ))
+              )}
+            </div>
+          ) : null}
+        </div>
         {editing ? (
           <Field id="status" label="Status">
             <Select id="status" name="status" defaultValue={event.status}>
