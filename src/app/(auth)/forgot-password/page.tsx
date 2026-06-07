@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
           <p className="text-sm text-muted-foreground">
             If an account exists for <strong>{email}</strong>, a reset link is on its way.
           </p>
-          <Link href="/sign-in" className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline">
+          <Link href="/sign-in" prefetch={false} className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline">
             Back to sign in
           </Link>
         </CardContent>
