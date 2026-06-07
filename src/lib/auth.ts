@@ -18,22 +18,23 @@ import { passwordResetEmail, sendEmail } from "@/lib/email";
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.AUTH_SECRET,
-  // In development `next dev` falls back to another port (3001/3002) when 3000 is
-  // busy; the browser's Origin would then fail Better Auth's check ("Invalid
-  // origin"). Trust the common localhost dev ports so sign-in works regardless of
-  // which one the dev server picks. Production relies on baseURL only.
-  ...(env.NODE_ENV === "development"
-    ? {
-        trustedOrigins: [
+  // Origins Better Auth accepts sign-in/CSRF requests from. `baseURL` is always
+  // trusted; we add more so it works regardless of which URL the app is opened
+  // at. Dev: the common localhost ports (`next dev` may fall back to 3001/3002).
+  // Prod: every Vercel URL for this project — the production alias AND each
+  // deployment/preview URL (`forza-team-<hash>.vercel.app`), which otherwise
+  // fail the origin check after a redeploy even though baseURL is correct.
+  trustedOrigins:
+    env.NODE_ENV === "development"
+      ? [
           "http://localhost:3000",
           "http://localhost:3001",
           "http://localhost:3002",
           "http://127.0.0.1:3000",
           "http://127.0.0.1:3001",
           "http://127.0.0.1:3002",
-        ],
-      }
-    : {}),
+        ]
+      : ["https://*.vercel.app"],
   database: prismaAdapter(prisma, { provider: "postgresql" }),
 
   // Generate UUIDs so ids fit our `@db.Uuid` columns.
