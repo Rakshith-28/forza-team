@@ -91,7 +91,7 @@ export default async function ChildProfilePage({ params }: { params: Promise<{ p
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
           {child.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={child.photoUrl} alt="" className="h-20 w-20 rounded-full object-cover" />
+            <img src={child.photoUrl} alt={`${child.firstName} ${child.lastName}`} className="h-20 w-20 rounded-full object-cover" />
           ) : (
             <span className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-2xl font-bold text-secondary-foreground">
               {child.displayName.slice(0, 1)}

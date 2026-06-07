@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -21,6 +21,13 @@ export interface ActionItem {
  */
 export function ActionsMenu({ items, label = "Actions" }: { items: ActionItem[]; label?: string }) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>

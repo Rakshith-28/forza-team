@@ -79,7 +79,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
           {player.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={player.photoUrl} alt="" className="h-20 w-20 rounded-full object-cover" />
+            <img src={player.photoUrl} alt={`${player.firstName} ${player.lastName}`} className="h-20 w-20 rounded-full object-cover" />
           ) : (
             <span className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-2xl font-bold text-secondary-foreground">
               {player.firstName.slice(0, 1)}
