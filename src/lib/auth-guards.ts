@@ -1,13 +1,26 @@
 import "server-only";
 
 import { cache } from "react";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { ForbiddenError, type AuthContext } from "@/lib/rbac/scope";
-import { ROLE_HOME, type Role } from "@/lib/rbac/roles";
+import { isRole, ROLE_HOME, type Role } from "@/lib/rbac/roles";
 import { loadAuthContext, resolveActiveClubId } from "@/modules/identity/context";
+
+/** Name of the cookie that records the role a multi-role user chose to act as. */
+export const ACTIVE_ROLE_COOKIE = "active_role";
+
+/**
+ * The role a user explicitly switched to (account role switcher), or null.
+ * `loadAuthContext` only honours it when the user actually holds that role in
+ * their active club — a stale/forged value safely falls back to the default.
+ */
+async function readPreferredRole(): Promise<Role | null> {
+  const value = (await cookies()).get(ACTIVE_ROLE_COOKIE)?.value;
+  return isRole(value) ? value : null;
+}
 
 /**
  * Layer 2 of the defense-in-depth model (BUILD_PLAN §2): route/action guards.
@@ -38,7 +51,7 @@ export async function requireUserAndContext(): Promise<{ session: SessionResult;
   const session = await requireUser();
   const activeClubId =
     session.session.activeClubId ?? (await resolveActiveClubId(session.user.id));
-  const ctx = await loadAuthContext(session.user.id, activeClubId);
+  const ctx = await loadAuthContext(session.user.id, activeClubId, await readPreferredRole());
   if (!ctx) redirect("/no-access");
   return { session, ctx };
 }
@@ -69,7 +82,7 @@ export async function getApiContext(): Promise<AuthContext | null> {
   if (!session) return null;
   const activeClubId =
     session.session.activeClubId ?? (await resolveActiveClubId(session.user.id));
-  return loadAuthContext(session.user.id, activeClubId);
+  return loadAuthContext(session.user.id, activeClubId, await readPreferredRole());
 }
 
 /** For server actions / route handlers: returns 403-style error instead of redirect. */

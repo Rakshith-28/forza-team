@@ -28,3 +28,21 @@ export const ROLE_HOME: Record<Role, string> = {
   COACH: "/dashboard/coach",
   PARENT: "/dashboard/parent",
 };
+
+/** Privilege ranking, used to resolve a single active role when a user holds several. */
+const ROLE_PRIORITY: Record<Role, number> = {
+  MASTER_ADMIN: 4,
+  CLUB_ADMIN: 3,
+  COACH: 2,
+  PARENT: 1,
+};
+
+/**
+ * The active role for a club: the `preferred` role when the user actually holds
+ * it (the account role switcher), otherwise the highest-privilege role they
+ * hold (matrix §2 default). Pure — never grants a role not in `rolesInClub`.
+ */
+export function pickActiveRole(rolesInClub: Role[], preferred?: Role | null): Role {
+  if (preferred && rolesInClub.includes(preferred)) return preferred;
+  return [...rolesInClub].sort((a, b) => ROLE_PRIORITY[b] - ROLE_PRIORITY[a])[0];
+}

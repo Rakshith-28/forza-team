@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { prisma } from "@/db/client";
-import { isRole, type Role } from "@/lib/rbac/roles";
+import { isRole, pickActiveRole, type Role } from "@/lib/rbac/roles";
 import type { AuthContext } from "@/lib/rbac/scope";
 
 /**
@@ -14,14 +14,14 @@ import type { AuthContext } from "@/lib/rbac/scope";
  * src/lib/rbac/scope.ts and are tested without a database.
  */
 
-// When a user has multiple roles in one club (e.g. coach + parent), MVP picks
-// the highest-privilege one as the active context (matrix §2: one role at a time).
-const ROLE_PRIORITY: Record<Role, number> = {
-  MASTER_ADMIN: 4,
-  CLUB_ADMIN: 3,
-  COACH: 2,
-  PARENT: 1,
-};
+/** Distinct roles a user holds in a given club (for the account role switcher + its guard). */
+export const getUserClubRoles = cache(async (userId: string, clubId: string): Promise<Role[]> => {
+  const rows = await prisma.userRoleAssignment.findMany({
+    where: { userId, clubId, status: "ACTIVE" },
+    select: { role: { select: { code: true } } },
+  });
+  return [...new Set(rows.map((r) => r.role.code))].filter(isRole) as Role[];
+});
 
 /**
  * Default active club for a user (their primary, else earliest assignment).
@@ -47,6 +47,7 @@ export const resolveActiveClubId = cache(async (userId: string): Promise<string 
 export const loadAuthContext = cache(async (
   userId: string,
   activeClubId: string | null,
+  preferredRole: Role | null = null,
 ): Promise<AuthContext | null> => {
   const assignments = await prisma.userRoleAssignment.findMany({
     where: { userId, status: "ACTIVE" },
@@ -73,7 +74,7 @@ export const loadAuthContext = cache(async (
     .filter((a) => a.clubId === activeClubId && isRole(a.role.code))
     .map((a) => a.role.code as Role);
   if (rolesInClub.length === 0) return null;
-  const role = rolesInClub.sort((a, b) => ROLE_PRIORITY[b] - ROLE_PRIORITY[a])[0];
+  const role = pickActiveRole(rolesInClub, preferredRole);
 
   // COACH scope: assigned teams = team_coaches OR a scoped role assignment
   // (matrix §11). PARENT scope: linked children + their teams. The coach-side
