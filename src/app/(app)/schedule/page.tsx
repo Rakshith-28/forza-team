@@ -63,24 +63,9 @@ export default async function SchedulePage() {
 
   // ---- Admin / Coach: the calendar is the primary view ----
   const canManage = can(ctx, "events.manage", { clubId });
-  let events: Awaited<ReturnType<typeof listScheduleEvents>>;
-  let todayKey: string;
-  let month: string;
-  try {
-    const tz = await getClubTimezone(ctx, clubId);
-    const w = scheduleWindow(new Date(), tz);
-    todayKey = w.todayKey;
-    month = w.month;
-    events = await listScheduleEvents({ actor: ctx, from: w.from, to: w.to });
-  } catch (err) {
-    // TEMPORARY diagnostic — surfaces the real server error (prod redacts it).
-    return (
-      <pre style={{ whiteSpace: "pre-wrap", padding: 16, fontSize: 12, color: "var(--foreground)" }}>
-        SCHEDULE DIAG (temporary — will be removed):{"\n\n"}
-        {err instanceof Error ? `${err.name}: ${err.message}\n\n${err.stack ?? ""}` : String(err)}
-      </pre>
-    );
-  }
+  const tz = await getClubTimezone(ctx, clubId);
+  const { todayKey, month, from, to } = scheduleWindow(new Date(), tz);
+  const events = await listScheduleEvents({ actor: ctx, from, to });
 
   return (
     <div className="mx-auto max-w-6xl">
