@@ -90,7 +90,7 @@ export function CompareClient({ players }: { players: { playerId: string; name: 
             </div>
 
             <div className="mt-5 overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full min-w-2xl border-collapse text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Criterion</th>

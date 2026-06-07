@@ -41,7 +41,9 @@ export function DataTable<T>({
   return (
     <div className={cn("overflow-hidden rounded-xl border bg-card shadow-sm", className)}>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+        {/* min-width keeps columns readable on phones — the row scrolls
+            horizontally inside the card instead of squishing to fit. */}
+        <table className="w-full min-w-2xl border-collapse text-sm">
           <thead>
             <tr className="border-b bg-secondary/60">
               {columns.map((c) => (
