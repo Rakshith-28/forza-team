@@ -1,7 +1,20 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { env } from "@/lib/env";
-import { PrismaClient } from "@/db/generated/client";
+import { Prisma, PrismaClient } from "@/db/generated/client";
+
+/**
+ * Transient "couldn't connect" failures — chiefly Neon's scale-to-zero
+ * cold-start, where the first query after the DB sleeps can't reach the server.
+ * The query never executed, so retrying is safe (including writes).
+ */
+function isConnectFailure(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P1001") return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /can't reach database server|DatabaseNotReachable/i.test(msg);
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Prisma client singleton.
@@ -20,23 +33,43 @@ import { PrismaClient } from "@/db/generated/client";
  */
 function createPrismaClient() {
   const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
-  return new PrismaClient({
+  const client = new PrismaClient({
     adapter,
     log:
       env.NODE_ENV === "development"
         ? ["warn", "error"]
         : ["error"],
   });
+  // Retry transient connect failures (Neon scale-to-zero cold-start) a couple of
+  // times with a short backoff, so the first request after the DB sleeps wakes
+  // it instead of surfacing "Can't reach database server" to the user. Covers
+  // every operation, including raw queries.
+  return client.$extends({
+    query: {
+      async $allOperations({ args, query }) {
+        const backoffMs = [200, 600];
+        for (let attempt = 0; ; attempt++) {
+          try {
+            return await query(args);
+          } catch (err) {
+            if (attempt >= backoffMs.length || !isConnectFailure(err)) throw err;
+            await sleep(backoffMs[attempt]);
+          }
+        }
+      },
+    },
+  });
 }
 
-type PrismaClientSingleton = ReturnType<typeof createPrismaClient>;
-
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClientSingleton | undefined;
+  prisma: PrismaClient | undefined;
 };
 
-export const prisma: PrismaClientSingleton =
-  globalForPrisma.prisma ?? createPrismaClient();
+// The retry wrapper ($extends) returns a structurally-extended client; expose it
+// as the base PrismaClient type so consumers (and transaction clients) are
+// unchanged — the retry behaviour is purely a runtime concern.
+export const prisma: PrismaClient =
+  globalForPrisma.prisma ?? (createPrismaClient() as unknown as PrismaClient);
 
 if (env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
