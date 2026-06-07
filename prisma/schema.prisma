@@ -250,6 +250,7 @@ model Club {
   announcements           Announcement[]
   chats                   Chat[]
   events                  Event[]
+  eventTeams              EventTeam[]
   eventRsvps              EventRsvp[]
   attendanceRecords       AttendanceRecord[]
   registrationPrograms    RegistrationProgram[]
@@ -347,6 +348,7 @@ model Team {
   announcements         Announcement[]
   chats                 Chat[]
   events                Event[]
+  eventTeams            EventTeam[]
   evaluationCycles      EvaluationCycle[]
   playerEvaluations     PlayerEvaluation[]
   developmentGoals      DevelopmentGoal[]
@@ -661,7 +663,13 @@ model MessageAttachment {
 model Event {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clubId       String    @map("club_id") @db.Uuid
+  /// DEPRECATED — do NOT read. Event audience is resolved via `audienceScope`
+  /// + `EventTeam` rows (see modules/events). Kept nullable for back-compat;
+  /// to be dropped in a follow-up migration.
   teamId       String?   @map("team_id") @db.Uuid
+  /// Canonical audience: "CLUB_WIDE" (everyone in the club) or "TEAMS" (only
+  /// actors whose teams intersect this event's EventTeam rows).
+  audienceScope String   @default("TEAMS") @map("audience_scope") @db.VarChar(20)
   eventType    String    @map("event_type") @db.VarChar(50)
   title        String    @db.VarChar(200)
   description  String?
@@ -685,6 +693,7 @@ model Event {
 
   club              Club               @relation(fields: [clubId], references: [id])
   team              Team?              @relation(fields: [teamId], references: [id])
+  eventTeams        EventTeam[]
   attachments       EventAttachment[]
   rsvps             EventRsvp[]
   attendanceRecords AttendanceRecord[]
@@ -694,6 +703,26 @@ model Event {
   @@index([startAt])
   @@index([status])
   @@map("events")
+}
+
+/// Join table targeting an event to specific teams (audienceScope = "TEAMS").
+/// Canonical source of an event's team audience, replacing reliance on
+/// Event.teamId.
+model EventTeam {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId  String @map("club_id") @db.Uuid
+  eventId String @map("event_id") @db.Uuid
+  teamId  String @map("team_id") @db.Uuid
+
+  club  Club  @relation(fields: [clubId], references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+  team  Team  @relation(fields: [teamId], references: [id])
+
+  @@unique([eventId, teamId], name: "uq_event_team")
+  @@index([eventId])
+  @@index([teamId])
+  @@index([clubId])
+  @@map("event_teams")
 }
 
 model EventAttachment {
