@@ -145,7 +145,6 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
             today={todayKey}
             initialMonth={month}
             initialSelectedDate={todayKey}
-            detailHref={(id) => `/schedule/${id}`}
           />
         </TabsContent>
       </Tabs>

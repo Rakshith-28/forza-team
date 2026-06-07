@@ -23,12 +23,10 @@ export function EventDetailDrawer({
   event,
   open,
   onOpenChange,
-  detailHref,
 }: {
   event: ScheduleEvent | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  detailHref?: (id: string) => string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,14 +64,12 @@ export function EventDetailDrawer({
                 )}
               </div>
               {event.locationName ? <p className="text-muted-foreground">📍 {event.locationName}</p> : null}
-              {detailHref ? (
-                <Link
-                  href={detailHref(event.id)}
-                  className="mt-1 inline-flex w-fit items-center text-sm font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Open full details →
-                </Link>
-              ) : null}
+              <Link
+                href={`/schedule/${event.id}`}
+                className="mt-1 inline-flex w-fit items-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Open full details →
+              </Link>
             </DialogBody>
           </>
         ) : null}

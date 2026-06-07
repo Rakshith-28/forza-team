@@ -89,7 +89,6 @@ export default async function SchedulePage() {
           today={todayKey}
           initialMonth={month}
           initialSelectedDate={todayKey}
-          detailHref={(id) => `/schedule/${id}`}
         />
       </div>
     </div>

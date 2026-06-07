@@ -37,7 +37,6 @@ export function ParentSchedule({
       today={today}
       initialMonth={month}
       initialSelectedDate={selectedDate}
-      detailHref={(id) => `/schedule/${id}`}
       emptyLabel="Nothing scheduled."
       renderRsvp={(event) => {
         if (event.status === "CANCELLED") return null;

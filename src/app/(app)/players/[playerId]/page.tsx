@@ -227,7 +227,6 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
             today={todayKey}
             initialMonth={month}
             initialSelectedDate={todayKey}
-            detailHref={(id) => `/schedule/${id}`}
           />
         </TabsContent>
       </Tabs>

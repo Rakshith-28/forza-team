@@ -28,8 +28,6 @@ export interface ScheduleViewProps {
   /** Initial selected day `YYYY-MM-DD` (defaults to today). */
   initialSelectedDate?: string;
   seasonLabel?: string | null;
-  /** Builds the href to the full detail page for the drawer's link. */
-  detailHref?: (id: string) => string;
   /** Parent variant: per-card RSVP controls (own children only). */
   renderRsvp?: (event: ScheduleEvent) => React.ReactNode;
   emptyLabel?: string;
@@ -41,7 +39,6 @@ export function ScheduleView({
   initialMonth,
   initialSelectedDate,
   seasonLabel,
-  detailHref,
   renderRsvp,
   emptyLabel,
 }: ScheduleViewProps) {
@@ -81,7 +78,6 @@ export function ScheduleView({
         onOpenChange={(o) => {
           if (!o) setOpenEvent(null);
         }}
-        detailHref={detailHref}
       />
     </div>
   );
