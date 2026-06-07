@@ -55,6 +55,7 @@ run("MVP journey (service-layer end-to-end)", () => {
       await prisma.evaluationTemplate.deleteMany({ where: { clubId } });
       await prisma.eventRsvp.deleteMany({ where: { clubId } });
       await prisma.attendanceRecord.deleteMany({ where: { clubId } });
+      await prisma.eventTeam.deleteMany({ where: { clubId } });
       await prisma.event.deleteMany({ where: { clubId } });
       await prisma.announcement.deleteMany({ where: { clubId } });
       await prisma.playerParentLink.deleteMany({ where: { clubId } });

@@ -29,6 +29,10 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
 
 export const EVENT_STATUSES = ["SCHEDULED", "CANCELLED", "COMPLETED", "POSTPONED"] as const;
 
+/** Canonical event audience (replaces reliance on events.team_id). */
+export const AUDIENCE_SCOPES = ["CLUB_WIDE", "TEAMS"] as const;
+export type AudienceScope = (typeof AUDIENCE_SCOPES)[number];
+
 export const RSVP_STATUSES = ["GOING", "NOT_GOING", "MAYBE", "LATE"] as const;
 export type RsvpStatus = (typeof RSVP_STATUSES)[number];
 export const RSVP_LABELS: Record<RsvpStatus, string> = {
@@ -71,7 +75,12 @@ const baseEvent = z
   .object({
     title: z.string().trim().min(2, "Title is required").max(200),
     eventType: z.enum(EVENT_TYPES),
-    // null = club-wide (admin only, enforced in the service).
+    // Canonical audience. The service normalizes these (and the legacy `teamId`
+    // below) and enforces RBAC: coaches are forced to TEAMS on assigned teams.
+    audienceScope: z.enum(AUDIENCE_SCOPES).optional(),
+    teamIds: z.array(z.string().uuid()).optional(),
+    // DEPRECATED legacy single-team field (still accepted from the old form;
+    // normalized to audienceScope + teamIds in the service). null = club-wide.
     teamId: z.string().uuid().nullable().optional(),
     description: optionalText(4000),
     startAt: z.coerce.date({ message: "Valid start date/time required" }),
@@ -99,6 +108,8 @@ export const updateEventSchema = z
   .object({
     title: z.string().trim().min(2, "Title is required").max(200),
     eventType: z.enum(EVENT_TYPES),
+    audienceScope: z.enum(AUDIENCE_SCOPES).optional(),
+    teamIds: z.array(z.string().uuid()).optional(),
     teamId: z.string().uuid().nullable().optional(),
     description: optionalText(4000),
     startAt: z.coerce.date(),

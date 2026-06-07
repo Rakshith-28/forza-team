@@ -99,11 +99,13 @@ run("DB integration", () => {
     const later = new Date(Date.now() + 90_000_000);
     await prisma.event.createMany({
       data: [
-        { id: ids.eventTeamA1, clubId: ids.clubA, teamId: ids.teamA1, eventType: "PRACTICE", title: "A1 Practice", startAt: soon, endAt: later, timezone: "America/New_York" },
-        { id: ids.eventClubWideA, clubId: ids.clubA, teamId: null, eventType: "CLUB_EVENT", title: "Club A Picnic", startAt: soon, endAt: later, timezone: "America/New_York" },
-        { id: ids.eventClubWideB, clubId: ids.clubB, teamId: null, eventType: "CLUB_EVENT", title: "Club B Gala", startAt: soon, endAt: later, timezone: "America/New_York" },
+        { id: ids.eventTeamA1, clubId: ids.clubA, audienceScope: "TEAMS", eventType: "PRACTICE", title: "A1 Practice", startAt: soon, endAt: later, timezone: "America/New_York" },
+        { id: ids.eventClubWideA, clubId: ids.clubA, audienceScope: "CLUB_WIDE", eventType: "CLUB_EVENT", title: "Club A Picnic", startAt: soon, endAt: later, timezone: "America/New_York" },
+        { id: ids.eventClubWideB, clubId: ids.clubB, audienceScope: "CLUB_WIDE", eventType: "CLUB_EVENT", title: "Club B Gala", startAt: soon, endAt: later, timezone: "America/New_York" },
       ],
     });
+    // Canonical audience: the team event targets team A1 via event_teams.
+    await prisma.eventTeam.create({ data: { clubId: ids.clubA, eventId: ids.eventTeamA1, teamId: ids.teamA1 } });
 
     await prisma.evaluationTemplate.create({ data: { id: ids.template, clubId: ids.clubA, name: "IT Template" } });
     await prisma.evaluationCriterion.createMany({
@@ -125,6 +127,7 @@ run("DB integration", () => {
     await prisma.evaluationTemplate.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.eventRsvp.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.attendanceRecord.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
+    await prisma.eventTeam.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.event.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.playerParentLink.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.playerTeamMembership.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });

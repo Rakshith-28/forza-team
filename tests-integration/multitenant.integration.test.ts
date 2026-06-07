@@ -98,9 +98,16 @@ run("multi-tenant integrity", () => {
     const later = new Date(Date.now() + 90_000_000);
     await prisma.event.createMany({
       data: [
-        { id: ids.eventA1, clubId: ids.clubA, teamId: ids.a1, eventType: "PRACTICE", title: "A1", startAt: soon, endAt: later, timezone: "UTC" },
-        { id: ids.eventClubWideA, clubId: ids.clubA, teamId: null, eventType: "CLUB_EVENT", title: "Club A", startAt: soon, endAt: later, timezone: "UTC" },
-        { id: ids.eventB1, clubId: ids.clubB, teamId: ids.b1, eventType: "PRACTICE", title: "B1", startAt: soon, endAt: later, timezone: "UTC" },
+        { id: ids.eventA1, clubId: ids.clubA, audienceScope: "TEAMS", eventType: "PRACTICE", title: "A1", startAt: soon, endAt: later, timezone: "UTC" },
+        { id: ids.eventClubWideA, clubId: ids.clubA, audienceScope: "CLUB_WIDE", eventType: "CLUB_EVENT", title: "Club A", startAt: soon, endAt: later, timezone: "UTC" },
+        { id: ids.eventB1, clubId: ids.clubB, audienceScope: "TEAMS", eventType: "PRACTICE", title: "B1", startAt: soon, endAt: later, timezone: "UTC" },
+      ],
+    });
+    // Canonical audience via event_teams: A1 → team a1 (club A), B1 → team b1 (club B).
+    await prisma.eventTeam.createMany({
+      data: [
+        { clubId: ids.clubA, eventId: ids.eventA1, teamId: ids.a1 },
+        { clubId: ids.clubB, eventId: ids.eventB1, teamId: ids.b1 },
       ],
     });
   });
@@ -108,6 +115,7 @@ run("multi-tenant integrity", () => {
   afterAll(async () => {
     const clubs = [ids.clubA, ids.clubB];
     await prisma.eventRsvp.deleteMany({ where: { clubId: { in: clubs } } });
+    await prisma.eventTeam.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.event.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.playerParentLink.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.playerTeamMembership.deleteMany({ where: { clubId: { in: clubs } } });

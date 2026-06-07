@@ -11,6 +11,7 @@ import {
   type AuthContext,
 } from "@/lib/rbac";
 import type {
+  AudienceScope,
   BulkAttendanceInput,
   CreateEventInput,
   RsvpInput,
@@ -21,6 +22,12 @@ import type {
  * Events module service layer — AUTHORITATIVE for authorization, tenant/team
  * scoping, validation, upserts, and audit for events, RSVP, and attendance
  * (BUILD_PLAN §2, RBAC matrix §6.12–6.14).
+ *
+ * Event audience is resolved through `audienceScope` + `event_teams`
+ * (canonical) — NOT `events.team_id`, which is deprecated and never read here.
+ * `audienceScope = 'CLUB_WIDE'` is visible to everyone in the club;
+ * `'TEAMS'` is visible only to actors whose accessible teams intersect the
+ * event's `event_teams` rows.
  *
  * Times are stored as TIMESTAMPTZ; each event carries a `timezone` (falling back
  * to the club timezone) that the UI renders in. RSVP and attendance writes are
@@ -44,35 +51,175 @@ function requireActiveClub(ctx: AuthContext): string {
   return ctx.activeClubId;
 }
 
+/** The teams (other than club-wide) an actor can see events for. */
+function actorTeamIds(ctx: AuthContext): string[] {
+  if (ctx.role === "COACH") return ctx.coachTeamIds;
+  if (ctx.role === "PARENT") return ctx.childTeamIds;
+  return []; // club-level actors are handled separately (they see everything)
+}
+
 async function assertTeamInClub(teamId: string, clubId: string): Promise<void> {
   const team = await prisma.team.findFirst({ where: { id: teamId, clubId, deletedAt: null }, select: { id: true } });
   if (!team) throw new ForbiddenError("Team does not belong to this club");
 }
 
-/** Manage (create/edit/cancel). Club-wide events (no team) are admin-only. */
-function assertEventManage(ctx: AuthContext, clubId: string, teamId: string | null | undefined): void {
-  if (teamId == null) {
+// ===========================================================================
+// Audience model — resolution, view scoping, and write gating
+// ===========================================================================
+
+export interface AccessibleAudience {
+  clubId: string;
+  /** Teams whose TEAMS-scoped events this actor may see. */
+  teamIds: string[];
+  /** Whether the actor sees CLUB_WIDE events (everyone in a club does). */
+  seesClubWide: boolean;
+}
+
+/**
+ * The audience an actor can access in their active club: their team set plus
+ * club-wide visibility. Club-level admins resolve to every team in the club.
+ */
+export async function resolveAccessibleAudience(ctx: AuthContext): Promise<AccessibleAudience> {
+  const clubId = requireActiveClub(ctx);
+  if (isClubLevel(ctx)) {
+    const teams = await prisma.team.findMany({ where: { clubId, deletedAt: null }, select: { id: true } });
+    return { clubId, teamIds: teams.map((t) => t.id), seesClubWide: true };
+  }
+  return { clubId, teamIds: actorTeamIds(ctx), seesClubWide: true };
+}
+
+/** Where-clause scoping events to what the caller may view (audience model). */
+function audienceWhere(ctx: AuthContext, clubId: string): Prisma.EventWhereInput {
+  if (isClubLevel(ctx)) return { clubId }; // admins see every event in their club
+  const teamIds = actorTeamIds(ctx);
+  return {
+    clubId,
+    OR: [
+      { audienceScope: "CLUB_WIDE" },
+      { audienceScope: "TEAMS", eventTeams: { some: { teamId: { in: teamIds } } } },
+    ],
+  };
+}
+
+/** Whether a resolved event (its audience + targeted teams) is visible to ctx. */
+function canViewEventAudience(ctx: AuthContext, audienceScope: string, eventTeamIds: string[]): boolean {
+  if (isClubLevel(ctx)) return true;
+  if (audienceScope === "CLUB_WIDE") return true;
+  const teamIds = actorTeamIds(ctx);
+  return eventTeamIds.some((t) => teamIds.includes(t));
+}
+
+/**
+ * Normalize the (audienceScope + teamIds) audience, accepting the legacy single
+ * `teamId` from the old form for back-compat. Coach gating happens separately.
+ */
+function normalizeAudience(input: {
+  audienceScope?: AudienceScope;
+  teamIds?: string[];
+  teamId?: string | null;
+}): { audienceScope: AudienceScope; teamIds: string[] } {
+  if (input.audienceScope) {
+    return {
+      audienceScope: input.audienceScope,
+      teamIds: input.audienceScope === "TEAMS" ? unique(input.teamIds ?? []) : [],
+    };
+  }
+  // Legacy: a single teamId (null = club-wide).
+  const t = input.teamId ?? null;
+  return t == null ? { audienceScope: "CLUB_WIDE", teamIds: [] } : { audienceScope: "TEAMS", teamIds: [t] };
+}
+
+/**
+ * Gate who may write an event with this audience (create/edit/cancel):
+ *  - CLUB_WIDE → club-level admins only.
+ *  - TEAMS → at least one team; the actor must hold events.manage on EVERY
+ *    targeted team (coaches are thereby limited to their assigned teams; admins
+ *    pass for any team in the club).
+ */
+function assertAudienceWritable(
+  ctx: AuthContext,
+  clubId: string,
+  audienceScope: AudienceScope,
+  teamIds: string[],
+): void {
+  if (audienceScope === "CLUB_WIDE") {
     if (!isClubLevel(ctx)) throw new ForbiddenError("Only admins can manage club-wide events");
     assertCan(ctx, "events.manage", { clubId });
-  } else {
+    return;
+  }
+  if (teamIds.length === 0) throw new ConflictError("Select at least one team for a team event");
+  for (const teamId of teamIds) {
     assertCan(ctx, "events.manage", { clubId, teamId });
   }
 }
 
+function unique<T>(items: T[]): T[] {
+  return [...new Set(items)];
+}
+
 // ===========================================================================
-// Events
+// Events — shared shapes / mappers
 // ===========================================================================
 
-/** Where-clause scoping events to what the caller may view. */
-function eventViewWhere(ctx: AuthContext, clubId: string): Prisma.EventWhereInput {
-  const base: Prisma.EventWhereInput = { clubId };
-  if (isClubLevel(ctx)) return base;
-  if (ctx.role === "COACH") {
-    return { ...base, OR: [{ teamId: { in: ctx.coachTeamIds } }, { teamId: null }] };
-  }
-  // PARENT — linked children's teams + club-wide events.
-  return { ...base, OR: [{ teamId: { in: ctx.childTeamIds } }, { teamId: null }] };
+type EventTeamWithName = { teamId: string; team: { id: string; name: string } | null };
+
+/** Event row shape with eager-loaded targeted teams (for badges/derivation). */
+const eventWithTeams = {
+  include: { eventTeams: { include: { team: { select: { id: true, name: true } } } } },
+} satisfies Prisma.EventDefaultArgs;
+type EventWithTeams = Prisma.EventGetPayload<typeof eventWithTeams>;
+
+function teamTags(eventTeams: EventTeamWithName[]): { id: string; name: string }[] {
+  return eventTeams
+    .map((et) => et.team)
+    .filter((t): t is { id: string; name: string } => t != null);
 }
+
+/** First targeted team — back-compat for legacy single-team UI (derived, never team_id). */
+function firstTeam(eventTeams: EventTeamWithName[]): { id: string; name: string } | null {
+  return teamTags(eventTeams)[0] ?? null;
+}
+
+export interface ScheduleEvent {
+  id: string;
+  clubId: string;
+  title: string;
+  eventType: string;
+  audienceScope: string;
+  startAt: string;
+  endAt: string;
+  timezone: string;
+  locationName: string | null;
+  status: string;
+  /** Targeted teams (empty for CLUB_WIDE). */
+  teams: { id: string; name: string }[];
+}
+
+function toScheduleEvent(e: EventWithTeams): ScheduleEvent {
+  return {
+    id: e.id,
+    clubId: e.clubId,
+    title: e.title,
+    eventType: e.eventType,
+    audienceScope: e.audienceScope,
+    startAt: e.startAt.toISOString(),
+    endAt: e.endAt.toISOString(),
+    timezone: e.timezone,
+    locationName: e.locationName,
+    status: e.status,
+    teams: teamTags(e.eventTeams),
+  };
+}
+
+/** Legacy event shape (adds a derived single `team`/`teamId` from event_teams). */
+function withDerivedTeam<T extends EventWithTeams>(e: T) {
+  const t = firstTeam(e.eventTeams);
+  return { ...e, team: t, teamId: t?.id ?? null };
+}
+
+// ===========================================================================
+// Events — listing and retrieval
+// ===========================================================================
 
 export async function listEvents(
   ctx: AuthContext,
@@ -80,48 +227,84 @@ export async function listEvents(
   opts: { teamId?: string; from?: Date; to?: Date; upcomingOnly?: boolean; limit?: number } = {},
 ) {
   assertCan(ctx, "events.view", { clubId });
-  const where = eventViewWhere(ctx, clubId);
+  const and: Prisma.EventWhereInput[] = [audienceWhere(ctx, clubId)];
   if (opts.teamId) {
-    // Narrow to one team, still bounded by the caller's view scope above.
-    where.AND = [{ teamId: opts.teamId }];
+    // Narrow to one team: that team's events plus club-wide (still bounded by scope above).
+    and.push({ OR: [{ audienceScope: "CLUB_WIDE" }, { eventTeams: { some: { teamId: opts.teamId } } }] });
   }
   if (opts.from || opts.to || opts.upcomingOnly) {
-    where.startAt = {
-      ...(opts.upcomingOnly ? { gte: new Date() } : {}),
-      ...(opts.from ? { gte: opts.from } : {}),
-      ...(opts.to ? { lte: opts.to } : {}),
-    };
+    and.push({
+      startAt: {
+        ...(opts.upcomingOnly ? { gte: new Date() } : {}),
+        ...(opts.from ? { gte: opts.from } : {}),
+        ...(opts.to ? { lte: opts.to } : {}),
+      },
+    });
   }
-  return prisma.event.findMany({
-    where,
+  const events = await prisma.event.findMany({
+    where: { AND: and },
     orderBy: { startAt: opts.upcomingOnly ? "asc" : "desc" },
     take: opts.limit,
-    include: { team: { select: { id: true, name: true } } },
+    ...eventWithTeams,
   });
+  return events.map(withDerivedTeam);
 }
 
-export async function getEvent(ctx: AuthContext, eventId: string) {
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    include: { team: { select: { id: true, name: true } } },
+/**
+ * Single calendar/list query powering EVERY surface (Console + parent portal):
+ * the events visible to `actor` in `[from, to)`, scoped per the audience model,
+ * with resolved team tags + status. Eager-loads team names for badges.
+ */
+export async function listScheduleEvents(args: {
+  actor: AuthContext;
+  from: Date;
+  to: Date;
+  filters?: { teamId?: string; eventType?: string; status?: string };
+}): Promise<ScheduleEvent[]> {
+  const { actor, from, to, filters = {} } = args;
+  const clubId = requireActiveClub(actor);
+  assertCan(actor, "events.view", { clubId });
+
+  const and: Prisma.EventWhereInput[] = [
+    audienceWhere(actor, clubId),
+    { startAt: { gte: from, lt: to } },
+  ];
+  if (filters.teamId) {
+    and.push({ OR: [{ audienceScope: "CLUB_WIDE" }, { eventTeams: { some: { teamId: filters.teamId } } }] });
+  }
+  if (filters.eventType) and.push({ eventType: filters.eventType });
+  if (filters.status) and.push({ status: filters.status });
+
+  const events = await prisma.event.findMany({
+    where: { AND: and },
+    orderBy: { startAt: "asc" },
+    ...eventWithTeams,
   });
+  return events.map(toScheduleEvent);
+}
+
+/** RBAC-checked detail fetch (with targeted teams) for the calendar drawer/detail. */
+export async function getEventById(args: { actor: AuthContext; eventId: string }) {
+  const { actor, eventId } = args;
+  const event = await prisma.event.findUnique({ where: { id: eventId }, ...eventWithTeams });
   if (!event) return null;
-  assertClubScope(ctx, event.clubId);
-  if (!canViewEvent(ctx, event.teamId)) throw new ForbiddenError("Event is outside your scope");
-  return event;
+  assertClubScope(actor, event.clubId);
+  if (!canViewEventAudience(actor, event.audienceScope, event.eventTeams.map((et) => et.teamId))) {
+    throw new ForbiddenError("Event is outside your scope");
+  }
+  return withDerivedTeam(event);
 }
 
-function canViewEvent(ctx: AuthContext, teamId: string | null): boolean {
-  if (isClubLevel(ctx)) return true;
-  if (teamId == null) return true; // club-wide visible to members
-  if (ctx.role === "COACH") return ctx.coachTeamIds.includes(teamId);
-  return ctx.childTeamIds.includes(teamId);
+/** Legacy single-event fetch (kept for current detail page); audience-checked. */
+export async function getEvent(ctx: AuthContext, eventId: string) {
+  return getEventById({ actor: ctx, eventId });
 }
 
 export async function createEvent(ctx: AuthContext, clubId: string, input: CreateEventInput) {
-  const teamId = input.teamId ?? null;
-  assertEventManage(ctx, clubId, teamId);
-  if (teamId) await assertTeamInClub(teamId, clubId);
+  assertClubScope(ctx, clubId);
+  const { audienceScope, teamIds } = normalizeAudience(input);
+  assertAudienceWritable(ctx, clubId, audienceScope, teamIds);
+  for (const teamId of teamIds) await assertTeamInClub(teamId, clubId);
 
   const club = await prisma.club.findUnique({ where: { id: clubId }, select: { timezone: true } });
   const timezone = input.timezone ?? club?.timezone ?? "America/New_York";
@@ -130,7 +313,8 @@ export async function createEvent(ctx: AuthContext, clubId: string, input: Creat
     const event = await tx.event.create({
       data: {
         clubId,
-        teamId,
+        teamId: null, // deprecated — audience lives in audienceScope + event_teams
+        audienceScope,
         eventType: input.eventType,
         title: input.title,
         description: input.description ?? null,
@@ -150,32 +334,39 @@ export async function createEvent(ctx: AuthContext, clubId: string, input: Creat
         createdBy: ctx.userId,
       },
     });
+    if (teamIds.length > 0) {
+      await tx.eventTeam.createMany({
+        data: teamIds.map((teamId) => ({ clubId, eventId: event.id, teamId })),
+      });
+    }
     await recordAudit(tx, {
       action: "event.create",
       resourceType: "event",
       resourceId: event.id,
       clubId,
       actorUserId: ctx.userId,
-      metadata: { eventType: event.eventType, teamId },
+      metadata: { eventType: event.eventType, audienceScope, teamIds },
     });
     return event;
   });
 }
 
 export async function updateEvent(ctx: AuthContext, eventId: string, input: UpdateEventInput) {
-  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  const event = await prisma.event.findUnique({ where: { id: eventId }, ...eventWithTeams });
   if (!event) throw new ForbiddenError("Event not found");
-  const newTeamId = input.teamId ?? null;
-  // Must be allowed to manage both the current and the proposed team scope.
-  assertEventManage(ctx, event.clubId, event.teamId);
-  assertEventManage(ctx, event.clubId, newTeamId);
-  if (newTeamId) await assertTeamInClub(newTeamId, event.clubId);
+  const current = { audienceScope: event.audienceScope as AudienceScope, teamIds: event.eventTeams.map((et) => et.teamId) };
+  const next = normalizeAudience(input);
+  // Must be allowed to manage BOTH the current and the proposed audience.
+  assertAudienceWritable(ctx, event.clubId, current.audienceScope, current.teamIds);
+  assertAudienceWritable(ctx, event.clubId, next.audienceScope, next.teamIds);
+  for (const teamId of next.teamIds) await assertTeamInClub(teamId, event.clubId);
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.event.update({
       where: { id: eventId },
       data: {
-        teamId: newTeamId,
+        teamId: null,
+        audienceScope: next.audienceScope,
         eventType: input.eventType,
         title: input.title,
         description: input.description ?? null,
@@ -196,14 +387,29 @@ export async function updateEvent(ctx: AuthContext, eventId: string, input: Upda
         updatedBy: ctx.userId,
       },
     });
+    // Replace targeted teams wholesale.
+    await tx.eventTeam.deleteMany({ where: { eventId } });
+    if (next.teamIds.length > 0) {
+      await tx.eventTeam.createMany({
+        data: next.teamIds.map((teamId) => ({ clubId: event.clubId, eventId, teamId })),
+      });
+    }
+    await recordAudit(tx, {
+      action: "event.update",
+      resourceType: "event",
+      resourceId: eventId,
+      clubId: event.clubId,
+      actorUserId: ctx.userId,
+      metadata: { audienceScope: next.audienceScope, teamIds: next.teamIds },
+    });
     return updated;
   });
 }
 
 export async function cancelEvent(ctx: AuthContext, eventId: string) {
-  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  const event = await prisma.event.findUnique({ where: { id: eventId }, ...eventWithTeams });
   if (!event) throw new ForbiddenError("Event not found");
-  assertEventManage(ctx, event.clubId, event.teamId);
+  assertAudienceWritable(ctx, event.clubId, event.audienceScope as AudienceScope, event.eventTeams.map((et) => et.teamId));
 
   return prisma.$transaction(async (tx) => {
     const cancelled = await tx.event.update({
@@ -222,16 +428,72 @@ export async function cancelEvent(ctx: AuthContext, eventId: string) {
 }
 
 // ===========================================================================
+// Parent-safe serialization
+// ===========================================================================
+
+export interface ParentSafeEvent {
+  id: string;
+  title: string;
+  eventType: string;
+  audienceScope: string;
+  startAt: string;
+  endAt: string;
+  timezone: string;
+  locationName: string | null;
+  status: string;
+  teams: { id: string; name: string }[];
+  /** The linked child's own RSVP — never other children's responses. */
+  myRsvp: string | null;
+}
+
+/** Shape `toParentSafeEvent` needs: an event with targeted teams + rsvps. */
+export interface ParentSafeEventInput {
+  id: string;
+  title: string;
+  eventType: string;
+  audienceScope: string;
+  startAt: Date;
+  endAt: Date;
+  timezone: string;
+  locationName: string | null;
+  status: string;
+  eventTeams: EventTeamWithName[];
+  rsvps: { playerId: string; responseStatus: string }[];
+}
+
+/**
+ * Parent-safe projection of an event for a single linked child: exposes only
+ * public event fields + team name(s) + that child's own RSVP. Strips
+ * description/uniform notes and every OTHER child's RSVP/attendance data — the
+ * child-safety guarantee, applied in the data layer (BUILD_PLAN §2).
+ */
+export function toParentSafeEvent(event: ParentSafeEventInput, opts: { childId: string }): ParentSafeEvent {
+  return {
+    id: event.id,
+    title: event.title,
+    eventType: event.eventType,
+    audienceScope: event.audienceScope,
+    startAt: event.startAt.toISOString(),
+    endAt: event.endAt.toISOString(),
+    timezone: event.timezone,
+    locationName: event.locationName,
+    status: event.status,
+    teams: teamTags(event.eventTeams),
+    myRsvp: event.rsvps.find((r) => r.playerId === opts.childId)?.responseStatus ?? null,
+  };
+}
+
+// ===========================================================================
 // RSVP (upsert per event+player)
 // ===========================================================================
 
-/** A team event's players must belong to that team; club-wide events accept any club player. */
-async function assertPlayerParticipates(playerId: string, clubId: string, teamId: string | null): Promise<void> {
+/** A team event's players must belong to a targeted team; club-wide accepts any club player. */
+async function assertPlayerParticipates(playerId: string, clubId: string, eventTeamIds: string[]): Promise<void> {
   const player = await prisma.player.findFirst({ where: { id: playerId, clubId, deletedAt: null }, select: { id: true } });
   if (!player) throw new ForbiddenError("Player is not in this club");
-  if (teamId) {
+  if (eventTeamIds.length > 0) {
     const membership = await prisma.playerTeamMembership.findFirst({
-      where: { playerId, teamId, status: "ACTIVE" },
+      where: { playerId, teamId: { in: eventTeamIds }, status: "ACTIVE" },
       select: { id: true },
     });
     if (!membership) throw new ForbiddenError("Player is not on this event's team");
@@ -241,12 +503,12 @@ async function assertPlayerParticipates(playerId: string, clubId: string, teamId
 export async function submitRsvp(ctx: AuthContext, eventId: string, input: RsvpInput) {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { clubId: true, teamId: true, status: true },
+    select: { clubId: true, status: true, eventTeams: { select: { teamId: true } } },
   });
   if (!event) throw new ForbiddenError("Event not found");
   // Parent → own child only; admin/coach may override (scope-checked by permission).
   assertCan(ctx, "rsvp.respond_own_child", { clubId: event.clubId, playerId: input.playerId });
-  await assertPlayerParticipates(input.playerId, event.clubId, event.teamId);
+  await assertPlayerParticipates(input.playerId, event.clubId, event.eventTeams.map((et) => et.teamId));
 
   return prisma.eventRsvp.upsert({
     where: { uq_event_rsvp: { eventId, playerId: input.playerId } },
@@ -269,10 +531,16 @@ export async function submitRsvp(ctx: AuthContext, eventId: string, input: RsvpI
 
 /** Staff RSVP summary for an event: counts + per-player responses. */
 export async function getRsvpSummary(ctx: AuthContext, eventId: string) {
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { clubId: true, teamId: true } });
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { clubId: true, audienceScope: true, eventTeams: { select: { teamId: true } } },
+  });
   if (!event) throw new ForbiddenError("Event not found");
-  assertCan(ctx, "events.view", { clubId: event.clubId, teamId: event.teamId ?? undefined });
   if (ctx.role === "PARENT") throw new ForbiddenError("Parents see only their own child's RSVP");
+  assertCan(ctx, "events.view", { clubId: event.clubId });
+  if (!canViewEventAudience(ctx, event.audienceScope, event.eventTeams.map((et) => et.teamId))) {
+    throw new ForbiddenError("Event is outside your scope");
+  }
 
   const rsvps = await prisma.eventRsvp.findMany({
     where: { eventId },
@@ -290,10 +558,11 @@ export async function getRsvpSummary(ctx: AuthContext, eventId: string) {
 export async function recordAttendance(ctx: AuthContext, eventId: string, input: BulkAttendanceInput) {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { clubId: true, teamId: true },
+    select: { clubId: true, audienceScope: true, eventTeams: { select: { teamId: true } } },
   });
   if (!event) throw new ForbiddenError("Event not found");
-  assertCan(ctx, "attendance.record", { clubId: event.clubId, teamId: event.teamId ?? undefined });
+  // Recording attendance requires manage authority over the event's audience.
+  assertAudienceWritable(ctx, event.clubId, event.audienceScope as AudienceScope, event.eventTeams.map((et) => et.teamId));
 
   return prisma.$transaction(async (tx) => {
     for (const entry of input.entries) {
@@ -321,17 +590,23 @@ export async function recordAttendance(ctx: AuthContext, eventId: string, input:
       resourceId: eventId,
       clubId: event.clubId,
       actorUserId: ctx.userId,
-      metadata: { count: input.entries.length, teamId: event.teamId },
+      metadata: { count: input.entries.length },
     });
     return { recorded: input.entries.length };
   });
 }
 
-/** Staff attendance summary for an event (counts + per-player). */
+/** Staff attendance summary for an event (per-player). */
 export async function getAttendanceSummary(ctx: AuthContext, eventId: string) {
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { clubId: true, teamId: true } });
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { clubId: true, audienceScope: true, eventTeams: { select: { teamId: true } } },
+  });
   if (!event) throw new ForbiddenError("Event not found");
-  assertCan(ctx, "attendance.view_team", { clubId: event.clubId, teamId: event.teamId ?? undefined });
+  assertCan(ctx, "attendance.view_team", { clubId: event.clubId });
+  if (!isClubLevel(ctx) && !canViewEventAudience(ctx, event.audienceScope, event.eventTeams.map((et) => et.teamId))) {
+    throw new ForbiddenError("Event is outside your scope");
+  }
 
   const records = await prisma.attendanceRecord.findMany({
     where: { eventId },
@@ -390,7 +665,7 @@ export async function listTeamAttendance(ctx: AuthContext, teamId: string): Prom
   if (players.length === 0) return [];
 
   const records = await prisma.attendanceRecord.findMany({
-    where: { playerId: { in: players.map((p) => p.id) }, event: { teamId } },
+    where: { playerId: { in: players.map((p) => p.id) }, event: { eventTeams: { some: { teamId } } } },
     select: { playerId: true, attendanceStatus: true },
   });
   const agg = new Map<string, { attended: number; total: number }>();
@@ -428,10 +703,24 @@ export async function getPlayerAttendanceForStaff(ctx: AuthContext, playerId: st
     where: { playerId },
     orderBy: { recordedAt: "desc" },
     include: {
-      event: { select: { id: true, title: true, startAt: true, eventType: true, timezone: true, team: { select: { name: true } } } },
+      event: {
+        select: {
+          id: true,
+          title: true,
+          startAt: true,
+          eventType: true,
+          timezone: true,
+          eventTeams: { include: { team: { select: { name: true } } } },
+        },
+      },
     },
   });
-  return { player, records };
+  // Derive a single `team` (first targeted team) for the legacy drill-down UI.
+  const shaped = records.map((r) => ({
+    ...r,
+    event: { ...r.event, team: r.event.eventTeams[0]?.team ?? null },
+  }));
+  return { player, records: shaped };
 }
 
 // ===========================================================================
@@ -455,9 +744,9 @@ export interface ParentScheduleEntry {
 }
 
 /**
- * Aggregated schedule for a parent across ALL linked children: events on any
- * linked child's team plus club-wide events, de-duplicated (one row per event),
- * each carrying the relevant children and that child's RSVP.
+ * Aggregated schedule for a parent across ALL linked children: events targeting
+ * any linked child's team plus club-wide events, de-duplicated (one row per
+ * event), each carrying the relevant children and that child's RSVP.
  */
 export async function listParentSchedule(
   ctx: AuthContext,
@@ -480,17 +769,14 @@ export async function listParentSchedule(
   const childTeamSet = new Map<string, Set<string>>(); // playerId -> set of teamIds
   for (const p of players) childTeamSet.set(p.id, new Set(p.teamMemberships.map((m) => m.teamId)));
 
-  const where: Prisma.EventWhereInput = {
-    clubId,
-    OR: [{ teamId: { in: ctx.childTeamIds } }, { teamId: null }],
-  };
-  if (opts.upcomingOnly) where.startAt = { gte: new Date() };
+  const and: Prisma.EventWhereInput[] = [audienceWhere(ctx, clubId)];
+  if (opts.upcomingOnly) and.push({ startAt: { gte: new Date() } });
 
   const events = await prisma.event.findMany({
-    where,
+    where: { AND: and },
     orderBy: { startAt: opts.upcomingOnly ? "asc" : "desc" },
     take: opts.limit,
-    include: { team: { select: { id: true, name: true } } },
+    ...eventWithTeams,
   });
   if (events.length === 0) return [];
 
@@ -502,16 +788,19 @@ export async function listParentSchedule(
   for (const r of rsvps) rsvpMap.set(`${r.eventId}:${r.playerId}`, r.responseStatus);
 
   return events.map((e) => {
+    const eventTeamIds = new Set(e.eventTeams.map((et) => et.teamId));
+    const clubWide = e.audienceScope === "CLUB_WIDE";
     const relevant = players.filter((p) =>
-      e.teamId == null ? true : childTeamSet.get(p.id)?.has(e.teamId),
+      clubWide ? true : [...(childTeamSet.get(p.id) ?? [])].some((t) => eventTeamIds.has(t)),
     );
+    const tag = firstTeam(e.eventTeams);
     return {
       event: {
         id: e.id,
         title: e.title,
         eventType: e.eventType,
-        teamId: e.teamId,
-        teamName: e.team?.name ?? null,
+        teamId: tag?.id ?? null,
+        teamName: tag?.name ?? null,
         startAt: e.startAt.toISOString(),
         endAt: e.endAt.toISOString(),
         timezone: e.timezone,
@@ -539,13 +828,11 @@ export function listUpcomingEvents(ctx: AuthContext, clubId: string, limit = 5) 
 /** Count of past team events still missing attendance — coach dashboard "to-do". */
 export async function countEventsNeedingAttendance(ctx: AuthContext, clubId: string): Promise<number> {
   assertCan(ctx, "attendance.view_team", { clubId });
-  const where: Prisma.EventWhereInput = {
-    clubId,
-    endAt: { lt: new Date() },
-    status: { notIn: ["CANCELLED"] },
-    attendanceRecords: { none: {} },
-  };
-  if (ctx.role === "COACH") where.teamId = { in: ctx.coachTeamIds };
-  else where.teamId = { not: null };
-  return prisma.event.count({ where });
+  const and: Prisma.EventWhereInput[] = [
+    { clubId, endAt: { lt: new Date() }, status: { notIn: ["CANCELLED"] }, attendanceRecords: { none: {} } },
+    // Team events only (club-wide events don't take roster attendance).
+    { audienceScope: "TEAMS" },
+  ];
+  if (ctx.role === "COACH") and.push({ eventTeams: { some: { teamId: { in: ctx.coachTeamIds } } } });
+  return prisma.event.count({ where: { AND: and } });
 }
