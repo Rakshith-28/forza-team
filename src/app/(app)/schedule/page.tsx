@@ -1,10 +1,11 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { ScheduleView } from "@/components/schedule/schedule-view";
 import { requireAuthContext } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
-import { listEvents, listParentSchedule } from "@/modules/events/service";
+import { getClubTimezone, listParentSchedule, listScheduleEvents } from "@/modules/events/service";
+import { scheduleWindow } from "@/modules/events/schedule-window";
 import { EVENT_TYPE_LABELS, type EventType } from "@/modules/events/schemas";
 import { formatEventTime } from "@/modules/events/format";
 
@@ -78,12 +79,14 @@ export default async function SchedulePage() {
     );
   }
 
-  // Admin / Coach
+  // Admin / Coach — the calendar is the primary view.
   const canManage = can(ctx, "events.manage", { clubId });
-  const events = await listEvents(ctx, clubId, { limit: 100 });
+  const tz = await getClubTimezone(ctx, clubId);
+  const { todayKey, month, from, to } = scheduleWindow(new Date(), tz);
+  const events = await listScheduleEvents({ actor: ctx, from, to });
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-6xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Schedule</h1>
@@ -98,30 +101,14 @@ export default async function SchedulePage() {
         ) : null}
       </div>
 
-      <div className="mt-6 flex flex-col gap-3">
-        {events.length === 0 ? (
-          <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            No events yet.
-          </p>
-        ) : (
-          events.map((e) => (
-            <Link key={e.id} href={`/schedule/${e.id}`}>
-              <Card className="transition-colors hover:border-primary">
-                <CardContent className="flex items-center justify-between gap-4 py-4">
-                  <div>
-                    <p className="font-sport text-base font-bold text-foreground">{e.title}</p>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      {typeLabel(e.eventType)}
-                      {e.team ? ` · ${e.team.name}` : " · Club-wide"}
-                    </p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{formatEventTime(e.startAt, e.timezone)}</p>
-                  </div>
-                  <StatusBadge status={e.status} />
-                </CardContent>
-              </Card>
-            </Link>
-          ))
-        )}
+      <div className="mt-6">
+        <ScheduleView
+          events={events}
+          today={todayKey}
+          initialMonth={month}
+          initialSelectedDate={todayKey}
+          detailHref={(id) => `/schedule/${id}`}
+        />
       </div>
     </div>
   );

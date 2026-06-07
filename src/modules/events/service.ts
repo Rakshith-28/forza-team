@@ -259,7 +259,7 @@ export async function listScheduleEvents(args: {
   actor: AuthContext;
   from: Date;
   to: Date;
-  filters?: { teamId?: string; eventType?: string; status?: string };
+  filters?: { teamId?: string; teamIds?: string[]; eventType?: string; status?: string };
 }): Promise<ScheduleEvent[]> {
   const { actor, from, to, filters = {} } = args;
   const clubId = requireActiveClub(actor);
@@ -271,6 +271,10 @@ export async function listScheduleEvents(args: {
   ];
   if (filters.teamId) {
     and.push({ OR: [{ audienceScope: "CLUB_WIDE" }, { eventTeams: { some: { teamId: filters.teamId } } }] });
+  }
+  // Narrow to a set of teams (e.g. a player's teams) — club-wide always included.
+  if (filters.teamIds && filters.teamIds.length > 0) {
+    and.push({ OR: [{ audienceScope: "CLUB_WIDE" }, { eventTeams: { some: { teamId: { in: filters.teamIds } } } }] });
   }
   if (filters.eventType) and.push({ eventType: filters.eventType });
   if (filters.status) and.push({ status: filters.status });
@@ -298,6 +302,13 @@ export async function getEventById(args: { actor: AuthContext; eventId: string }
 /** Legacy single-event fetch (kept for current detail page); audience-checked. */
 export async function getEvent(ctx: AuthContext, eventId: string) {
   return getEventById({ actor: ctx, eventId });
+}
+
+/** Club timezone for the caller's club — used to compute "today" server-side. */
+export async function getClubTimezone(ctx: AuthContext, clubId: string): Promise<string> {
+  assertClubScope(ctx, clubId);
+  const club = await prisma.club.findUnique({ where: { id: clubId }, select: { timezone: true } });
+  return club?.timezone ?? "America/New_York";
 }
 
 export async function createEvent(ctx: AuthContext, clubId: string, input: CreateEventInput) {

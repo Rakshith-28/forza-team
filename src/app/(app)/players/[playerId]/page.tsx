@@ -2,12 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/console/tabs";
+import { ScheduleView } from "@/components/schedule/schedule-view";
 import { PhotoUpload } from "@/components/app/photo-upload";
 import { requireRole } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
 import { archivePlayerAction, removeGuardianAction, removeMembershipAction } from "@/modules/roster/actions";
 import { getPlayer, listPlayerGuardians } from "@/modules/roster/service";
+import { getClubTimezone, listScheduleEvents } from "@/modules/events/service";
+import { scheduleWindow } from "@/modules/events/schedule-window";
 import { RELATIONSHIP_LABELS } from "@/modules/roster/schemas";
 
 import { StatusBadge } from "../../seasons/season-forms";
@@ -36,6 +40,16 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
   const addableTeams = teams
     .filter((t) => t.status !== "ARCHIVED" && !memberTeamIds.has(t.id))
     .map((t) => ({ id: t.id, name: t.name }));
+
+  // Schedule tab: events on this player's teams (+ club-wide).
+  const tz = await getClubTimezone(ctx, player.clubId);
+  const { todayKey, month, from, to } = scheduleWindow(new Date(), tz);
+  const playerEvents = await listScheduleEvents({
+    actor: ctx,
+    from,
+    to,
+    filters: { teamIds: [...memberTeamIds] },
+  });
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -72,7 +86,14 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
         </div>
       </div>
 
-      <Card className="mt-6">
+      <Tabs defaultValue="overview" className="mt-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+      <Card>
         <CardHeader>
           <CardTitle className="font-sport text-base">Photo</CardTitle>
         </CardHeader>
@@ -190,14 +211,26 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
         </CardContent>
       </Card>
 
-      {canEdit && player.status !== "ARCHIVED" ? (
-        <form action={archivePlayerAction} className="mt-6">
-          <input type="hidden" name="playerId" value={player.id} />
-          <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
-            Archive this player
-          </button>
-        </form>
-      ) : null}
+          {canEdit && player.status !== "ARCHIVED" ? (
+            <form action={archivePlayerAction} className="mt-6">
+              <input type="hidden" name="playerId" value={player.id} />
+              <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
+                Archive this player
+              </button>
+            </form>
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="schedule">
+          <ScheduleView
+            events={playerEvents}
+            today={todayKey}
+            initialMonth={month}
+            initialSelectedDate={todayKey}
+            detailHref={(id) => `/schedule/${id}`}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

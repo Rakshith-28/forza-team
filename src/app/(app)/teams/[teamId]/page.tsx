@@ -2,11 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/console/tabs";
+import { ScheduleView } from "@/components/schedule/schedule-view";
 import { requireAuthContext } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { archiveTeamAction, removeCoachAction } from "@/modules/clubs/actions";
 import { COACH_ROLE_LABELS } from "@/modules/clubs/schemas";
 import { getTeam, listAssignableCoaches, listSeasons, listTeamCoaches } from "@/modules/clubs/service";
+import { getClubTimezone, listScheduleEvents } from "@/modules/events/service";
+import { scheduleWindow } from "@/modules/events/schedule-window";
 
 import { StatusBadge } from "../../seasons/season-forms";
 import { CoachAssignForm, TeamEditSection } from "./team-detail-client";
@@ -25,10 +29,14 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   if (!team) notFound();
 
   const canManage = can(ctx, "teams.manage", { clubId: team.clubId, teamId });
-  const [coaches, seasons, assignable] = await Promise.all([
+  const tz = await getClubTimezone(ctx, team.clubId);
+  const { todayKey, month, from, to } = scheduleWindow(new Date(), tz);
+  const [coaches, seasons, assignable, teamEvents] = await Promise.all([
     listTeamCoaches(ctx, teamId),
     canManage ? listSeasons(ctx, team.clubId) : Promise.resolve([]),
     canManage ? listAssignableCoaches(ctx, team.clubId) : Promise.resolve([]),
+    // CLUB_WIDE + events targeting this team.
+    listScheduleEvents({ actor: ctx, from, to, filters: { teamId } }),
   ]);
 
   return (
@@ -69,7 +77,14 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         </div>
       </div>
 
-      <Card className="mt-6">
+      <Tabs defaultValue="overview" className="mt-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+      <Card>
         <CardHeader>
           <CardTitle className="font-sport text-base">Coaching staff</CardTitle>
         </CardHeader>
@@ -114,14 +129,26 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         </CardContent>
       </Card>
 
-      {canManage && team.status !== "ARCHIVED" ? (
-        <form action={archiveTeamAction} className="mt-6">
-          <input type="hidden" name="teamId" value={team.id} />
-          <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
-            Archive this team
-          </button>
-        </form>
-      ) : null}
+          {canManage && team.status !== "ARCHIVED" ? (
+            <form action={archiveTeamAction} className="mt-6">
+              <input type="hidden" name="teamId" value={team.id} />
+              <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
+                Archive this team
+              </button>
+            </form>
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="schedule">
+          <ScheduleView
+            events={teamEvents}
+            today={todayKey}
+            initialMonth={month}
+            initialSelectedDate={todayKey}
+            detailHref={(id) => `/schedule/${id}`}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
