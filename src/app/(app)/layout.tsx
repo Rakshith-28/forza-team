@@ -124,9 +124,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <div className="flex items-center gap-3">
           <AnnouncementsBell initialCount={unreadAnnouncements} />
-          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-            {ROLE_LABELS[ctx.role]}
-          </span>
           <AccountMenu
             name={displayName}
             email={session.user.email}
