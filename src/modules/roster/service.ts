@@ -495,6 +495,38 @@ export async function resendParentInvitation(
   return { acceptUrl: res.acceptUrl };
 }
 
+export interface CoachRosterPreview {
+  /** Active players across the coach's assigned teams. */
+  count: number;
+  /** A handful of avatars (players with a photo first) for the dashboard tile. */
+  avatars: { id: string; displayName: string; photoUrl: string | null }[];
+}
+
+/**
+ * Player count + a few avatars for the coach's assigned teams — feeds the
+ * dashboard "Team Roster" tile. Scoped to the players the coach can see
+ * (ctx.coachTeamPlayerIds); returns empty when the coach has no teams yet.
+ */
+export async function getCoachRosterPreview(ctx: AuthContext, clubId: string): Promise<CoachRosterPreview> {
+  assertClubScope(ctx, clubId);
+  const ids = ctx.coachTeamPlayerIds;
+  if (ids.length === 0) return { count: 0, avatars: [] };
+
+  const players = await prisma.player.findMany({
+    where: { id: { in: ids }, clubId, deletedAt: null, status: "ACTIVE" },
+    select: { id: true, firstName: true, lastName: true, preferredName: true, photoUrl: true },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
+  // Surface players who have a photo first so the overlapping stack looks full.
+  const ordered = [...players.filter((p) => p.photoUrl), ...players.filter((p) => !p.photoUrl)];
+  const avatars = ordered.slice(0, 5).map((p) => ({
+    id: p.id,
+    displayName: p.preferredName ?? `${p.firstName} ${p.lastName}`,
+    photoUrl: p.photoUrl,
+  }));
+  return { count: players.length, avatars };
+}
+
 /** Active guardian links + pending parent invites for a player (admin/coach scoped). */
 export async function listPlayerGuardians(ctx: AuthContext, playerId: string) {
   const player = await prisma.player.findFirst({

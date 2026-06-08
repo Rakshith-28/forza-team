@@ -27,6 +27,10 @@ const baseAnnouncement = z
     body: z.string().trim().min(1, "Message body is required").max(20000),
     audienceType: z.enum(ANNOUNCEMENT_AUDIENCES),
     teamId: z.string().uuid().nullable().optional(),
+    /** Keep this announcement at the top of recipients' feeds. */
+    pinned: z.boolean().optional(),
+    /** Flag as important — shown with an "Important" badge in the feed. */
+    important: z.boolean().optional(),
   })
   .refine((d) => d.audienceType !== "TEAM_ONLY" || !!d.teamId, {
     message: "Select a team for a team-only announcement",

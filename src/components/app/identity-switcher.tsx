@@ -18,6 +18,10 @@ import { cn } from "@/lib/utils";
  * width on mobile, the content width on desktop). Single-identity users see a
  * static label (no dropdown). Uses the codebase's custom dropdown pattern
  * (state + backdrop + absolute menu), not a Radix dependency.
+ *
+ * Scoped to the dashboard: callers gate this prominent row to `/dashboard*`
+ * routes via {@link DashboardIdentityRow}. Everywhere else the compact role
+ * switcher inside the navbar account menu takes over (see {@link AccountMenu}).
  */
 export function IdentitySwitcher({
   identities,

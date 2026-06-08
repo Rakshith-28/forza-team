@@ -847,3 +847,45 @@ export async function countEventsNeedingAttendance(ctx: AuthContext, clubId: str
   if (ctx.role === "COACH") and.push({ eventTeams: { some: { teamId: { in: ctx.coachTeamIds } } } });
   return prisma.event.count({ where: { AND: and } });
 }
+
+export interface CoachAttendanceOverview {
+  /** Average attendance across the recent events in `series`, or null if none. */
+  avgPct: number | null;
+  /** Attendance for the most recent recorded event, or null if none. */
+  lastPct: number | null;
+  /** Per-event attendance % (oldest → newest) for the dashboard sparkline. */
+  series: number[];
+}
+
+/**
+ * Recent per-event attendance % across the coach's assigned teams — feeds the
+ * dashboard "Attendance" sparkline. Each point is PRESENT-or-LATE over total
+ * recorded for that event. Returns empty when nothing has been recorded yet.
+ */
+export async function getCoachAttendanceOverview(ctx: AuthContext, clubId: string): Promise<CoachAttendanceOverview> {
+  assertCan(ctx, "attendance.view_team", { clubId });
+  if (ctx.coachTeamIds.length === 0) return { avgPct: null, lastPct: null, series: [] };
+
+  const events = await prisma.event.findMany({
+    where: {
+      clubId,
+      eventTeams: { some: { teamId: { in: ctx.coachTeamIds } } },
+      startAt: { lte: new Date() },
+      attendanceRecords: { some: {} },
+    },
+    orderBy: { startAt: "desc" },
+    take: 8,
+    select: { id: true, attendanceRecords: { select: { attendanceStatus: true } } },
+  });
+  // Query is newest-first; reverse to chronological so the line reads left→right.
+  const series = [...events].reverse().map((e) => {
+    const total = e.attendanceRecords.length;
+    const attended = e.attendanceRecords.filter(
+      (r) => r.attendanceStatus === "PRESENT" || r.attendanceStatus === "LATE",
+    ).length;
+    return total > 0 ? Math.round((attended / total) * 100) : 0;
+  });
+  if (series.length === 0) return { avgPct: null, lastPct: null, series: [] };
+  const avgPct = Math.round(series.reduce((a, b) => a + b, 0) / series.length);
+  return { avgPct, lastPct: series[series.length - 1], series };
+}

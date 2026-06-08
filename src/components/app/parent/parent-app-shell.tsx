@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { AccountMenu } from "@/components/app/account-menu";
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
-import { IdentitySwitcher } from "@/components/app/identity-switcher";
+import { DashboardIdentityRow } from "@/components/app/dashboard-identity-row";
 import type { AppearanceTheme } from "@/lib/appearance";
 import type { Identity } from "@/modules/identity/identities";
 
@@ -49,16 +49,21 @@ export function ParentAppShell({
             initial={initial}
             roleLabel="Parent / Guardian"
             profileHref="/me"
+            identities={identities}
+            current={currentIdentity}
           />
         </div>
       </header>
 
-      {/* Identity switcher: its own row below the navbar, above the page content.
-          Widens to the full content area on desktop (lg) like the Console; the
-          extra lg padding keeps content clear of the floating side rails. */}
-      <div className="mx-auto w-full max-w-md px-4 pt-2 lg:max-w-6xl lg:px-24">
-        <IdentitySwitcher identities={identities} current={currentIdentity} />
-      </div>
+      {/* Identity switcher: its own row below the navbar, above the page content,
+          shown only on the dashboard (DashboardIdentityRow gates it). Widens to
+          the full content area on desktop (lg) like the Console; the extra lg
+          padding keeps content clear of the floating side rails. */}
+      <DashboardIdentityRow
+        identities={identities}
+        current={currentIdentity}
+        className="mx-auto w-full max-w-md px-4 pt-2 lg:max-w-6xl lg:px-24"
+      />
 
       <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28 pt-1 lg:max-w-6xl lg:px-24">
         {children}

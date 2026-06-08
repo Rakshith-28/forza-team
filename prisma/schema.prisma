@@ -549,6 +549,8 @@ model Announcement {
   title        String    @db.VarChar(250)
   body         String
   audienceType String    @map("audience_type") @db.VarChar(50)
+  pinned       Boolean   @default(false)
+  important    Boolean   @default(false)
   publishedAt  DateTime? @map("published_at") @db.Timestamptz(6)
   status       String    @default("DRAFT") @db.VarChar(50)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)

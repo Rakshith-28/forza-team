@@ -1,14 +1,20 @@
 import Link from "next/link";
-import { CalendarDays, ClipboardCheck, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnnouncementsPanel, type AnnouncementPanelItem } from "@/components/app/announcements-panel";
+import { CoachQuickTiles } from "@/components/app/coach-quick-tiles";
 import { UpcomingEvents } from "@/components/app/upcoming-events";
 import { loadIdentitySwitcher, requireRole } from "@/lib/auth-guards";
 import { getMyPlatformAnnouncements } from "@/modules/announcements/platform-service";
 import { listMyRecentClubAnnouncements } from "@/modules/comms/service";
-import { countEventsNeedingAttendance, listUpcomingEvents } from "@/modules/events/service";
+import {
+  countEventsNeedingAttendance,
+  getCoachAttendanceOverview,
+  listUpcomingEvents,
+} from "@/modules/events/service";
+import { formatEventDateChip } from "@/modules/events/format";
 import { countEvaluationsToComplete } from "@/modules/evaluations/service";
+import { getCoachRosterPreview } from "@/modules/roster/service";
 
 export default async function CoachDashboard() {
   const ctx = await requireRole("COACH");
@@ -22,14 +28,23 @@ export default async function CoachDashboard() {
   }
 
   const clubId = ctx.activeClubId;
-  const [upcoming, needsAttendance, evalsToComplete, platform, club, identity] = await Promise.all([
-    listUpcomingEvents(ctx, clubId, 6),
-    countEventsNeedingAttendance(ctx, clubId),
-    countEvaluationsToComplete(ctx, clubId),
-    getMyPlatformAnnouncements(ctx),
-    listMyRecentClubAnnouncements(ctx, 10),
-    loadIdentitySwitcher(ctx.userId),
-  ]);
+  const [upcoming, needsAttendance, evalsToComplete, platform, club, identity, rosterPreview, attendance] =
+    await Promise.all([
+      listUpcomingEvents(ctx, clubId, 6),
+      countEventsNeedingAttendance(ctx, clubId),
+      countEvaluationsToComplete(ctx, clubId),
+      getMyPlatformAnnouncements(ctx),
+      listMyRecentClubAnnouncements(ctx, 10),
+      loadIdentitySwitcher(ctx.userId),
+      getCoachRosterPreview(ctx, clubId),
+      getCoachAttendanceOverview(ctx, clubId),
+    ]);
+
+  // Next few upcoming dates for the Schedule tile's mini calendar chips.
+  const scheduleChips = upcoming.slice(0, 3).map((e) => {
+    const chip = formatEventDateChip(e.startAt, e.timezone);
+    return { id: e.id, month: chip.month, day: chip.day };
+  });
 
   // Title the dashboard with the team the coach is acting on (falls back to the
   // club name, then "Coach" if no specific identity context is available).
@@ -56,6 +71,8 @@ export default async function CoachDashboard() {
       title: c.title,
       body: c.body,
       badge: c.audienceType,
+      pinned: c.pinned,
+      important: c.important,
       read: c.read,
       date: c.publishedAt,
     })),
@@ -109,23 +126,17 @@ export default async function CoachDashboard() {
         <AnnouncementsPanel items={announcementItems} />
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        {[
-          { href: "/players", label: "Team Roster", Icon: Users },
-          { href: "/schedule", label: "Schedule", Icon: CalendarDays },
-          { href: "/attendance", label: "Attendance", Icon: ClipboardCheck },
-        ].map(({ href, label, Icon }) => (
-          <Link key={href} href={href}>
-            <Card className="h-full transition-colors hover:border-primary">
-              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <CardTitle className="font-sport text-base">{label}</CardTitle>
-              </CardHeader>
-            </Card>
-          </Link>
-        ))}
+      <div className="mt-6">
+        <CoachQuickTiles
+          roster={{ href: "/players", count: rosterPreview.count, avatars: rosterPreview.avatars }}
+          schedule={{ href: "/schedule", matchCount: upcoming.length, chips: scheduleChips }}
+          attendance={{
+            href: "/attendance",
+            avgPct: attendance.avgPct,
+            lastPct: attendance.lastPct,
+            series: attendance.series,
+          }}
+        />
       </div>
     </div>
   );

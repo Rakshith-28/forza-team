@@ -39,6 +39,8 @@ export async function createAnnouncementAction(_prev: FormState, fd: FormData): 
     body: str(fd, "body"),
     audienceType: str(fd, "audienceType"),
     teamId: optStr(fd, "teamId") ?? null,
+    pinned: fd.get("pinned") != null,
+    important: fd.get("important") != null,
   });
   if (!parsed.success) return failZod(parsed.error);
   try {
@@ -58,6 +60,8 @@ export async function updateAnnouncementAction(_prev: FormState, fd: FormData): 
     body: str(fd, "body"),
     audienceType: str(fd, "audienceType"),
     teamId: optStr(fd, "teamId") ?? null,
+    pinned: fd.get("pinned") != null,
+    important: fd.get("important") != null,
   });
   if (!parsed.success) return failZod(parsed.error);
   try {

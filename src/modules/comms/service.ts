@@ -108,7 +108,7 @@ export async function listAnnouncements(ctx: AuthContext, clubId: string) {
 
   return prisma.announcement.findMany({
     where,
-    orderBy: [{ status: "asc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ pinned: "desc" }, { status: "asc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
     include: { team: { select: { id: true, name: true } } },
   });
 }
@@ -155,18 +155,20 @@ export interface MyClubAnnouncement {
   title: string;
   body: string;
   audienceType: string;
+  pinned: boolean;
+  important: boolean;
   publishedAt: Date | null;
   read: boolean;
 }
 
-/** Recent PUBLISHED club announcements visible to the caller, newest first, with read state. */
+/** Recent PUBLISHED club announcements visible to the caller, pinned then newest, with read state. */
 export async function listMyRecentClubAnnouncements(ctx: AuthContext, limit = 10): Promise<MyClubAnnouncement[]> {
   if (!ctx.activeClubId) return [];
   const rows = await prisma.announcement.findMany({
     where: publishedVisibleWhere(ctx, ctx.activeClubId),
-    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
     take: limit,
-    select: { id: true, title: true, body: true, audienceType: true, publishedAt: true },
+    select: { id: true, title: true, body: true, audienceType: true, pinned: true, important: true, publishedAt: true },
   });
   if (rows.length === 0) return [];
   const reads = await prisma.announcementRead.findMany({
@@ -179,6 +181,8 @@ export async function listMyRecentClubAnnouncements(ctx: AuthContext, limit = 10
     title: r.title,
     body: r.body,
     audienceType: r.audienceType,
+    pinned: r.pinned,
+    important: r.important,
     publishedAt: r.publishedAt,
     read: readSet.has(r.id),
   }));
@@ -222,6 +226,8 @@ export async function createAnnouncement(ctx: AuthContext, clubId: string, input
       title: input.title,
       body: input.body,
       audienceType: input.audienceType,
+      pinned: input.pinned ?? false,
+      important: input.important ?? false,
       status: "DRAFT",
       createdBy: ctx.userId,
     },
@@ -247,6 +253,8 @@ export async function updateAnnouncement(ctx: AuthContext, id: string, input: Up
       body: input.body,
       audienceType: input.audienceType,
       teamId: input.audienceType === "TEAM_ONLY" ? input.teamId : null,
+      pinned: input.pinned ?? false,
+      important: input.important ?? false,
       updatedAt: new Date(),
       updatedBy: ctx.userId,
     },

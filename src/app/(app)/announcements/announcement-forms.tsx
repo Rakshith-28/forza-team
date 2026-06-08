@@ -94,6 +94,17 @@ export function CreateAnnouncementForm({
           </div>
         ) : null}
       </div>
+      {/* Author flags — pin to the top of recipients' feeds and/or flag as important. */}
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" name="pinned" className="size-4 rounded border-input accent-primary" />
+          Pin to top
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" name="important" className="size-4 rounded border-input accent-primary" />
+          Mark as important
+        </label>
+      </div>
       {state.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
       {state.ok ? <p className="text-sm text-primary" role="status">Draft created.</p> : null}
       <div>

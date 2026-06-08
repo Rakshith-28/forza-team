@@ -4,7 +4,7 @@ import { AccountMenu } from "@/components/app/account-menu";
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import { ConsoleMobileNav } from "@/components/app/console-mobile-nav";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
-import { IdentitySwitcher } from "@/components/app/identity-switcher";
+import { DashboardIdentityRow } from "@/components/app/dashboard-identity-row";
 import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
 import { PlatformBanner } from "@/components/app/platform-banner";
 import { SelectRoleGate } from "@/components/app/select-role-gate";
@@ -150,6 +150,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             email={session.user.email}
             initial={initial}
             roleLabel={roleLabel}
+            identities={identitySwitcher.identities}
+            current={identitySwitcher.current}
           />
         </div>
       </header>
@@ -162,16 +164,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
         <main className="flex-1 p-4">
           {/* Identity switcher: its own row below the navbar, above the page
-              title. Centered at the dashboard content width (max-w-3xl) so the
-              whole block lines up with the page's content cards (Upcoming events,
+              title — but only on the dashboard (DashboardIdentityRow gates it).
+              Centered at the dashboard content width (max-w-3xl) so the whole
+              block lines up with the page's content cards (Upcoming events,
               Announcements, …); full width on mobile. The label inside stays
               left-aligned. */}
-          <div className="mx-auto mb-4 w-full max-w-3xl">
-            <IdentitySwitcher
-              identities={identitySwitcher.identities}
-              current={identitySwitcher.current}
-            />
-          </div>
+          <DashboardIdentityRow
+            identities={identitySwitcher.identities}
+            current={identitySwitcher.current}
+            className="mx-auto mb-4 w-full max-w-3xl"
+          />
           <PlatformBanner items={banners} />
           {children}
         </main>
