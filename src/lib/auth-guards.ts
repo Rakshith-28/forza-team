@@ -1,25 +1,34 @@
 import "server-only";
 
 import { cache } from "react";
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { readActiveIdentity, readActiveIdentityKey } from "@/lib/active-identity";
 import { ForbiddenError, type AuthContext } from "@/lib/rbac/scope";
-import { isRole, ROLE_HOME, type Role } from "@/lib/rbac/roles";
+import { ROLE_HOME, type Role } from "@/lib/rbac/roles";
 import { loadAuthContext, resolveActiveClubId } from "@/modules/identity/context";
-
-/** Name of the cookie that records the role a multi-role user chose to act as. */
-export const ACTIVE_ROLE_COOKIE = "active_role";
+import {
+  listUserIdentities,
+  resolveIdentity,
+  type Identity,
+} from "@/modules/identity/identities";
 
 /**
- * The role a user explicitly switched to (account role switcher), or null.
- * `loadAuthContext` only honours it when the user actually holds that role in
- * their active club — a stale/forged value safely falls back to the default.
+ * Resolve the active club + role for a request from the active-identity cookie
+ * (set by the login popup / top-bar switcher). The parsed club/role are only
+ * hints — `loadAuthContext` re-validates them against the user's real
+ * assignments, so a stale or forged cookie degrades to no-access, never
+ * escalates. Falls back to the user's default club when no identity is chosen.
  */
-async function readPreferredRole(): Promise<Role | null> {
-  const value = (await cookies()).get(ACTIVE_ROLE_COOKIE)?.value;
-  return isRole(value) ? value : null;
+async function resolveActiveScope(userId: string): Promise<{ activeClubId: string | null; preferredRole: Role | null }> {
+  const identity = await readActiveIdentity();
+  if (identity?.role === "MASTER_ADMIN") {
+    return { activeClubId: null, preferredRole: "MASTER_ADMIN" };
+  }
+  const activeClubId = identity?.clubId ?? (await resolveActiveClubId(userId));
+  return { activeClubId, preferredRole: identity?.role ?? null };
 }
 
 /**
@@ -49,9 +58,8 @@ type SessionResult = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 /** Require an authenticated user AND their resolved authorization context. */
 export async function requireUserAndContext(): Promise<{ session: SessionResult; ctx: AuthContext }> {
   const session = await requireUser();
-  const activeClubId =
-    session.session.activeClubId ?? (await resolveActiveClubId(session.user.id));
-  const ctx = await loadAuthContext(session.user.id, activeClubId, await readPreferredRole());
+  const { activeClubId, preferredRole } = await resolveActiveScope(session.user.id);
+  const ctx = await loadAuthContext(session.user.id, activeClubId, preferredRole);
   if (!ctx) redirect("/no-access");
   return { session, ctx };
 }
@@ -80,10 +88,21 @@ export async function requireRole(...roles: Role[]): Promise<AuthContext> {
 export async function getApiContext(): Promise<AuthContext | null> {
   const session = await getSession();
   if (!session) return null;
-  const activeClubId =
-    session.session.activeClubId ?? (await resolveActiveClubId(session.user.id));
-  return loadAuthContext(session.user.id, activeClubId, await readPreferredRole());
+  const { activeClubId, preferredRole } = await resolveActiveScope(session.user.id);
+  return loadAuthContext(session.user.id, activeClubId, preferredRole);
 }
+
+/**
+ * The identity switcher's data for the authenticated shell: every identity the
+ * caller can act as plus the one currently active. `cache()`-deduped per request.
+ */
+export const loadIdentitySwitcher = cache(
+  async (userId: string): Promise<{ identities: Identity[]; current: Identity | null }> => {
+    const identities = await listUserIdentities(userId);
+    const current = resolveIdentity(identities, await readActiveIdentityKey());
+    return { identities, current };
+  },
+);
 
 /** For server actions / route handlers: returns 403-style error instead of redirect. */
 export async function requireRoleOrThrow(...roles: Role[]): Promise<AuthContext> {

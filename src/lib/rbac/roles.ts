@@ -30,7 +30,7 @@ export const ROLE_HOME: Record<Role, string> = {
 };
 
 /** Privilege ranking, used to resolve a single active role when a user holds several. */
-const ROLE_PRIORITY: Record<Role, number> = {
+export const ROLE_PRIORITY: Record<Role, number> = {
   MASTER_ADMIN: 4,
   CLUB_ADMIN: 3,
   COACH: 2,

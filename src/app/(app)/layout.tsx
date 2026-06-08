@@ -4,9 +4,10 @@ import { AccountMenu } from "@/components/app/account-menu";
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import { ConsoleMobileNav } from "@/components/app/console-mobile-nav";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
+import { IdentitySwitcher } from "@/components/app/identity-switcher";
 import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
 import { PlatformBanner } from "@/components/app/platform-banner";
-import { requireUserAndContext } from "@/lib/auth-guards";
+import { loadIdentitySwitcher, requireUserAndContext } from "@/lib/auth-guards";
 import { ROLE_LABELS, type Role } from "@/lib/rbac";
 import { getMyAnnouncementsUnreadCount } from "@/modules/announcements/inbox";
 import { getMyPlatformBanners } from "@/modules/announcements/platform-service";
@@ -79,9 +80,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // shell; the combined unread (platform + club) count drives the navbar bell
   // badge. The two are independent, so fetch them concurrently rather than
   // paying two serial Neon round-trips.
-  const [banners, unreadAnnouncements] = await Promise.all([
+  const [banners, unreadAnnouncements, identitySwitcher] = await Promise.all([
     getMyPlatformBanners(ctx),
     getMyAnnouncementsUnreadCount(ctx),
+    loadIdentitySwitcher(session.user.id),
   ]);
 
   // Player/parent surface: the themed mobile app shell (Vibrant/Classic).
@@ -96,6 +98,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         name={displayName}
         email={session.user.email}
         unreadAnnouncements={unreadAnnouncements}
+        identities={identitySwitcher.identities}
+        currentIdentity={identitySwitcher.current}
       >
         <PlatformBanner items={banners} />
         {children}
@@ -116,11 +120,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           />
           <Link
             href="/dashboard"
-            className="truncate font-sport text-xl font-bold uppercase tracking-[0.32em] transition-opacity hover:opacity-80 sm:text-2xl"
+            className="hidden shrink-0 font-sport text-xl font-bold uppercase tracking-[0.32em] transition-opacity hover:opacity-80 sm:inline-block sm:text-2xl"
           >
             <span className="text-foreground">Forza</span>
             <span className="ml-[0.32em] text-primary">Team</span>
           </Link>
+          <span className="hidden h-6 w-px bg-border sm:inline-block" aria-hidden />
+          <IdentitySwitcher
+            identities={identitySwitcher.identities}
+            current={identitySwitcher.current}
+          />
         </div>
         <div className="flex items-center gap-3">
           <AnnouncementsBell initialCount={unreadAnnouncements} />

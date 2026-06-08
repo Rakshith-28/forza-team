@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { clearActiveIdentityAction } from "@/app/(app)/identity-actions";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/auth-client";
 
@@ -18,6 +19,7 @@ export function SignOutButton({ className }: { className?: string }) {
       disabled={pending}
       onClick={async () => {
         setPending(true);
+        await clearActiveIdentityAction();
         await signOut();
         router.push("/sign-in");
         router.refresh();

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogOut, Settings } from "lucide-react";
 
+import { clearActiveIdentityAction } from "@/app/(app)/identity-actions";
 import { signOut } from "@/lib/auth-client";
 
 /**
@@ -41,6 +42,7 @@ export function AccountMenu({
 
   async function handleSignOut() {
     setPending(true);
+    await clearActiveIdentityAction();
     await signOut();
     router.push("/sign-in");
     router.refresh();

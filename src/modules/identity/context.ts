@@ -14,15 +14,6 @@ import type { AuthContext } from "@/lib/rbac/scope";
  * src/lib/rbac/scope.ts and are tested without a database.
  */
 
-/** Distinct roles a user holds in a given club (for the account role switcher + its guard). */
-export const getUserClubRoles = cache(async (userId: string, clubId: string): Promise<Role[]> => {
-  const rows = await prisma.userRoleAssignment.findMany({
-    where: { userId, clubId, status: "ACTIVE" },
-    select: { role: { select: { code: true } } },
-  });
-  return [...new Set(rows.map((r) => r.role.code))].filter(isRole) as Role[];
-});
-
 /**
  * Default active club for a user (their primary, else earliest assignment).
  *
@@ -55,8 +46,12 @@ export const loadAuthContext = cache(async (
   });
   if (assignments.length === 0) return null;
 
-  // Master Admin is system-scoped and short-circuits the club resolution.
-  if (assignments.some((a) => a.role.code === "MASTER_ADMIN")) {
+  // Master Admin is system-scoped and short-circuits the club resolution —
+  // unless the caller explicitly switched to a different (club-scoped) identity
+  // they also hold (e.g. a master admin who is also a parent), in which case we
+  // fall through and resolve that club role below.
+  const hasMaster = assignments.some((a) => a.role.code === "MASTER_ADMIN");
+  if (hasMaster && (preferredRole == null || preferredRole === "MASTER_ADMIN")) {
     return {
       userId,
       role: "MASTER_ADMIN",

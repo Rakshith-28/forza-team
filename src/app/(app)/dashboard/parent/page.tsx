@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { PlatformAnnouncementsPanel } from "@/components/app/platform-announcements-panel";
-import { ChildSwitcher } from "@/components/app/parent/child-switcher";
 import { readActiveChildId, resolveActiveChild } from "@/lib/active-child";
 import { requireRole } from "@/lib/auth-guards";
 import { getMyPlatformAnnouncements, getMyUnreadPlatformAnnouncementCount } from "@/modules/announcements/platform-service";
@@ -80,11 +79,6 @@ export default async function ParentHome() {
 
   return (
     <div className="flex flex-col gap-4 pt-2">
-      <ChildSwitcher
-        kids={children.map((c) => ({ id: c.id, displayName: c.displayName }))}
-        activeId={primary.id}
-      />
-
       <CollectibleCard
         name={primary.displayName}
         jerseyNumber={primary.jerseyNumber}

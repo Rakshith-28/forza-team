@@ -2,11 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SignOutButton } from "@/components/app/sign-out-button";
-import { RoleSwitcher } from "@/components/app/role-switcher";
 import { AppearanceSwitcher } from "@/components/app/parent/appearance-switcher";
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ROLE_HOME } from "@/lib/rbac";
-import { getUserClubRoles } from "@/modules/identity/context";
 import { listLinkedChildren } from "@/modules/roster/service";
 
 /**
@@ -18,7 +16,6 @@ export default async function MePage() {
   const { session, ctx } = await requireUserAndContext();
   if (ctx.role !== "PARENT") redirect(ROLE_HOME[ctx.role]);
   const children = await listLinkedChildren(ctx);
-  const clubRoles = ctx.activeClubId ? await getUserClubRoles(ctx.userId, ctx.activeClubId) : [];
   const displayName = session.user.name || session.user.email;
 
   return (
@@ -52,8 +49,6 @@ export default async function MePage() {
           </ul>
         </section>
       ) : null}
-
-      {clubRoles.length > 1 ? <RoleSwitcher roles={clubRoles} current={ctx.role} /> : null}
 
       <div className="flex justify-center pt-2">
         <SignOutButton />
