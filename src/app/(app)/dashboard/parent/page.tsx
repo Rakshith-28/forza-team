@@ -88,50 +88,61 @@ export default async function ParentHome() {
         href={`/my-kids/${primary.id}`}
       />
 
-      {/* Next up — swipeable carousel of upcoming sessions (see component). */}
-      {nextUpSlides.length > 0 ? (
-        <NextUpCarousel slides={nextUpSlides} />
-      ) : (
-        <div className="app-card p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Next up</p>
-          <p className="mt-1 text-sm text-muted-foreground">Nothing scheduled. Enjoy the break! ⚽</p>
-        </div>
-      )}
+      {/* Bento: one column on mobile, two on desktop so the wide area is used
+          like the Console portals. LEFT = Next up + at-a-glance stats;
+          RIGHT = announcements, level, and team chat. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+        {/* Left column */}
+        <div className="flex flex-col gap-4">
+          {/* Next up — swipeable carousel of upcoming sessions (see component). */}
+          {nextUpSlides.length > 0 ? (
+            <NextUpCarousel slides={nextUpSlides} />
+          ) : (
+            <div className="app-card p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Next up</p>
+              <p className="mt-1 text-sm text-muted-foreground">Nothing scheduled. Enjoy the break! ⚽</p>
+            </div>
+          )}
 
-      {/* Announcements — moved below the Next up session details. */}
-      <StoriesStrip items={stories} />
-
-      {/* Bento row: attendance + upcoming events */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="app-card flex items-center justify-between p-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Attendance</p>
-            <p className="text-[11px] text-muted-foreground">{present} of {attendance.length}</p>
+          {/* Attendance + upcoming events */}
+          <div className="grid grid-cols-2 gap-4 lg:mt-auto lg:min-h-32">
+            <div className="app-card flex items-center justify-between p-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Attendance</p>
+                <p className="text-[11px] text-muted-foreground">{present} of {attendance.length}</p>
+              </div>
+              <AttendanceRing present={present} total={attendance.length} />
+            </div>
+            <div className="app-card flex flex-col justify-center p-4">
+              <p className="text-xs font-medium text-foreground">There are</p>
+              <p className="font-sport text-3xl font-extrabold leading-none text-primary">{upcoming.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Upcoming events</p>
+            </div>
           </div>
-          <AttendanceRing present={present} total={attendance.length} />
         </div>
-        <div className="app-card flex flex-col justify-center p-4">
-          <p className="text-xs font-medium text-foreground">There are</p>
-          <p className="font-sport text-3xl font-extrabold leading-none text-primary">{upcoming.length}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Upcoming events</p>
+
+        {/* Right column */}
+        <div className="flex flex-col gap-4">
+          {/* Announcements */}
+          <StoriesStrip items={stories} />
+
+          <XpBar level={level} progress={progress} />
+
+          {platformAnnouncements.length > 0 ? (
+            <PlatformAnnouncementsPanel items={platformAnnouncements} unread={platformUnread} />
+          ) : null}
+
+          <Link href="/chat" className="app-card flex items-center justify-between p-4 lg:mt-auto lg:min-h-32">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Team chat</p>
+              <p className="font-sport text-base font-bold text-foreground">
+                {chatTeams[0]?.name ?? "No team chat yet"}
+              </p>
+            </div>
+            <span className="text-2xl">💬</span>
+          </Link>
         </div>
       </div>
-
-      <XpBar level={level} progress={progress} />
-
-      {platformAnnouncements.length > 0 ? (
-        <PlatformAnnouncementsPanel items={platformAnnouncements} unread={platformUnread} />
-      ) : null}
-
-      <Link href="/chat" className="app-card flex items-center justify-between p-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Team chat</p>
-          <p className="font-sport text-base font-bold text-foreground">
-            {chatTeams[0]?.name ?? "No team chat yet"}
-          </p>
-        </div>
-        <span className="text-2xl">💬</span>
-      </Link>
     </div>
   );
 }

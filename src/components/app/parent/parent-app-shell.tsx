@@ -37,7 +37,7 @@ export function ParentAppShell({
 }) {
   return (
     <ParentThemeProvider initialTheme={theme}>
-      <header className="sticky top-2 z-30 mx-3 mt-2 flex h-14 items-center justify-between gap-2 rounded-2xl border border-border/60 bg-card px-4 shadow-md">
+      <header className="app-card sticky top-2 z-30 mx-3 mt-2 flex h-14 items-center justify-between gap-2 px-4">
         <Link href="/dashboard/parent" className="font-display text-lg uppercase tracking-tight text-primary">
           Forza
         </Link>
@@ -53,12 +53,16 @@ export function ParentAppShell({
         </div>
       </header>
 
-      {/* Identity switcher: its own row below the navbar, above the page content. */}
-      <div className="mx-auto w-full max-w-md px-4 pt-2">
+      {/* Identity switcher: its own row below the navbar, above the page content.
+          Widens to the full content area on desktop (lg) like the Console; the
+          extra lg padding keeps content clear of the floating side rails. */}
+      <div className="mx-auto w-full max-w-md px-4 pt-2 lg:max-w-6xl lg:px-24">
         <IdentitySwitcher identities={identities} current={currentIdentity} />
       </div>
 
-      <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28 pt-1">{children}</main>
+      <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28 pt-1 lg:max-w-6xl lg:px-24">
+        {children}
+      </main>
 
       <BottomTabBar />
       <SideRails unreadAnnouncements={unreadAnnouncements} />

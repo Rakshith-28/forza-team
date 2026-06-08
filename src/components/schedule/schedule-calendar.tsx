@@ -23,7 +23,8 @@ interface Cell {
   inMonth: boolean;
 }
 
-/** A 6×7 month matrix (leading/trailing days included) for `YYYY-MM`. */
+/** A whole-weeks month matrix for `YYYY-MM`: leading/trailing days fill only
+ * enough to complete the first and last weeks — no extra trailing week. */
 function buildMatrix(month: string): Cell[] {
   const [y, m] = month.split("-").map(Number);
   const year = y;
@@ -40,7 +41,9 @@ function buildMatrix(month: string): Cell[] {
   }
   for (let d = 1; d <= daysInMonth; d++) cells.push({ key: dateKey(year, month0, d), day: d, inMonth: true });
   let nd = 1;
-  while (cells.length < 42) {
+  // Fill only to the end of the last week (a whole number of rows) — not a
+  // fixed 6th week — so months that fit in 5 rows don't render an empty row.
+  while (cells.length % 7 !== 0) {
     const nm = month0 === 11 ? 0 : month0 + 1;
     const ny = month0 === 11 ? year + 1 : year;
     cells.push({ key: dateKey(ny, nm, nd), day: nd, inMonth: false });

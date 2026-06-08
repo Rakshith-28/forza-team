@@ -56,7 +56,7 @@ export function AccountMenu({
         aria-expanded={open}
         aria-label="Account menu"
         onClick={() => setOpen((o) => !o)}
-        className="flex size-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground ring-2 ring-transparent transition-all hover:ring-primary/30 focus-visible:outline-none focus-visible:ring-primary"
+        className="app-pill flex size-9 items-center justify-center bg-primary text-sm font-bold text-primary-foreground shadow-(--app-shadow) ring-2 ring-transparent transition-all hover:ring-primary/30 focus-visible:outline-none focus-visible:ring-primary"
       >
         {initial}
       </button>
