@@ -15,7 +15,7 @@ export function SelectRoleGate({ identities }: { identities: Identity[] }) {
       role="dialog"
       aria-modal="true"
       aria-label="Select role"
-      className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-background/30 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-70 flex items-center justify-center overflow-y-auto bg-background/30 p-4 backdrop-blur-md"
     >
       <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-card shadow-2xl">
         <div className="h-1.5 w-full bg-linear-to-r from-primary via-primary/70 to-primary/40" />
@@ -38,7 +38,7 @@ export function SelectRoleGate({ identities }: { identities: Identity[] }) {
                       className="flex w-full items-center gap-3 rounded-xl border bg-background px-4 py-3 text-left transition-colors hover:border-primary hover:bg-secondary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
-                        {i.contextLabel.trim().slice(0, 1).toUpperCase() || "•"}
+                        {i.roleLabel.trim().slice(0, 1).toUpperCase() || "•"}
                       </span>
                       <span className="flex min-w-0 flex-col leading-tight">
                         <span className="truncate text-base font-semibold text-foreground">

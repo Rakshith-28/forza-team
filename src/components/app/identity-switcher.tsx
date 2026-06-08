@@ -37,7 +37,7 @@ export function IdentitySwitcher({
 
   if (!current) return null;
 
-  const initial = current.contextLabel.trim().slice(0, 1).toUpperCase() || "•";
+  const initial = current.roleLabel.trim().slice(0, 1).toUpperCase() || "•";
   const subtitle = [current.roleLabel, current.clubName].filter(Boolean).join(" · ");
 
   const avatar = (
@@ -112,7 +112,7 @@ export function IdentitySwitcher({
                     )}
                   >
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold text-secondary-foreground">
-                      {i.contextLabel.trim().slice(0, 1).toUpperCase() || "•"}
+                      {i.roleLabel.trim().slice(0, 1).toUpperCase() || "•"}
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col leading-tight">
                       <span className="truncate text-sm font-semibold text-foreground">{i.contextLabel}</span>
