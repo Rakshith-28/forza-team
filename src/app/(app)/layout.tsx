@@ -151,9 +151,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
         <main className="flex-1 p-4">
           {/* Identity switcher: its own row below the navbar, above the page
-              title. Left-aligned and capped at the dashboard content width so it
-              lines up with the page heading; full width on mobile. */}
-          <div className="mb-4 w-full max-w-3xl">
+              title. Centered at the dashboard content width (max-w-3xl) so the
+              whole block lines up with the page's content cards (Upcoming events,
+              Announcements, …); full width on mobile. The label inside stays
+              left-aligned. */}
+          <div className="mx-auto mb-4 w-full max-w-3xl">
             <IdentitySwitcher
               identities={identitySwitcher.identities}
               current={identitySwitcher.current}
