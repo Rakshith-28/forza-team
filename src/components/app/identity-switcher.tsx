@@ -102,7 +102,6 @@ export function IdentitySwitcher({
                   <button
                     type="submit"
                     role="menuitem"
-                    onClick={() => setOpen(false)}
                     aria-current={active ? "true" : undefined}
                     className={cn(
                       "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors",

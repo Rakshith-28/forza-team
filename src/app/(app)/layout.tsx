@@ -109,6 +109,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const navItems = NAV[ctx.role];
   const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
+  // A coach acting on a specific team shows that team's name everywhere the role
+  // label appears (profile chip, sidebar) instead of the generic "Coach".
+  const roleLabel =
+    ctx.role === "COACH" && identitySwitcher.current?.contextLabel
+      ? identitySwitcher.current.contextLabel
+      : ROLE_LABELS[ctx.role];
 
   return (
     <div className="flex min-h-full flex-1 flex-col gap-2 p-2">
@@ -116,20 +122,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex min-w-0 items-center gap-2">
           <ConsoleMobileNav
             items={navItems}
-            profile={{ name: displayName, initial, roleLabel: ROLE_LABELS[ctx.role] }}
+            profile={{ name: displayName, initial, roleLabel }}
           />
           <Link
             href="/dashboard"
-            className="hidden shrink-0 font-sport text-xl font-bold uppercase tracking-[0.32em] transition-opacity hover:opacity-80 sm:inline-block sm:text-2xl"
+            className="truncate font-sport text-xl font-bold uppercase tracking-[0.32em] transition-opacity hover:opacity-80 sm:text-2xl"
           >
             <span className="text-foreground">Forza</span>
             <span className="ml-[0.32em] text-primary">Team</span>
           </Link>
-          <span className="hidden h-6 w-px bg-border sm:inline-block" aria-hidden />
-          <IdentitySwitcher
-            identities={identitySwitcher.identities}
-            current={identitySwitcher.current}
-          />
         </div>
         <div className="flex items-center gap-3">
           <AnnouncementsBell initialCount={unreadAnnouncements} />
@@ -137,7 +138,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             name={displayName}
             email={session.user.email}
             initial={initial}
-            roleLabel={ROLE_LABELS[ctx.role]}
+            roleLabel={roleLabel}
           />
         </div>
       </header>
@@ -145,10 +146,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex flex-1 gap-2">
         <ConsoleSidebar
           items={navItems}
-          profile={{ name: displayName, initial, roleLabel: ROLE_LABELS[ctx.role] }}
+          profile={{ name: displayName, initial, roleLabel }}
         />
 
         <main className="flex-1 p-4">
+          {/* Identity switcher: its own row below the navbar, above the page title. */}
+          <div className="mb-4">
+            <IdentitySwitcher
+              identities={identitySwitcher.identities}
+              current={identitySwitcher.current}
+            />
+          </div>
           <PlatformBanner items={banners} />
           {children}
         </main>

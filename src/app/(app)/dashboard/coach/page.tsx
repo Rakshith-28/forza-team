@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnnouncementsPanel, type AnnouncementPanelItem } from "@/components/app/announcements-panel";
 import { UpcomingEvents } from "@/components/app/upcoming-events";
-import { requireRole } from "@/lib/auth-guards";
+import { loadIdentitySwitcher, requireRole } from "@/lib/auth-guards";
 import { getMyPlatformAnnouncements } from "@/modules/announcements/platform-service";
 import { listMyRecentClubAnnouncements } from "@/modules/comms/service";
 import { countEventsNeedingAttendance, listUpcomingEvents } from "@/modules/events/service";
@@ -21,13 +21,21 @@ export default async function CoachDashboard() {
   }
 
   const clubId = ctx.activeClubId;
-  const [upcoming, needsAttendance, evalsToComplete, platform, club] = await Promise.all([
+  const [upcoming, needsAttendance, evalsToComplete, platform, club, identity] = await Promise.all([
     listUpcomingEvents(ctx, clubId, 6),
     countEventsNeedingAttendance(ctx, clubId),
     countEvaluationsToComplete(ctx, clubId),
     getMyPlatformAnnouncements(ctx),
     listMyRecentClubAnnouncements(ctx, 10),
+    loadIdentitySwitcher(ctx.userId),
   ]);
+
+  // Title the dashboard with the team the coach is acting on (falls back to the
+  // club name, then "Coach" if no specific identity context is available).
+  const heading = identity.current?.contextLabel ?? "Coach";
+  const subheading = identity.current?.clubName
+    ? `Coach · ${identity.current.clubName}`
+    : "Your assigned teams at a glance.";
 
   // Merge platform broadcasts + the coach's club/team announcements into one feed.
   const announcementItems: AnnouncementPanelItem[] = [
@@ -54,8 +62,8 @@ export default async function CoachDashboard() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Coach</h1>
-      <p className="mt-1 text-muted-foreground">Your assigned teams at a glance.</p>
+      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">{heading}</h1>
+      <p className="mt-1 text-muted-foreground">{subheading}</p>
 
       {needsAttendance > 0 ? (
         <Link href="/schedule">

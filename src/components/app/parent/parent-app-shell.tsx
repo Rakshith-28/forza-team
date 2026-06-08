@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AccountMenu } from "@/components/app/account-menu";
 import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import { IdentitySwitcher } from "@/components/app/identity-switcher";
@@ -36,7 +38,9 @@ export function ParentAppShell({
   return (
     <ParentThemeProvider initialTheme={theme}>
       <header className="sticky top-2 z-30 mx-3 mt-2 flex h-14 items-center justify-between gap-2 rounded-2xl border border-border/60 bg-card px-4 shadow-md">
-        <IdentitySwitcher identities={identities} current={currentIdentity} />
+        <Link href="/dashboard/parent" className="font-display text-lg uppercase tracking-tight text-primary">
+          Forza
+        </Link>
         <div className="flex items-center gap-2">
           <AnnouncementsBell initialCount={unreadAnnouncements} />
           <AccountMenu
@@ -48,6 +52,11 @@ export function ParentAppShell({
           />
         </div>
       </header>
+
+      {/* Identity switcher: its own row below the navbar, above the page content. */}
+      <div className="mx-auto w-full max-w-md px-4 pt-2">
+        <IdentitySwitcher identities={identities} current={currentIdentity} />
+      </div>
 
       <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28 pt-1">{children}</main>
 
