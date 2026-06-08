@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { InviteLinkDialog } from "@/components/app/invite-link-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +19,13 @@ export interface TeamOption {
 export function InviteCoachForm({ teams }: { teams: TeamOption[] }) {
   const [state, action, pending] = useActionState(inviteCoachAction, INITIAL_STATE);
   const ref = useRef<HTMLFormElement>(null);
+  const [dismissed, setDismissed] = useState<string | null>(null);
   useEffect(() => {
     if (state.ok) ref.current?.reset();
   }, [state]);
+  // Derive the dialog from the action result (each invite has a unique URL); the
+  // user dismisses it by remembering the last-shown URL — no setState-in-effect.
+  const linkUrl = state.ok ? state.acceptUrl ?? null : null;
 
   return (
     <form ref={ref} action={action} className="flex flex-col gap-3">
@@ -62,6 +67,11 @@ export function InviteCoachForm({ teams }: { teams: TeamOption[] }) {
       <p className="text-xs text-muted-foreground">
         The coach sets their password via the invite link; the role and any initial team apply on acceptance.
       </p>
+      <InviteLinkDialog
+        url={linkUrl}
+        open={linkUrl !== null && linkUrl !== dismissed}
+        onOpenChange={(o) => !o && setDismissed(linkUrl)}
+      />
     </form>
   );
 }

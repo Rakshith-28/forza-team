@@ -6,7 +6,8 @@ import { FilterBar, FilterSelect, FilterText, PageHeader, Pagination, TwoPane } 
 import { requireRole } from "@/lib/auth-guards";
 import { listTeams } from "@/modules/clubs/service";
 import { COACH_ROLE_LABELS, COACH_ROLE_TYPES } from "@/modules/clubs/schemas";
-import { removeCoachAssignmentAction } from "@/modules/coaches/actions";
+import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
+import { copyCoachInviteLinkAction, removeCoachAssignmentAction } from "@/modules/coaches/actions";
 import { listCoaches, type CoachRow } from "@/modules/coaches/service";
 import { COACH_STATUSES, type CoachStatus } from "@/modules/coaches/schemas";
 import { getMasterCoaches, listClubOptions } from "@/modules/master/service";
@@ -230,7 +231,11 @@ function CoachCard({ coach, teamOptions }: { coach: CoachRow; teamOptions: { id:
         <div className="mt-3 border-t pt-3">
           <AssignCoachForm userId={coach.id} teams={teamOptions} />
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-3 flex items-center gap-2 border-t pt-3">
+          <CopyInviteLinkButton invitationId={coach.id} action={copyCoachInviteLinkAction} />
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/db/client";
 import { recordAuditStandalone } from "@/lib/audit";
 import { assertCan, ForbiddenError, type AuthContext } from "@/lib/rbac";
-import { createInvitation } from "@/modules/identity/invitations";
+import { createInvitation, resendInvitation } from "@/modules/identity/invitations";
 import type { CoachFilters, InviteCoachInput, CoachStatus } from "@/modules/coaches/schemas";
 
 /**
@@ -164,4 +164,33 @@ export async function inviteCoach(ctx: AuthContext, clubId: string, input: Invit
     metadata: { email: input.email, teamId: input.teamId ?? null, roleType: input.roleType ?? null },
   });
   return invitation;
+}
+
+/**
+ * Regenerate the accept link for a pending COACH invite (rotates the token, so
+ * the previous link stops working) and return the fresh URL — for an admin to
+ * copy and share manually. Authorized by the same capability as inviting a coach
+ * and scoped to the invite's club; returns null if no such invite exists.
+ */
+export async function resendCoachInvitation(
+  ctx: AuthContext,
+  invitationId: string,
+): Promise<{ acceptUrl: string } | null> {
+  const invitation = await prisma.invitation.findFirst({
+    where: { id: invitationId, roleCode: "COACH", status: "PENDING" },
+    select: { id: true, clubId: true },
+  });
+  if (!invitation || !invitation.clubId) return null;
+  assertCan(ctx, "teams.manage", { clubId: invitation.clubId });
+
+  const res = await resendInvitation(invitationId);
+  if (!res) return null;
+  await recordAuditStandalone({
+    action: "coach.invite_resend",
+    resourceType: "invitation",
+    resourceId: invitationId,
+    clubId: invitation.clubId,
+    actorUserId: ctx.userId,
+  });
+  return { acceptUrl: res.acceptUrl };
 }

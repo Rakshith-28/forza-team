@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 
+import { InviteLinkDialog } from "@/components/app/invite-link-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,12 +47,26 @@ function RelationshipFields() {
 export function InviteGuardianForm({ playerId }: { playerId: string }) {
   const [state, action, pending] = useActionState(inviteGuardianAction, INITIAL_STATE);
   const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  // Derive the dialog from the action result (each invite has a unique URL); the
+  // user dismisses it by remembering the last-shown URL — no setState-in-effect.
+  const linkUrl = state.ok ? state.acceptUrl ?? null : null;
+  const linkDialog = (
+    <InviteLinkDialog
+      url={linkUrl}
+      open={linkUrl !== null && linkUrl !== dismissed}
+      onOpenChange={(o) => !o && setDismissed(linkUrl)}
+    />
+  );
 
   if (!open) {
     return (
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Invite parent
-      </Button>
+      <>
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          Invite parent
+        </Button>
+        {linkDialog}
+      </>
     );
   }
 
@@ -74,6 +89,7 @@ export function InviteGuardianForm({ playerId }: { playerId: string }) {
           Cancel
         </Button>
       </div>
+      {linkDialog}
     </form>
   );
 }

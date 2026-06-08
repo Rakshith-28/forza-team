@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ForbiddenError } from "@/lib/rbac";
 import type { FormState } from "@/modules/coaches/action-state";
-import { ConflictError, inviteCoach } from "@/modules/coaches/service";
+import { ConflictError, inviteCoach, resendCoachInvitation } from "@/modules/coaches/service";
 import { inviteCoachSchema } from "@/modules/coaches/schemas";
 // Assign / remove reuse the Phase 2 clubs service (already scoped + audited).
 import { assignCoach, ConflictError as ClubsConflictError, removeCoach } from "@/modules/clubs/service";
@@ -39,9 +39,11 @@ export async function inviteCoachAction(_prev: FormState, fd: FormData): Promise
   });
   if (!parsed.success) return failZod(parsed.error);
   let emailDelivered = true;
+  let acceptUrl: string;
   try {
     const result = await inviteCoach(ctx, ctx.activeClubId, parsed.data);
     emailDelivered = result.emailDelivered;
+    acceptUrl = result.acceptUrl;
   } catch (e) {
     return failService(e);
   }
@@ -49,9 +51,10 @@ export async function inviteCoachAction(_prev: FormState, fd: FormData): Promise
   return {
     ok: true,
     error: null,
+    acceptUrl,
     notice: emailDelivered
       ? null
-      : "Invitation created, but the email couldn't be sent. Check the server logs for the invite link.",
+      : "Invitation created, but the email couldn't be sent. Share the invite link below.",
   };
 }
 
@@ -76,4 +79,18 @@ export async function removeCoachAssignmentAction(fd: FormData): Promise<void> {
   const { ctx } = await requireUserAndContext();
   await removeCoach(ctx, str(fd, "teamId"), str(fd, "userId"));
   revalidatePath("/coaches");
+}
+
+/** Regenerate + return the accept link for a pending coach invite (rotates the token). */
+export async function copyCoachInviteLinkAction(
+  invitationId: string,
+): Promise<{ ok: boolean; error: string | null; acceptUrl?: string }> {
+  const { ctx } = await requireUserAndContext();
+  try {
+    const res = await resendCoachInvitation(ctx, invitationId);
+    if (!res) return { ok: false, error: "Invitation not found." };
+    return { ok: true, error: null, acceptUrl: res.acceptUrl };
+  } catch (e) {
+    return { ok: false, error: failService(e).error };
+  }
 }

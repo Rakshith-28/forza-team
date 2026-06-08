@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth-guards";
+import { copyParentInviteLinkAction } from "@/modules/roster/actions";
 import { listParents, listPendingParentInvitations } from "@/modules/roster/service";
 
 export default async function ParentsPage() {
@@ -37,9 +39,12 @@ export default async function ParentsPage() {
           <CardContent>
             <ul className="flex flex-col gap-2">
               {pending.map((inv) => (
-                <li key={inv.id} className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
+                <li key={inv.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 text-sm">
                   <span className="text-foreground">{inv.email}</span>
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Pending</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <CopyInviteLinkButton invitationId={inv.id} action={copyParentInviteLinkAction} />
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Pending</span>
+                  </div>
                 </li>
               ))}
             </ul>

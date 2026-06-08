@@ -12,7 +12,7 @@ import {
   ForbiddenError,
   type AuthContext,
 } from "@/lib/rbac";
-import { createInvitation } from "@/modules/identity/invitations";
+import { createInvitation, parseLinkMetadata, resendInvitation } from "@/modules/identity/invitations";
 import {
   ownChildView,
   parentSafeRoster,
@@ -455,6 +455,44 @@ export async function inviteParentForPlayer(ctx: AuthContext, input: InviteParen
     metadata: { roleCode: "PARENT", email: input.email, playerId: input.playerId },
   });
   return invitation;
+}
+
+/**
+ * Regenerate the accept link for a pending PARENT invite (rotates the token, so
+ * the previous link stops working) and return the fresh URL — for an admin/coach
+ * to copy and share manually. Authorized exactly like the original invite
+ * (assertGuardianManage on the linked player); returns null if no such invite
+ * exists or its linked player is gone.
+ */
+export async function resendParentInvitation(
+  ctx: AuthContext,
+  invitationId: string,
+): Promise<{ acceptUrl: string } | null> {
+  const invitation = await prisma.invitation.findFirst({
+    where: { id: invitationId, roleCode: "PARENT", status: "PENDING" },
+    select: { id: true, clubId: true, linkMetadata: true },
+  });
+  if (!invitation || !invitation.clubId) return null;
+
+  const link = parseLinkMetadata(invitation.linkMetadata);
+  if (!link) return null;
+  const player = await prisma.player.findFirst({
+    where: { id: link.playerId, clubId: invitation.clubId, deletedAt: null },
+    select: { id: true, clubId: true },
+  });
+  if (!player) return null;
+  await assertGuardianManage(ctx, player);
+
+  const res = await resendInvitation(invitationId);
+  if (!res) return null;
+  await recordAuditStandalone({
+    action: "parent.invite_resend",
+    resourceType: "invitation",
+    resourceId: invitationId,
+    clubId: invitation.clubId,
+    actorUserId: ctx.userId,
+  });
+  return { acceptUrl: res.acceptUrl };
 }
 
 /** Active guardian links + pending parent invites for a player (admin/coach scoped). */

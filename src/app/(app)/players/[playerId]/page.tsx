@@ -8,7 +8,8 @@ import { PhotoUpload } from "@/components/app/photo-upload";
 import { requireRole } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
-import { archivePlayerAction, removeGuardianAction, removeMembershipAction } from "@/modules/roster/actions";
+import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
+import { archivePlayerAction, copyParentInviteLinkAction, removeGuardianAction, removeMembershipAction } from "@/modules/roster/actions";
 import { getPlayer, listPlayerGuardians } from "@/modules/roster/service";
 import { getClubTimezone, listScheduleEvents } from "@/modules/events/service";
 import { scheduleWindow } from "@/modules/events/schedule-window";
@@ -195,9 +196,14 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
               {guardians.pendingInvites.map((inv) => (
                 <li key={inv.id} className="flex items-center justify-between gap-3 rounded-lg border border-dashed bg-card p-3">
                   <span className="text-sm text-foreground">{inv.email}</span>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700">
-                    Pending
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {canEdit ? (
+                      <CopyInviteLinkButton invitationId={inv.id} action={copyParentInviteLinkAction} />
+                    ) : null}
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Pending
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>

@@ -15,6 +15,7 @@ import {
   inviteParentForPlayer,
   linkParentToPlayer,
   removePlayerFromTeam,
+  resendParentInvitation,
   searchClubParents,
   unlinkParentFromPlayer,
   updateOwnChild,
@@ -224,9 +225,11 @@ export async function inviteGuardianAction(_prev: FormState, fd: FormData): Prom
   });
   if (!parsed.success) return failZod(parsed.error);
   let emailDelivered = true;
+  let acceptUrl: string;
   try {
     const result = await inviteParentForPlayer(ctx, parsed.data);
     emailDelivered = result.emailDelivered;
+    acceptUrl = result.acceptUrl;
   } catch (e) {
     return failService(e);
   }
@@ -234,9 +237,10 @@ export async function inviteGuardianAction(_prev: FormState, fd: FormData): Prom
   return {
     ok: true,
     error: null,
+    acceptUrl,
     notice: emailDelivered
       ? null
-      : "Invitation created, but the email couldn't be sent. Check the server logs for the invite link.",
+      : "Invitation created, but the email couldn't be sent. Share the invite link below.",
   };
 }
 
@@ -266,6 +270,20 @@ export async function removeGuardianAction(fd: FormData): Promise<void> {
   const playerId = str(fd, "playerId");
   await unlinkParentFromPlayer(ctx, str(fd, "linkId"));
   revalidatePath(`/players/${playerId}`);
+}
+
+/** Regenerate + return the accept link for a pending parent invite (rotates the token). */
+export async function copyParentInviteLinkAction(
+  invitationId: string,
+): Promise<{ ok: boolean; error: string | null; acceptUrl?: string }> {
+  const { ctx } = await requireUserAndContext();
+  try {
+    const res = await resendParentInvitation(ctx, invitationId);
+    if (!res) return { ok: false, error: "Invitation not found." };
+    return { ok: true, error: null, acceptUrl: res.acceptUrl };
+  } catch (e) {
+    return { ok: false, error: failService(e).error };
+  }
 }
 
 /** Search club parents for the "Link existing parent" picker. Returns [] on denial/empty. */
