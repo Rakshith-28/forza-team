@@ -14,8 +14,10 @@ import { cn } from "@/lib/utils";
  * re-validated `setActiveIdentityAction`, which sets the cookie and redirects to
  * that role's home — so the whole shell instantly follows the new identity.
  *
- * Single-identity users see a static label (no dropdown). Uses the codebase's
- * custom dropdown pattern (state + backdrop + absolute menu), not a Radix dep.
+ * Full-width by design: it stretches to fill its content column (full screen
+ * width on mobile, the content width on desktop). Single-identity users see a
+ * static label (no dropdown). Uses the codebase's custom dropdown pattern
+ * (state + backdrop + absolute menu), not a Radix dependency.
  */
 export function IdentitySwitcher({
   identities,
@@ -38,42 +40,43 @@ export function IdentitySwitcher({
   const initial = current.contextLabel.trim().slice(0, 1).toUpperCase() || "•";
   const subtitle = [current.roleLabel, current.clubName].filter(Boolean).join(" · ");
 
-  // Single identity → a non-interactive context label.
+  const avatar = (
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+      {initial}
+    </span>
+  );
+  const labels = (
+    <span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
+      <span className="w-full truncate text-sm font-semibold text-foreground">{current.contextLabel}</span>
+      <span className="w-full truncate text-[11px] text-muted-foreground">{subtitle}</span>
+    </span>
+  );
+
+  // Single identity → a non-interactive, full-width context label.
   if (identities.length < 2) {
     return (
-      <div className="flex min-w-0 items-center gap-2" aria-label="Current identity">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold text-secondary-foreground">
-          {initial}
-        </span>
-        <span className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate text-sm font-semibold text-foreground">{current.contextLabel}</span>
-          <span className="truncate text-[11px] text-muted-foreground">{subtitle}</span>
-        </span>
+      <div
+        className="flex w-full items-center gap-2.5 rounded-full border bg-card py-1.5 pl-1.5 pr-3"
+        aria-label="Current identity"
+      >
+        {avatar}
+        {labels}
       </div>
     );
   }
 
   return (
-    <div className="relative min-w-0">
+    <div className="relative w-full">
       <button
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Switch role"
         onClick={() => setOpen((o) => !o)}
-        className="flex min-w-0 items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-2.5 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="flex w-full items-center gap-2.5 rounded-full border bg-card py-1.5 pl-1.5 pr-3 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-          {initial}
-        </span>
-        <span className="flex min-w-0 flex-col items-start leading-tight">
-          <span className="max-w-[10rem] truncate text-sm font-semibold text-foreground sm:max-w-[16rem]">
-            {current.contextLabel}
-          </span>
-          <span className="max-w-[10rem] truncate text-[11px] text-muted-foreground sm:max-w-[16rem]">
-            {subtitle}
-          </span>
-        </span>
+        {avatar}
+        {labels}
         <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       </button>
 
@@ -88,7 +91,7 @@ export function IdentitySwitcher({
           />
           <div
             role="menu"
-            className="absolute left-0 z-50 mt-2 max-h-[70vh] w-72 overflow-y-auto rounded-xl border bg-card p-1.5 shadow-xl"
+            className="absolute left-0 right-0 z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border bg-card p-1.5 shadow-xl sm:right-auto sm:w-[22rem] sm:max-w-[90vw]"
           >
             <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Switch role

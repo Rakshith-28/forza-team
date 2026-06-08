@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarDays, ClipboardCheck, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnnouncementsPanel, type AnnouncementPanelItem } from "@/components/app/announcements-panel";
@@ -109,27 +110,22 @@ export default async function CoachDashboard() {
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <Link href="/players">
-          <Card className="h-full transition-colors hover:border-primary">
-            <CardHeader>
-              <CardTitle className="font-sport text-base">Team Roster</CardTitle>
-            </CardHeader>
-          </Card>
-        </Link>
-        <Link href="/schedule">
-          <Card className="h-full transition-colors hover:border-primary">
-            <CardHeader>
-              <CardTitle className="font-sport text-base">Schedule</CardTitle>
-            </CardHeader>
-          </Card>
-        </Link>
-        <Link href="/attendance">
-          <Card className="h-full transition-colors hover:border-primary">
-            <CardHeader>
-              <CardTitle className="font-sport text-base">Attendance</CardTitle>
-            </CardHeader>
-          </Card>
-        </Link>
+        {[
+          { href: "/players", label: "Team Roster", Icon: Users },
+          { href: "/schedule", label: "Schedule", Icon: CalendarDays },
+          { href: "/attendance", label: "Attendance", Icon: ClipboardCheck },
+        ].map(({ href, label, Icon }) => (
+          <Link key={href} href={href}>
+            <Card className="h-full transition-colors hover:border-primary">
+              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Icon className="size-5" aria-hidden />
+                </span>
+                <CardTitle className="font-sport text-base">{label}</CardTitle>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
       </div>
     </div>
   );
