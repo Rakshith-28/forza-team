@@ -6,14 +6,15 @@ import { ROLE_HOME } from "@/lib/rbac";
 import { listUserIdentities } from "@/modules/identity/identities";
 
 /**
- * Post-sign-in dispatcher. Routes each user based on the identities they hold:
+ * Post-sign-in dispatcher. Sends the user to a role home:
  * - none → /no-access
- * - already acting as a chosen identity (cookie) → that role's home
- * - exactly one identity → straight to its home (nothing to choose)
- * - multiple, none chosen yet → the "Select Role" popup
+ * - a chosen identity (cookie) → that role's home
+ * - otherwise → the default (highest-privilege) identity's home
  *
- * The identity cookie is cleared on sign-out, so a multi-identity user gets the
- * picker on every login.
+ * When the user holds multiple identities but hasn't chosen one yet, the app
+ * shell renders the "Select role" gate as a blurred overlay on top of this
+ * default dashboard (see (app)/layout.tsx) — so the picker's background is a
+ * live, blurred view of the role they'd land on.
  */
 export default async function DashboardPage() {
   const session = await requireUser();
@@ -22,8 +23,5 @@ export default async function DashboardPage() {
 
   const key = await readActiveIdentityKey();
   const chosen = key ? identities.find((i) => i.key === key) : null;
-  if (chosen) redirect(ROLE_HOME[chosen.role]);
-  if (identities.length === 1) redirect(ROLE_HOME[identities[0].role]);
-
-  redirect("/select-role");
+  redirect(ROLE_HOME[(chosen ?? identities[0]).role]);
 }

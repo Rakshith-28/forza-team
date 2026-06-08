@@ -1,29 +1,23 @@
-import { redirect } from "next/navigation";
-
 import { setActiveIdentityAction } from "@/app/(app)/identity-actions";
-import { requireUser } from "@/lib/auth-guards";
-import { ROLE_HOME } from "@/lib/rbac/roles";
-import { listUserIdentities } from "@/modules/identity/identities";
+import type { Identity } from "@/modules/identity/identities";
 
 /**
- * Post-login "Select Role" popup (TeamSnap-style): a multi-identity user picks
- * which identity to act as — "Coach · <team>", "Parent · <child>", etc. Reached
- * from the /dashboard dispatcher only when the user holds 2+ identities and
- * hasn't chosen one this session. Single-identity users are bounced straight to
- * their home. Each row submits the re-validated `setActiveIdentityAction`.
- *
- * Top-level route (outside the (app) shell) so it renders as a focused chooser,
- * not inside the role-aware app chrome.
+ * Post-login "Select role" gate (TeamSnap-style): a modal card floating over a
+ * blurred view of the dashboard the user would land on. Rendered by the app
+ * shell — on top of the real (default) dashboard — whenever the user holds 2+
+ * identities and hasn't chosen one this session, so the background is a live,
+ * blurred render of their role rather than an empty page. Each row submits the
+ * re-validated `setActiveIdentityAction`.
  */
-export default async function SelectRolePage() {
-  const session = await requireUser();
-  const identities = await listUserIdentities(session.user.id);
-  if (identities.length === 0) redirect("/no-access");
-  if (identities.length === 1) redirect(ROLE_HOME[identities[0].role]);
-
+export function SelectRoleGate({ identities }: { identities: Identity[] }) {
   return (
-    <main className="flex min-h-svh flex-1 items-center justify-center bg-muted/40 p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-card shadow-xl">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Select role"
+      className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-background/30 p-4 backdrop-blur-md"
+    >
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-card shadow-2xl">
         <div className="h-1.5 w-full bg-linear-to-r from-primary via-primary/70 to-primary/40" />
         <div className="p-6">
           <h1 className="font-sport text-2xl font-bold tracking-tight text-foreground">Select role</h1>
@@ -60,6 +54,6 @@ export default async function SelectRolePage() {
           </ul>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

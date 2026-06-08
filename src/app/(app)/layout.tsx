@@ -7,6 +7,7 @@ import { ConsoleSidebar } from "@/components/app/console-sidebar";
 import { IdentitySwitcher } from "@/components/app/identity-switcher";
 import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
 import { PlatformBanner } from "@/components/app/platform-banner";
+import { SelectRoleGate } from "@/components/app/select-role-gate";
 import { loadIdentitySwitcher, requireUserAndContext } from "@/lib/auth-guards";
 import { ROLE_LABELS, type Role } from "@/lib/rbac";
 import { getMyAnnouncementsUnreadCount } from "@/modules/announcements/inbox";
@@ -86,24 +87,33 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     loadIdentitySwitcher(session.user.id),
   ]);
 
+  // Multi-identity user who hasn't picked yet this session → show the "Select
+  // role" gate as a blurred overlay ON TOP of their default dashboard (rendered
+  // below), so the background is a live, blurred view of their role.
+  const showRolePicker = !identitySwitcher.hasChosen && identitySwitcher.identities.length >= 2;
+  const roleGate = showRolePicker ? <SelectRoleGate identities={identitySwitcher.identities} /> : null;
+
   // Player/parent surface: the themed mobile app shell (Vibrant/Classic).
   // The Console (admin/coach) keeps its fixed look below — never themed.
   if (ctx.role === "PARENT") {
     const theme = await getAppearanceTheme(session.user.id);
     const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
     return (
-      <ParentAppShell
-        theme={theme}
-        initial={initial}
-        name={displayName}
-        email={session.user.email}
-        unreadAnnouncements={unreadAnnouncements}
-        identities={identitySwitcher.identities}
-        currentIdentity={identitySwitcher.current}
-      >
-        <PlatformBanner items={banners} />
-        {children}
-      </ParentAppShell>
+      <>
+        <ParentAppShell
+          theme={theme}
+          initial={initial}
+          name={displayName}
+          email={session.user.email}
+          unreadAnnouncements={unreadAnnouncements}
+          identities={identitySwitcher.identities}
+          currentIdentity={identitySwitcher.current}
+        >
+          <PlatformBanner items={banners} />
+          {children}
+        </ParentAppShell>
+        {roleGate}
+      </>
     );
   }
 
@@ -117,6 +127,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : ROLE_LABELS[ctx.role];
 
   return (
+    <>
     <div className="flex min-h-full flex-1 flex-col gap-2 p-2">
       <header className="sticky top-2 z-40 flex h-14 shrink-0 items-center justify-between rounded-2xl border bg-card px-4 shadow-xl">
         <div className="flex min-w-0 items-center gap-2">
@@ -166,5 +177,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+    {roleGate}
+    </>
   );
 }

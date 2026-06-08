@@ -94,13 +94,19 @@ export async function getApiContext(): Promise<AuthContext | null> {
 
 /**
  * The identity switcher's data for the authenticated shell: every identity the
- * caller can act as plus the one currently active. `cache()`-deduped per request.
+ * caller can act as, the one currently active, and whether they've actively
+ * chosen one this session (`hasChosen` — false right after login until they pick
+ * in the role gate). `cache()`-deduped per request.
  */
 export const loadIdentitySwitcher = cache(
-  async (userId: string): Promise<{ identities: Identity[]; current: Identity | null }> => {
+  async (
+    userId: string,
+  ): Promise<{ identities: Identity[]; current: Identity | null; hasChosen: boolean }> => {
+    const key = await readActiveIdentityKey();
     const identities = await listUserIdentities(userId);
-    const current = resolveIdentity(identities, await readActiveIdentityKey());
-    return { identities, current };
+    const current = resolveIdentity(identities, key);
+    const hasChosen = key != null && identities.some((i) => i.key === key);
+    return { identities, current, hasChosen };
   },
 );
 
