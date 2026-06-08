@@ -46,7 +46,7 @@ export function IdentitySwitcher({
     </span>
   );
   const labels = (
-    <span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
+    <span className="flex min-w-0 flex-1 flex-col items-start text-left leading-tight">
       <span className="w-full truncate text-sm font-semibold text-foreground">{current.contextLabel}</span>
       <span className="w-full truncate text-[11px] text-muted-foreground">{subtitle}</span>
     </span>
@@ -56,7 +56,7 @@ export function IdentitySwitcher({
   if (identities.length < 2) {
     return (
       <div
-        className="flex w-full items-center gap-2.5 rounded-full border bg-card py-1.5 pl-1.5 pr-3"
+        className="flex w-full items-center justify-start gap-2.5 rounded-full border bg-card py-1.5 pl-1.5 pr-3 text-left"
         aria-label="Current identity"
       >
         {avatar}
@@ -73,7 +73,7 @@ export function IdentitySwitcher({
         aria-expanded={open}
         aria-label="Switch role"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2.5 rounded-full border bg-card py-1.5 pl-1.5 pr-3 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="flex w-full items-center justify-start gap-2.5 rounded-full border bg-card py-1.5 pl-1.5 pr-3 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         {avatar}
         {labels}

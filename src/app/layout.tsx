@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo, Bungee, Oswald } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
@@ -31,6 +31,16 @@ const bungee = Bungee({
 export const metadata: Metadata = {
   title: "Forza Team",
   description: "Multi-tenant soccer club management platform.",
+};
+
+// Explicit mobile viewport: width=device-width + initial-scale=1 so every page
+// renders at the device's real width (no zoomed-out fit-to-content). Zoom is left
+// enabled for accessibility. `viewportFit: cover` lets the dark chrome extend
+// under notches/safe areas on phones.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
