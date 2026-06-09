@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { ChevronRight, Shield } from "lucide-react";
 
-import { PageHeader, TwoPane } from "@/components/console";
+import { ListContainer, PageHeader, TwoPane } from "@/components/console";
 import { requireAuthContext } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listSeasons, listTeams } from "@/modules/clubs/service";
@@ -26,33 +27,41 @@ export default async function TeamsPage() {
     canManage ? listSeasons(ctx, clubId) : Promise.resolve([]),
   ]);
 
-  const list = (
-    <div className="flex flex-col gap-3">
-      {teams.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-          {canManage ? "No teams yet. Use the form to create your first team." : "You aren't assigned to any teams yet."}
-        </p>
-      ) : (
-        teams.map((t) => (
+  const list =
+    teams.length === 0 ? (
+      <p className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+        {canManage ? "No teams yet. Use the form to create your first team." : "You aren't assigned to any teams yet."}
+      </p>
+    ) : (
+      <ListContainer>
+        {teams.map((t) => (
           <Link
             key={t.id}
             href={`/teams/${t.id}`}
-            className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition-colors hover:border-primary"
+            className="group flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 shadow-xs ring-1 ring-transparent transition-all hover:border-primary hover:shadow-sm hover:ring-primary/10"
           >
-            <div>
-              <p className="font-sport text-base font-bold text-foreground">{t.name}</p>
-              <p className="text-sm text-muted-foreground">
+            <span
+              aria-hidden
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+            >
+              <Shield className="size-4.5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-sport text-sm font-bold text-foreground">{t.name}</p>
+              <p className="truncate text-xs text-muted-foreground">
                 {t.teamCode}
                 {t.season ? ` · ${t.season.name}` : ""}
                 {t.ageGroup ? ` · ${t.ageGroup}` : ""}
               </p>
             </div>
-            <StatusBadge status={t.status} />
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusBadge status={t.status} />
+              <ChevronRight className="size-4 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden />
+            </div>
           </Link>
-        ))
-      )}
-    </div>
-  );
+        ))}
+      </ListContainer>
+    );
 
   if (!canManage) {
     return (

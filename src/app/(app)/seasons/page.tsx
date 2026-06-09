@@ -1,4 +1,4 @@
-import { TwoPane } from "@/components/console";
+import { ListContainer, TwoPane } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
 import { listSeasons } from "@/modules/clubs/service";
 
@@ -30,15 +30,15 @@ export default async function SeasonsPage() {
       formTitle="New season"
       form={<CreateSeasonForm />}
     >
-      <div className="flex flex-col gap-3">
-        {views.length === 0 ? (
-          <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            No seasons yet. Use the form to add your first season.
-          </p>
-        ) : (
-          views.map((s) => <SeasonRow key={`${s.id}-${s.version}`} season={s} />)
-        )}
-      </div>
+      {views.length === 0 ? (
+        <p className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+          No seasons yet. Use the form to add your first season.
+        </p>
+      ) : (
+        <ListContainer>
+          {views.map((s) => <SeasonRow key={`${s.id}-${s.version}`} season={s} />)}
+        </ListContainer>
+      )}
     </TwoPane>
   );
 }

@@ -123,7 +123,8 @@
       "PowerShell(Stop-Process -Force -ErrorAction SilentlyContinue)",
       "Bash(echo \"EXIT: $?\")",
       "Bash(git restore *)",
-      "Bash(pnpm vitest *)"
+      "Bash(pnpm vitest *)",
+      "Bash(node -e \"console.log\\('installed:', require\\('./node_modules/tailwindcss/package.json'\\).version\\)\")"
     ],
     "additionalDirectories": [
       "\\tmp",
