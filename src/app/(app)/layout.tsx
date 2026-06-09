@@ -131,10 +131,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="glass-scope flex min-w-0 flex-1 flex-col gap-2 p-2">
       {/* Soft green color field behind the frosted console surfaces so the glass
           has something to refract. Decorative only — fixed, behind, inert. */}
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-24 top-24 size-96 rounded-full bg-primary/18 blur-3xl" />
-        <div className="absolute -right-24 top-1/3 size-80 rounded-full bg-emerald-400/14 blur-3xl" />
-        <div className="absolute bottom-10 left-1/3 size-96 rounded-full bg-primary/12 blur-3xl" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden opacity-40 sm:opacity-100">
+        <div className="absolute -left-24 top-24 size-72 rounded-full bg-primary/18 blur-3xl sm:size-96" />
+        <div className="absolute -right-24 top-1/3 size-64 rounded-full bg-emerald-400/14 blur-3xl sm:size-80" />
+        <div className="absolute bottom-10 left-1/3 size-72 rounded-full bg-primary/12 blur-3xl sm:size-96" />
       </div>
       <header className="sticky top-2 z-40 flex h-14 shrink-0 items-center justify-between rounded-2xl border bg-card px-4 shadow-xl">
         <div className="flex min-w-0 items-center gap-2">
