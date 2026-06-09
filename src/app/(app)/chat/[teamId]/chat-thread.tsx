@@ -174,7 +174,7 @@ export function ChatThread({
                   </div>
                 ) : null}
 
-                <div className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"} ${showHeader ? "mt-2" : "mt-0.5"}`}>
+                <div className={`flex items-start gap-2 ${mine ? "justify-end" : "justify-start"} ${showHeader ? "mt-2" : "mt-0.5"}`}>
                   {/* Avatar (others only); spacer keeps grouped messages aligned. */}
                   {!mine ? (
                     showHeader ? (
