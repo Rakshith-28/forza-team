@@ -65,7 +65,7 @@ export function ParentAppShell({
         className="mx-auto w-full max-w-md px-4 pt-2 lg:max-w-6xl lg:px-24"
       />
 
-      <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28 pt-1 lg:max-w-6xl lg:px-24">
+      <main className="mx-auto w-full min-w-0 max-w-md flex-1 px-4 pb-28 pt-1 lg:max-w-6xl lg:px-24">
         {children}
       </main>
 

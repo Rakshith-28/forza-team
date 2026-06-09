@@ -128,7 +128,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <>
-    <div className="flex min-h-full flex-1 flex-col gap-2 p-2">
+    <div className="flex min-h-full min-w-0 flex-1 flex-col gap-2 p-2">
       <header className="sticky top-2 z-40 flex h-14 shrink-0 items-center justify-between rounded-2xl border bg-card px-4 shadow-xl">
         <div className="flex min-w-0 items-center gap-2">
           <ConsoleMobileNav
@@ -156,13 +156,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
 
-      <div className="flex flex-1 gap-2">
+      <div className="flex min-w-0 flex-1 gap-2">
         <ConsoleSidebar
           items={navItems}
           profile={{ name: displayName, initial, roleLabel }}
         />
 
-        <main className="flex-1 p-4">
+        <main className="min-w-0 w-full flex-1 p-4">
           {/* Identity switcher: its own row below the navbar, above the page
               title — but only on the dashboard (DashboardIdentityRow gates it).
               Centered at the dashboard content width (max-w-3xl) so the whole
