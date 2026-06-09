@@ -58,10 +58,17 @@ async function persist(
 // ===========================================================================
 
 /**
- * Upload (or replace) a player's photo. Coaches/admins use players.edit_full
- * (team/club scope); a parent uses the Phase 3 own-child whitelist permission —
- * so a parent can only ever set THEIR linked child's photo, never another's.
+ * A player's photo is owned by the family: ONLY a PARENT setting THEIR own
+ * linked child's photo may do so. Staff (coaches/admins) hold the broader
+ * player-edit permissions, so we gate on role + own-child scope here — they can
+ * view the photo on the roster but never set or replace it from the console.
+ * Pure (no DB) so the authorization boundary is unit-testable directly.
  */
+export function canSetPlayerPhoto(ctx: AuthContext, clubId: string, playerId: string): boolean {
+  return ctx.role === "PARENT" && can(ctx, "players.edit_limited_own_child", { clubId, playerId });
+}
+
+/** Upload (or replace) a player's photo — parent-own-child only (see canSetPlayerPhoto). */
 export async function uploadPlayerPhoto(ctx: AuthContext, playerId: string, input: UploadFileInput) {
   const player = await prisma.player.findFirst({
     where: { id: playerId, deletedAt: null },
@@ -69,10 +76,9 @@ export async function uploadPlayerPhoto(ctx: AuthContext, playerId: string, inpu
   });
   if (!player) throw new ForbiddenError("Player not found");
 
-  const allowed =
-    can(ctx, "players.edit_full", { clubId: player.clubId, playerId }) ||
-    can(ctx, "players.edit_limited_own_child", { clubId: player.clubId, playerId });
-  if (!allowed) throw new ForbiddenError("You cannot change this player's photo");
+  if (!canSetPlayerPhoto(ctx, player.clubId, playerId)) {
+    throw new ForbiddenError("A player's photo can only be set from the player's own account");
+  }
 
   const file = await persist(input, "PLAYER_PHOTO", player.clubId, ctx.userId, { playerId });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { can, ForbiddenError, type AuthContext } from "@/lib/rbac";
-import { uploadClubDocument } from "@/modules/files/service";
+import { canSetPlayerPhoto, uploadClubDocument } from "@/modules/files/service";
 import { UploadValidationError, validateUpload } from "@/modules/files/schemas";
 import { parentSafePlayer, type PlayerLike } from "@/modules/roster/projections";
 
@@ -68,14 +68,16 @@ describe("club document management scope", () => {
   });
 });
 
-describe("player-photo upload scope (reuses Phase 3 player-edit permissions)", () => {
-  it("parent may set only their own child's photo", () => {
-    expect(can(parentA, "players.edit_limited_own_child", { clubId: CLUB_A, playerId: "kid" })).toBe(true);
-    expect(can(parentA, "players.edit_limited_own_child", { clubId: CLUB_A, playerId: "other-kid" })).toBe(false);
+describe("player-photo upload scope (parent's own account only)", () => {
+  // A player's photo is owned by the family: canSetPlayerPhoto requires role=PARENT
+  // + own-child scope, so staff (who hold the broader edit perms) can never set it.
+  it("a parent may set only their own child's photo", () => {
+    expect(canSetPlayerPhoto(parentA, CLUB_A, "kid")).toBe(true);
+    expect(canSetPlayerPhoto(parentA, CLUB_A, "other-kid")).toBe(false);
   });
-  it("coach may set photos only for assigned-team players", () => {
-    expect(can(coachA, "players.edit_full", { clubId: CLUB_A, playerId: "p1" })).toBe(true);
-    expect(can(coachA, "players.edit_full", { clubId: CLUB_A, playerId: "p-elsewhere" })).toBe(false);
+  it("staff (coach / admin) cannot set a player's photo, even within scope", () => {
+    expect(canSetPlayerPhoto(coachA, CLUB_A, "p1")).toBe(false);
+    expect(canSetPlayerPhoto(clubAdminA, CLUB_A, "p1")).toBe(false);
   });
 });
 
