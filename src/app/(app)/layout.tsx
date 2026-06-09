@@ -136,7 +136,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="absolute -right-24 top-1/3 size-64 rounded-full bg-emerald-400/14 blur-3xl sm:size-80" />
         <div className="absolute bottom-10 left-1/3 size-72 rounded-full bg-primary/12 blur-3xl sm:size-96" />
       </div>
-      <header className="sticky top-2 z-40 flex h-14 shrink-0 items-center justify-between rounded-2xl border bg-card px-4 shadow-xl">
+      <header data-glass-nav className="sticky top-2 z-40 flex h-14 shrink-0 items-center justify-between rounded-2xl border bg-card px-4 shadow-xl">
         <div className="flex min-w-0 items-center gap-2">
           <ConsoleMobileNav
             items={navItems}
