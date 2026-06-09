@@ -556,6 +556,26 @@ export async function listPlayerGuardians(ctx: AuthContext, playerId: string) {
   return { links, pendingInvites };
 }
 
+/**
+ * DISTINCT user ids of a player's ACTIVE linked guardians — the recipients when
+ * a coach shares a remark. Staff-scoped (admin club-wide, coach assigned-team)
+ * so a coach can only resolve guardians for players they're allowed to reach.
+ */
+export async function getPlayerGuardianUserIds(ctx: AuthContext, playerId: string): Promise<string[]> {
+  const player = await prisma.player.findFirst({
+    where: { id: playerId, deletedAt: null },
+    select: { id: true, clubId: true },
+  });
+  if (!player) throw new ForbiddenError("Player not found");
+  assertCan(ctx, "roster.view_full", { clubId: player.clubId, playerId });
+
+  const links = await prisma.playerParentLink.findMany({
+    where: { playerId, status: "ACTIVE", parent: { status: "ACTIVE" } },
+    select: { parent: { select: { userId: true } } },
+  });
+  return [...new Set(links.map((l) => l.parent.userId))];
+}
+
 /** Search club parents for the "Link existing parent" picker (query-gated, minimal fields). */
 export async function searchClubParents(ctx: AuthContext, clubId: string, query: string) {
   if (!can(ctx, "parents.manage", { clubId })) {

@@ -6,15 +6,11 @@ import { Select } from "@/components/ui/select";
 import { PageHeader } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
 import { listTeams } from "@/modules/clubs/service";
-import { listTeamAttendance } from "@/modules/events/service";
+import { getTeamAttendanceTrend, listTeamAttendance } from "@/modules/events/service";
+import { listTeamRemarks } from "@/modules/remarks/service";
+import { formatEventDateChip, formatEventTime } from "@/modules/events/format";
 
-/** Color the attendance ratio: green ≥80%, amber ≥50%, red below. */
-function pctTone(pct: number | null): string {
-  if (pct === null) return "bg-muted";
-  if (pct >= 80) return "bg-primary";
-  if (pct >= 50) return "bg-amber-500";
-  return "bg-destructive";
-}
+import { AttendanceView, type PlayerRemarks, type TrendPoint } from "./attendance-view";
 
 export default async function AttendancePage({
   searchParams,
@@ -37,11 +33,46 @@ export default async function AttendancePage({
   const teamOptions = teams.filter((t) => t.status !== "ARCHIVED").map((t) => ({ id: t.id, name: t.name }));
   const selectedTeamId =
     sp.team && teamOptions.some((t) => t.id === sp.team) ? sp.team : teamOptions[0]?.id;
-  const rows = selectedTeamId ? await listTeamAttendance(ctx, selectedTeamId) : [];
+
+  const [rows, teamRemarks, trend] = selectedTeamId
+    ? await Promise.all([
+        listTeamAttendance(ctx, selectedTeamId),
+        listTeamRemarks(ctx, selectedTeamId),
+        getTeamAttendanceTrend(ctx, selectedTeamId),
+      ])
+    : [[], [], []];
+
+  // Serialize the trend for the client line chart: a compact x-axis label + a
+  // full label (with time) for the hover tooltip.
+  const trendPoints: TrendPoint[] = trend.map((t) => {
+    const chip = formatEventDateChip(t.date, t.timezone);
+    return {
+      label: `${chip.month} ${chip.day}`,
+      fullLabel: formatEventTime(t.date, t.timezone),
+      pct: t.pct,
+      attended: t.attended,
+      total: t.total,
+    };
+  });
+
+  // Serialize remark dates for the client view.
+  const remarks: PlayerRemarks[] = teamRemarks.map((p) => ({
+    playerId: p.playerId,
+    name: p.name,
+    remarks: p.remarks.map((r) => ({
+      id: r.id,
+      body: r.body,
+      parentVisible: r.parentVisible,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  }));
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="Attendance" description="Each player's attendance record across this team's events." />
+      <PageHeader
+        title="Attendance"
+        description="Team attendance at a glance, plus private remarks you can share with parents."
+      />
 
       {teamOptions.length === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
@@ -65,39 +96,7 @@ export default async function AttendancePage({
             </Button>
           </form>
 
-          <div className="mt-6 flex flex-col gap-2">
-            {rows.length === 0 ? (
-              <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-                No players on this team yet.
-              </p>
-            ) : (
-              rows.map((r) => (
-                <Link
-                  key={r.playerId}
-                  href={`/attendance/${r.playerId}`}
-                  className="flex items-center gap-4 rounded-xl border bg-card p-3.5 transition-colors hover:border-primary"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-foreground">{r.name}</p>
-                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full ${pctTone(r.pct)}`}
-                        style={{ width: `${r.pct ?? 0}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-lg font-bold tabular-nums text-foreground">
-                      {r.pct === null ? "—" : `${r.pct}%`}
-                    </p>
-                    <p className="text-xs text-muted-foreground tabular-nums">
-                      {r.total === 0 ? "no records" : `${r.attended}/${r.total} events`}
-                    </p>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
+          <AttendanceView rows={rows} remarks={remarks} trend={trendPoints} />
 
           <p className="mt-4 text-xs text-muted-foreground">
             Mark attendance from an event on the{" "}

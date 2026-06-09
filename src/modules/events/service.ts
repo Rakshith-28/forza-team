@@ -698,6 +698,66 @@ export async function listTeamAttendance(ctx: AuthContext, teamId: string): Prom
   });
 }
 
+export interface TeamAttendanceTrendPoint {
+  eventId: string;
+  /** Event start — the x-axis date. */
+  date: Date;
+  title: string;
+  timezone: string;
+  /** Players PRESENT or LATE at this event. */
+  attended: number;
+  /** Players with a recorded status at this event. */
+  total: number;
+  /** attended/total as a percentage (events with records only). */
+  pct: number;
+}
+
+/**
+ * Per-event attendance percentage over time for a team — the Attendance
+ * overview's date-vs-percentage line graph. One point per event that has any
+ * recorded attendance for the team's active players, oldest → newest. Staff
+ * only; a coach must be assigned to the team.
+ */
+export async function getTeamAttendanceTrend(ctx: AuthContext, teamId: string): Promise<TeamAttendanceTrendPoint[]> {
+  const team = await prisma.team.findFirst({ where: { id: teamId, deletedAt: null }, select: { clubId: true } });
+  if (!team) throw new ForbiddenError("Team not found");
+  assertTeamScope(ctx, { clubId: team.clubId, teamId });
+
+  const records = await prisma.attendanceRecord.findMany({
+    where: {
+      event: { eventTeams: { some: { teamId } } },
+      player: { teamMemberships: { some: { teamId, status: "ACTIVE" } } },
+    },
+    select: {
+      attendanceStatus: true,
+      eventId: true,
+      event: { select: { title: true, startAt: true, timezone: true } },
+    },
+  });
+
+  const byEvent = new Map<string, { date: Date; title: string; timezone: string; attended: number; total: number }>();
+  for (const r of records) {
+    const cur =
+      byEvent.get(r.eventId) ??
+      { date: r.event.startAt, title: r.event.title, timezone: r.event.timezone, attended: 0, total: 0 };
+    cur.total += 1;
+    if (r.attendanceStatus === "PRESENT" || r.attendanceStatus === "LATE") cur.attended += 1;
+    byEvent.set(r.eventId, cur);
+  }
+
+  return [...byEvent.entries()]
+    .map(([eventId, e]) => ({
+      eventId,
+      date: e.date,
+      title: e.title,
+      timezone: e.timezone,
+      attended: e.attended,
+      total: e.total,
+      pct: e.total > 0 ? Math.round((e.attended / e.total) * 100) : 0,
+    }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
 /**
  * One player's full event-by-event attendance record, for the staff drill-down.
  * Scoped via roster.view_full (admin club-wide; coach assigned-team players only).

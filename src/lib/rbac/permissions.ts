@@ -48,6 +48,11 @@ export const PERMISSIONS = {
   "attendance.view_team": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
   "attendance.view_own_child": { PARENT: "CHILD" },
 
+  // Private coach remarks (one-way coach → parent). Staff write/manage at their
+  // scope; a parent reads only their own linked child's shared remarks.
+  "remarks.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },
+  "remarks.view_own_child": { PARENT: "CHILD" },
+
   // Registration (§6.15)
   "registrations.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
   "registrations.submit_own_child": {

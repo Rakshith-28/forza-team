@@ -63,6 +63,9 @@ export function AnnouncementsBell({
     if (item.source === "club") {
       setOpen(false);
       router.push("/announcements");
+    } else if (item.source === "remark") {
+      setOpen(false);
+      router.push("/coach-notes");
     }
   }
 
@@ -117,7 +120,7 @@ export function AnnouncementsBell({
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5">
                             <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              {item.source}
+                              {item.source === "remark" ? "note" : item.source}
                             </span>
                             <span className="shrink-0 text-[11px] text-muted-foreground">{fmt(item.date)}</span>
                           </span>

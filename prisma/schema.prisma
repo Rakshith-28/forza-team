@@ -271,6 +271,7 @@ model Club {
   notifications           Notification[]
   auditLogs               AuditLog[]
   platformAnnouncementClubs PlatformAnnouncementClub[]
+  playerRemarks           PlayerRemark[]
 
   @@index([status])
   @@index([name])
@@ -420,6 +421,7 @@ model Player {
   evaluations             PlayerEvaluation[]
   developmentGoals        DevelopmentGoal[]
   files                   File[]
+  remarks                 PlayerRemark[]
 
   @@index([clubId])
   @@index([status])
@@ -779,6 +781,32 @@ model AttendanceRecord {
   @@index([eventId])
   @@index([playerId])
   @@map("attendance_records")
+}
+
+// A private, player-level note a coach writes. Coach-only until `parentVisible`
+// is turned on, at which point the player's linked parents are notified via the
+// bell (Notification rows, type COACH_REMARK) — never via club announcements.
+model PlayerRemark {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId        String    @map("club_id") @db.Uuid
+  playerId      String    @map("player_id") @db.Uuid
+  authorUserId  String    @map("author_user_id") @db.Uuid
+  body          String
+  parentVisible Boolean   @default(false) @map("parent_visible")
+  sharedAt      DateTime? @map("shared_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+
+  club   Club   @relation(fields: [clubId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@index([clubId])
+  @@index([playerId])
+  @@map("player_remarks")
 }
 
 // =============================================================================
