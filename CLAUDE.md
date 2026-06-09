@@ -116,6 +116,14 @@ importing another module's tables. See [src/modules/README.md](src/modules/READM
 - **Styling:** use the semantic design tokens in
   [src/app/globals.css](src/app/globals.css) (Stage A). Never hard-code colors.
   WCAG 2.2 AA, visible focus, mobile-first.
+
+  **Responsive rules:**
+  - Any flex/grid row that mixes a fixed element (chip, avatar, time, icon, button) with
+    flexible text MUST give the text column `min-w-0` (and `flex-1`) and the fixed
+    siblings `shrink-0`. Text columns must `truncate`, `break-words`, or `line-clamp-*`.
+    This prevents content from pushing the page wider than the viewport (no zoom-out).
+  - DoD: every new card/list/row component is checked at 320px for horizontal overflow
+    before commit.
 - **Prisma 7:** connection URLs live in `prisma.config.ts`, not in
   `schema.prisma` (which holds only `provider`). The runtime client connects via
   the `pg` driver adapter using `DATABASE_URL`.

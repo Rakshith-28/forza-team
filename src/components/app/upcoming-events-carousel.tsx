@@ -168,17 +168,18 @@ function EventSlide({ event }: { event: CarouselEvent }) {
       {/* Body */}
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
         <p className="truncate font-sport text-base font-bold text-foreground">{event.title}</p>
-        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+        {/* Single truncating line so a long title/team/venue can never push width. */}
+        <p className="truncate text-xs text-muted-foreground">
           <span className="font-semibold uppercase tracking-wide text-foreground/70">
             {EVENT_TYPE_LABELS[event.eventType as EventType] ?? event.eventType}
           </span>
-          <span aria-hidden>·</span>
-          <span className="truncate">{teamLabel}</span>
+          {" · "}
+          {teamLabel}
           {event.locationName ? (
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="size-3 shrink-0" aria-hidden />
-              <span className="truncate">{event.locationName}</span>
-            </span>
+            <>
+              {" · "}
+              <MapPin className="inline size-3 -translate-y-px" aria-hidden /> {event.locationName}
+            </>
           ) : null}
         </p>
         <p suppressHydrationWarning className="text-xs font-semibold text-primary">

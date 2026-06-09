@@ -60,8 +60,8 @@ export default async function AnnouncementsPage() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <h2 className="truncate font-sport text-sm font-bold text-foreground">{a.title}</h2>
-                      {a.pinned ? <Pin className="size-3.5 text-primary" aria-label="Pinned" /> : null}
+                      <h2 className="min-w-0 flex-1 truncate font-sport text-sm font-bold text-foreground">{a.title}</h2>
+                      {a.pinned ? <Pin className="size-3.5 shrink-0 text-primary" aria-label="Pinned" /> : null}
                       {a.important ? (
                         <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive ring-1 ring-inset ring-destructive/20">
                           <AlertTriangle className="size-3" aria-hidden /> Important
@@ -73,10 +73,12 @@ export default async function AnnouncementsPage() {
                       {a.team ? ` · ${a.team.name}` : ""}
                       {a.publishedAt ? ` · ${a.publishedAt.toISOString().slice(0, 10)}` : ""}
                     </p>
-                    <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-foreground/80">{a.body}</p>
+                    <p className="mt-1 line-clamp-2 wrap-break-word text-sm text-foreground/80">{a.body}</p>
                   </div>
 
-                  <StatusBadge status={a.status} />
+                  <span className="shrink-0">
+                    <StatusBadge status={a.status} />
+                  </span>
                 </div>
 
                 {canManage && a.status !== "ARCHIVED" ? (

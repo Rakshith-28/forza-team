@@ -19,7 +19,7 @@ export default async function ChatHomePage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">Team Chat</h1>
+      <h1 className="font-display text-2xl uppercase tracking-tight text-foreground wrap-break-word sm:text-3xl">Team Chat</h1>
       <p className="mt-1 text-muted-foreground">Conversations for your teams.</p>
 
       <div className="mt-6 flex flex-col gap-2.5">

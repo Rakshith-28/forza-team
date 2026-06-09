@@ -22,7 +22,7 @@ export default async function TeamChatPage({ params }: { params: Promise<{ teamI
       <Link href="/chat" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
         ← All conversations
       </Link>
-      <h1 className="mt-3 font-display text-3xl uppercase tracking-tight text-foreground">{team.name}</h1>
+      <h1 className="mt-3 font-display text-2xl uppercase tracking-tight text-foreground wrap-break-word sm:text-3xl">{team.name}</h1>
       <p className="mb-4 mt-1 text-sm text-muted-foreground">Team conversation</p>
 
       <ChatThread teamId={teamId} currentUserId={ctx.userId} canModerate={canModerate} />

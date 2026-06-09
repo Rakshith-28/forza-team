@@ -90,8 +90,10 @@ export default async function CoachDashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">{heading}</h1>
+    <div className="mx-auto w-full min-w-0 max-w-3xl">
+      <h1 className="font-display text-2xl uppercase tracking-tight text-foreground wrap-break-word sm:text-3xl md:text-4xl">
+        {heading}
+      </h1>
       <p className="mt-1 text-muted-foreground">{subheading}</p>
 
       {needsAttendance > 0 ? (

@@ -18,11 +18,13 @@ export function PageHeader({
 }) {
   return (
     <div className={cn("flex flex-wrap items-end justify-between gap-4", className)}>
-      <div>
-        <h1 className="font-display text-3xl uppercase tracking-tight text-foreground">{title}</h1>
+      <div className="min-w-0">
+        <h1 className="font-display text-2xl uppercase tracking-tight text-foreground wrap-break-word sm:text-3xl">
+          {title}
+        </h1>
         {description ? <p className="mt-1 text-muted-foreground">{description}</p> : null}
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
   );
 }
