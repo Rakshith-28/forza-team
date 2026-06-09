@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnnouncementsPanel, type AnnouncementPanelItem } from "@/components/app/announcements-panel";
 import { CoachQuickTiles } from "@/components/app/coach-quick-tiles";
-import { UpcomingEvents } from "@/components/app/upcoming-events";
+import { UpcomingEventsCarousel } from "@/components/app/upcoming-events-carousel";
 import { loadIdentitySwitcher, requireRole } from "@/lib/auth-guards";
 import { getMyPlatformAnnouncements } from "@/modules/announcements/platform-service";
 import { listMyRecentClubAnnouncements } from "@/modules/comms/service";
@@ -45,6 +45,17 @@ export default async function CoachDashboard() {
     const chip = formatEventDateChip(e.startAt, e.timezone);
     return { id: e.id, month: chip.month, day: chip.day };
   });
+
+  // Serializable slides for the upcoming-events carousel (flatten event_teams → teams).
+  const upcomingSlides = upcoming.map((e) => ({
+    id: e.id,
+    title: e.title,
+    eventType: e.eventType,
+    startAt: e.startAt.toISOString(),
+    timezone: e.timezone,
+    locationName: e.locationName,
+    teams: e.eventTeams.map((et) => ({ id: et.team.id, name: et.team.name })),
+  }));
 
   // Title the dashboard with the team the coach is acting on (falls back to the
   // club name, then "Coach" if no specific identity context is available).
@@ -117,7 +128,7 @@ export default async function CoachDashboard() {
               No upcoming events. <Link href="/schedule/new" className="underline">Create one</Link>.
             </p>
           ) : (
-            <UpcomingEvents events={upcoming} />
+            <UpcomingEventsCarousel events={upcomingSlides} />
           )}
         </CardContent>
       </Card>

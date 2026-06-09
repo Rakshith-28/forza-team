@@ -104,7 +104,7 @@ export function PlayersBrowser({
   }
 
   const searchBox = (
-    <div className="relative w-full sm:w-72">
+    <div className="relative w-full">
       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
       <Input
         type="search"
@@ -112,24 +112,27 @@ export function PlayersBrowser({
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search players…"
         aria-label="Search players"
-        className="pl-9"
+        className="border-muted-foreground/40 pl-9"
       />
     </div>
   );
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader title="Players" description={description} actions={searchBox} />
+      <PageHeader title="Players" description={description} />
 
-      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        {/* Left pane — the scrollable roster. */}
-        <div className="min-w-0">
-          <p className="mb-2 text-xs text-muted-foreground">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        {/* Left pane — search above a bordered roster container that stretches to
+            match the sidebar height and scrolls internally as the roster grows. */}
+        <div className="flex min-w-0 flex-col">
+          {searchBox}
+          <p className="mb-2 mt-3 text-xs text-muted-foreground">
             Showing {filtered.length} of {players.length}{" "}
             {players.length === 1 ? "player" : "players"}
           </p>
-          <div className="-mr-1 max-h-[calc(100vh-16rem)] overflow-y-auto pr-1">
-            <div className="flex flex-col gap-3">
+          <div className="overflow-hidden rounded-xl border border-muted-foreground/25 bg-transparent shadow-[inset_0_2px_5px_rgba(0,0,0,0.12),inset_0_-1px_2px_rgba(255,255,255,0.6)] lg:min-h-0 lg:flex-1">
+            <div className="max-h-[calc(100vh-20rem)] overflow-y-auto p-3 sm:p-4 lg:max-h-none lg:h-full">
+              <div className="flex flex-col gap-2.5">
               {players.length === 0 ? (
                 <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
                   {canCreate ? "No players yet. Use the form to add your first player." : "No players to show."}
@@ -143,20 +146,31 @@ export function PlayersBrowser({
                   <Link
                     key={p.id}
                     href={`/players/${p.id}`}
-                    className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition-colors hover:border-primary"
+                    className="group flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 shadow-xs ring-1 ring-transparent transition-all hover:border-primary hover:shadow-sm hover:ring-primary/10"
                   >
-                    <div>
-                      <p className="font-sport text-base font-bold text-foreground">
+                    {/* Initial avatar */}
+                    <span
+                      aria-hidden
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground"
+                    >
+                      {(p.firstName[0] ?? "?").toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-sport text-sm font-bold text-foreground">
                         {p.firstName} {p.lastName}
-                        {p.jerseyNumber ? <span className="ml-2 text-muted-foreground">#{p.jerseyNumber}</span> : null}
+                        {p.jerseyNumber ? <span className="ml-1.5 text-muted-foreground">#{p.jerseyNumber}</span> : null}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="truncate text-xs text-muted-foreground">
                         {p.teamNames.length > 0 ? p.teamNames.join(", ") : "No team"}
-                        {p.primaryPosition ? ` · ${p.primaryPosition}` : ""}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">
+                    <div className="flex shrink-0 items-center gap-2.5">
+                      {p.primaryPosition ? (
+                        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/20">
+                          {p.primaryPosition}
+                        </span>
+                      ) : null}
+                      <span className="hidden text-xs text-muted-foreground sm:inline">
                         {p.parentCount} {p.parentCount === 1 ? "parent" : "parents"}
                       </span>
                       <StatusBadge status={p.status} />
@@ -164,12 +178,13 @@ export function PlayersBrowser({
                   </Link>
                 ))
               )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Right pane — filters on top, then the add-player launcher. */}
-        <aside className="flex flex-col gap-6 lg:sticky lg:top-20">
+        <aside className="flex flex-col gap-6 self-start lg:sticky lg:top-20">
           <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <h2 className="font-sport text-base font-bold text-foreground">Filter</h2>
