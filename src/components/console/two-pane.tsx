@@ -39,7 +39,7 @@ export function TwoPane({
         <div className="min-w-0">{children}</div>
 
         <aside className="lg:sticky lg:top-20">
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <div data-glass className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <div className="border-b px-4 py-3">
               <h2 className="font-sport text-base font-bold text-foreground">{formTitle}</h2>
               {formDescription ? (

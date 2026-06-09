@@ -74,7 +74,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
       </Link>
 
       {/* Hero */}
-      <div className="mt-3 overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <div data-glass className="mt-3 overflow-hidden rounded-2xl border bg-card shadow-sm">
         <div className="flex items-start gap-4 border-b bg-secondary/30 p-5">
           {/* Date badge */}
           <div

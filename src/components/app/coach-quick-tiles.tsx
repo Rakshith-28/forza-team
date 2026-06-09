@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Sparkline } from "@/components/app/sparkline";
+import { cn } from "@/lib/utils";
 
 /**
  * Coach dashboard quick tiles — Team Roster, Schedule, Attendance. Each tile
@@ -25,15 +26,18 @@ export interface CoachQuickTilesProps {
   roster: { href: string; count: number; avatars: RosterAvatar[] };
   schedule: { href: string; matchCount: number; chips: ScheduleChip[] };
   attendance: { href: string; avgPct: number | null; lastPct: number | null; series: number[] };
+  /** Override each tile's surface (e.g. a glass treatment). */
+  tileClassName?: string;
 }
 
-export function CoachQuickTiles({ roster, schedule, attendance }: CoachQuickTilesProps) {
+export function CoachQuickTiles({ roster, schedule, attendance, tileClassName }: CoachQuickTilesProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <Tile
         href={roster.href}
         title="Team Roster"
         action="View full list"
+        className={tileClassName}
         stat={`${roster.count} ${roster.count === 1 ? "Player" : "Players"}`}
         visual={<RosterAvatars avatars={roster.avatars} total={roster.count} />}
       />
@@ -42,6 +46,7 @@ export function CoachQuickTiles({ roster, schedule, attendance }: CoachQuickTile
         href={schedule.href}
         title="Schedule"
         action="Full season view"
+        className={tileClassName}
         stat={
           schedule.matchCount > 0
             ? `Next ${schedule.matchCount} ${schedule.matchCount === 1 ? "event" : "events"}`
@@ -54,6 +59,7 @@ export function CoachQuickTiles({ roster, schedule, attendance }: CoachQuickTile
         href={attendance.href}
         title="Attendance"
         action="Track now"
+        className={tileClassName}
         stat={
           attendance.avgPct === null ? (
             "No data yet"
@@ -78,17 +84,23 @@ function Tile({
   action,
   stat,
   visual,
+  className,
 }: {
   href: string;
   title: string;
   action: string;
   stat: React.ReactNode;
   visual: React.ReactNode;
+  className?: string;
 }) {
   return (
     <Link
       href={href}
-      className="group flex flex-row items-center justify-between gap-3 rounded-xl border bg-card p-4 transition-all hover:border-primary hover:shadow-sm"
+      data-glass
+      className={cn(
+        "group flex flex-row items-center justify-between gap-3 rounded-xl border bg-card p-4 transition-all hover:border-primary hover:shadow-sm",
+        className,
+      )}
     >
       {/* Left: text info */}
       <div className="flex min-w-0 flex-col">

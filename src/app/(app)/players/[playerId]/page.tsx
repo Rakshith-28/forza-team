@@ -58,7 +58,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
       </Link>
 
       {/* Hero */}
-      <div className="mt-3 flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div data-glass className="mt-3 flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           {player.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element

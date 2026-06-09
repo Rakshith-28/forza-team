@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import { AlertTriangle, Pin } from "lucide-react";
 
 import { StatusBadge } from "@/components/console";
+import { cn } from "@/lib/utils";
 
 /** Max announcements shown inline on a dashboard before linking out to the full list. */
 const MAX_VISIBLE = 2;
@@ -56,10 +57,13 @@ function fmt(d: Date | string | null): string {
 export function AnnouncementsPanel({
   items,
   viewAllHref = "/announcements",
+  className,
 }: {
   items: AnnouncementPanelItem[];
   /** Where "Show more" links when there are more than MAX_VISIBLE items. */
   viewAllHref?: string;
+  /** Override the panel surface (e.g. a glass treatment). */
+  className?: string;
 }) {
   const sorted = useMemo(
     () =>
@@ -91,7 +95,7 @@ export function AnnouncementsPanel({
   const liveUnread = sorted.filter((i) => !readIds.has(i.id)).length;
 
   return (
-    <section className="rounded-xl border bg-card p-5 shadow-sm">
+    <section data-glass className={cn("rounded-xl border bg-card p-5 shadow-sm", className)}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-sport text-base font-bold tracking-tight text-foreground">Announcements</h2>
         <div className="flex shrink-0 items-center gap-2">

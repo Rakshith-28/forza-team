@@ -130,7 +130,7 @@ export function PlayersBrowser({
             Showing {filtered.length} of {players.length}{" "}
             {players.length === 1 ? "player" : "players"}
           </p>
-          <div className="overflow-hidden rounded-xl border border-muted-foreground/25 bg-transparent shadow-[inset_0_2px_5px_rgba(0,0,0,0.12),inset_0_-1px_2px_rgba(255,255,255,0.6)] lg:min-h-0 lg:flex-1">
+          <div data-glass className="overflow-hidden rounded-xl border border-muted-foreground/25 bg-transparent shadow-[inset_0_2px_5px_rgba(0,0,0,0.12),inset_0_-1px_2px_rgba(255,255,255,0.6)] lg:min-h-0 lg:flex-1">
             <div className="max-h-[calc(100vh-20rem)] overflow-y-auto p-3 sm:p-4 lg:max-h-none lg:h-full">
               <div className="flex flex-col gap-2.5">
               {players.length === 0 ? (
@@ -185,7 +185,7 @@ export function PlayersBrowser({
 
         {/* Right pane — filters on top, then the add-player launcher. */}
         <aside className="flex flex-col gap-6 self-start lg:sticky lg:top-20">
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <div data-glass className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <h2 className="font-sport text-base font-bold text-foreground">Filter</h2>
               {filtersActive ? (
@@ -248,7 +248,7 @@ export function PlayersBrowser({
           </div>
 
           {canCreate ? (
-            <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div data-glass className="rounded-xl border bg-card p-4 shadow-sm">
               <h2 className="font-sport text-base font-bold text-foreground">Add a player</h2>
               {isCoach && teamOptions.length === 0 ? (
                 <p className="mt-2 text-sm text-muted-foreground">

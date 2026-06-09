@@ -18,7 +18,10 @@ export function ScrollPanel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-muted-foreground/25 bg-transparent shadow-[inset_0_2px_5px_rgba(0,0,0,0.12),inset_0_-1px_2px_rgba(255,255,255,0.6)]">
+    <div
+      data-glass
+      className="overflow-hidden rounded-xl border border-muted-foreground/25 bg-transparent shadow-[inset_0_2px_5px_rgba(0,0,0,0.12),inset_0_-1px_2px_rgba(255,255,255,0.6)]"
+    >
       <div className={cn("overflow-y-auto p-3 sm:p-4", maxHeightClass)}>
         <div className={cn("flex flex-col", gapClass)}>{children}</div>
       </div>

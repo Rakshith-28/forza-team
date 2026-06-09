@@ -287,3 +287,29 @@
     mask: linear-gradient(180deg, transparent, #000);
   }
 }
+
+/* ===========================================================================
+ * CONSOLE GLASS — frosted surfaces for the admin/coach console only.
+ *
+ * Scoped to `.glass-scope` (set on the Console shell root). The parent portal
+ * shell carries no `.glass-scope`, so its surfaces stay solid even though it
+ * shares the same Card primitive. Rules are intentionally UNLAYERED so they win
+ * over the `bg-card` / `border` / `shadow` Tailwind utilities (layered) on Card
+ * primitives ([data-slot="card"]) and any panel opted in with [data-glass].
+ * Tune the frost here (one place) — opacity / blur / saturation / edges.
+ * ------------------------------------------------------------------------- */
+.glass-scope :is([data-slot="card"], [data-glass]) {
+  background-color: color-mix(in oklab, var(--card) 35%, transparent);
+  border: 1px solid color-mix(in oklab, var(--foreground) 25%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.12),
+    0 20px 44px -26px rgba(20, 60, 40, 0.45);
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass-scope :is([data-slot="card"], [data-glass]) {
+    background-color: color-mix(in oklab, var(--card) 14%, transparent);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5);
+    backdrop-filter: blur(40px) saturate(1.5);
+  }
+}
