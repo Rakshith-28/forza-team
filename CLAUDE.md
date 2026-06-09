@@ -150,3 +150,48 @@ new module service must uphold them (details in @docs/BUILD_PLAN.md §2):
 
 When a change touches tenant data, auth, or anything involving a minor's record,
 treat these as hard requirements and add tests for the authorization boundary.
+
+
+## Responsive rules (mandatory — applies to EVERY change, not just UI tasks)
+
+Layout structure
+- All pages render inside the shared AppContainer/PageShell. Gutters come from the
+  container only — never add ad-hoc left/right padding to a page.
+- New components compose existing layout primitives. Do not reinvent spacing.
+- Mobile-first: base styles target phone; layer md:/lg: upward.
+
+Overflow safety (this is what keeps breaking — follow exactly)
+- `min-w-0` must be present on EVERY flex/grid link in the chain from the viewport
+  down to the content. A single missing link makes the whole column overflow.
+  Specifically: the shell content column / <main> uses `flex-1 min-w-0`.
+- Any flex/grid row mixing a fixed element (chip, avatar, time, icon, button) with
+  flexible text: text column = `flex-1 min-w-0` + (`truncate` | `line-clamp-*` |
+  `break-words`); fixed siblings = `shrink-0`.
+- CSS grid tracks use `minmax(0, 1fr)`, never bare `1fr`. Grid items get `min-w-0`.
+- No fixed pixel widths on layout containers; no `whitespace-nowrap` on long strings.
+- Headings scale (`text-2xl sm:text-3xl ...`) and use `break-words`.
+- NEVER fix overflow by hiding it with `overflow-x: hidden/clip` on the offender.
+  Fix the width chain so content actually fits. (One root-level `overflow-x: clip`
+  backstop is allowed only AFTER the chain is correct.)
+
+Tooling note
+- `wrap-break-word`/`wrap-anywhere` require Tailwind >= 4.1. Below that they emit no
+  CSS and no error. Prefer `break-words` (valid across all v4) unless 4.1+ is confirmed.
+
+## Definition of done (REQUIRED before committing ANY change that renders UI)
+This is a measured gate, not a judgment call. "Looks fine" / "resolved by
+construction" is NOT acceptable evidence.
+
+1. Run the affected pages at 320, 375, 768, and 1280px.
+2. At 360px, run this in the browser console and confirm it logs ZERO elements:
+       const vw = document.documentElement.clientWidth;
+       [...document.querySelectorAll('*')].forEach(el => {
+         const r = el.getBoundingClientRect();
+         if (r.width > vw + 1 || r.right > vw + 1) console.log(Math.round(r.width), el);
+       });
+3. Confirm: no horizontal scroll, no zoom-out, nothing clipped at the right edge,
+   long text wraps/ellipsizes INSIDE its container (not at the screen edge).
+4. Paste the zero-overflow result into the completion report.
+
+A change that has not been measured at these widths is NOT done. If something
+overflows and can't be resolved, STOP and report it — do not hide it with clipping.

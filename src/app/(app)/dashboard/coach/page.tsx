@@ -94,7 +94,7 @@ export default async function CoachDashboard() {
       <h1 className="font-display text-2xl uppercase tracking-tight text-foreground wrap-break-word sm:text-3xl md:text-4xl">
         {heading}
       </h1>
-      <p className="mt-1 text-muted-foreground">{subheading}</p>
+      <p className="mt-1 font-medium text-foreground/80">{subheading}</p>
 
       {needsAttendance > 0 ? (
         <Link href="/schedule">
@@ -121,7 +121,7 @@ export default async function CoachDashboard() {
       ) : null}
 
       <Card className="mt-6">
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="font-sport text-base">Upcoming events</CardTitle>
         </CardHeader>
         <CardContent>

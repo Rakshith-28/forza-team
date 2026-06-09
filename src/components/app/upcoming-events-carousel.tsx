@@ -74,18 +74,6 @@ export function UpcomingEventsCarousel({ events }: { events: CarouselEvent[] }) 
 
   return (
     <div>
-      {/* Pointer-device nav — hidden on touch where swiping takes over. */}
-      {multiple ? (
-        <div className="mb-2 hidden items-center justify-end gap-1.5 sm:flex">
-          <NavButton label="Previous event" disabled={index === 0} onClick={() => go(index - 1)}>
-            <ChevronLeft className="size-4" aria-hidden />
-          </NavButton>
-          <NavButton label="Next event" disabled={index === last} onClick={() => go(index + 1)}>
-            <ChevronRight className="size-4" aria-hidden />
-          </NavButton>
-        </div>
-      ) : null}
-
       {/* Viewport */}
       <div className="overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div
@@ -100,21 +88,29 @@ export function UpcomingEventsCarousel({ events }: { events: CarouselEvent[] }) 
         </div>
       </div>
 
-      {/* Dot tracker */}
+      {/* Controls — arrows (pointer devices) flanking the dot tracker. */}
       {multiple ? (
-        <div className="mt-3 flex justify-center gap-1.5">
-          {events.map((e, i) => (
-            <button
-              key={e.id}
-              type="button"
-              onClick={() => go(i)}
-              aria-label={`Go to event ${i + 1} of ${events.length}`}
-              aria-current={i === index}
-              className={`h-1.5 rounded-full transition-all ${
-                i === index ? "w-5 bg-primary" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
-              }`}
-            />
-          ))}
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <NavButton label="Previous event" disabled={index === 0} onClick={() => go(index - 1)} className="hidden sm:flex">
+            <ChevronLeft className="size-4" aria-hidden />
+          </NavButton>
+          <div className="flex items-center gap-1.5">
+            {events.map((e, i) => (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => go(i)}
+                aria-label={`Go to event ${i + 1} of ${events.length}`}
+                aria-current={i === index}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === index ? "w-5 bg-primary" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                }`}
+              />
+            ))}
+          </div>
+          <NavButton label="Next event" disabled={index === last} onClick={() => go(index + 1)} className="hidden sm:flex">
+            <ChevronRight className="size-4" aria-hidden />
+          </NavButton>
         </div>
       ) : null}
     </div>
@@ -125,11 +121,13 @@ function NavButton({
   label,
   disabled,
   onClick,
+  className,
   children,
 }: {
   label: string;
   disabled: boolean;
   onClick: () => void;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -138,7 +136,7 @@ function NavButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex size-7 items-center justify-center rounded-full border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+      className={`size-7 items-center justify-center rounded-full border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 ${className ?? "flex"}`}
     >
       {children}
     </button>
