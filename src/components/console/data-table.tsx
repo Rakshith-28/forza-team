@@ -21,6 +21,8 @@ export interface DataTableProps<T> {
   error?: string | null;
   emptyMessage?: string;
   className?: string;
+  /** Caps the body height so long tables scroll inside the card instead of the page. */
+  maxHeightClass?: string;
 }
 
 /**
@@ -37,15 +39,17 @@ export function DataTable<T>({
   error = null,
   emptyMessage = "Nothing to show yet.",
   className,
+  maxHeightClass = "max-h-[calc(100vh-16rem)]",
 }: DataTableProps<T>) {
   return (
-    <div className={cn("overflow-hidden rounded-xl border bg-card shadow-sm", className)}>
-      <div className="overflow-x-auto">
-        {/* min-width keeps columns readable on phones — the row scrolls
-            horizontally inside the card instead of squishing to fit. */}
+    <div data-glass className={cn("overflow-hidden rounded-xl border bg-card shadow-sm", className)}>
+      {/* Scrolls both ways inside the card: long tables scroll vertically (the
+          header stays pinned), and narrow phones scroll the row horizontally
+          instead of squishing columns. */}
+      <div className={cn("overflow-auto", maxHeightClass)}>
         <table className="w-full min-w-2xl border-collapse text-sm">
           <thead>
-            <tr className="border-b bg-secondary/60">
+            <tr className="sticky top-0 z-10 border-b bg-secondary">
               {columns.map((c) => (
                 <th
                   key={c.key}

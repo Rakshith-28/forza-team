@@ -15,6 +15,7 @@ export function FilterBar({ children, className }: { children: React.ReactNode; 
   return (
     <form
       method="get"
+      data-glass
       className={cn("flex flex-wrap items-end gap-3 rounded-xl border bg-card p-3 shadow-sm", className)}
     >
       {children}
