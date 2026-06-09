@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/auth-guards";
 import { listTeams } from "@/modules/clubs/service";
 import { COACH_ROLE_LABELS, COACH_ROLE_TYPES } from "@/modules/clubs/schemas";
 import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
+import { ScrollPanel } from "@/components/app/scroll-panel";
 import { copyCoachInviteLinkAction, removeCoachAssignmentAction } from "@/modules/coaches/actions";
 import { listCoaches, type CoachRow } from "@/modules/coaches/service";
 import { COACH_STATUSES, type CoachStatus } from "@/modules/coaches/schemas";
@@ -172,15 +173,19 @@ export default async function CoachesPage({
         </Button>
       </form>
 
-      <div className="mt-4 flex flex-col gap-3">
-        {coaches.length === 0 ? (
-          <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            No coaches yet — invite your first coach.
-          </p>
-        ) : (
-          coaches.map((c) => <CoachCard key={`${c.kind}-${c.id}`} coach={c} teamOptions={teamOptions} />)
-        )}
-      </div>
+      {coaches.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+          No coaches yet — invite your first coach.
+        </p>
+      ) : (
+        <div className="mt-4">
+          <ScrollPanel maxHeightClass="max-h-[calc(100vh-20rem)]" gapClass="gap-3">
+            {coaches.map((c) => (
+              <CoachCard key={`${c.kind}-${c.id}`} coach={c} teamOptions={teamOptions} />
+            ))}
+          </ScrollPanel>
+        </div>
+      )}
     </TwoPane>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { CalendarRange } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,27 +33,29 @@ export function CreateSeasonForm() {
   }, [state]);
 
   return (
-    <form ref={ref} action={action} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-      <div className="flex flex-1 flex-col gap-1.5">
+    <form ref={ref} action={action} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="s-name">Season name</Label>
         <Input id="s-name" name="name" placeholder="2026 Spring" required />
       </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="s-start">Start</Label>
-        <Input id="s-start" name="startDate" type="date" required />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="s-start">Start</Label>
+          <Input id="s-start" name="startDate" type="date" required />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="s-end">End</Label>
+          <Input id="s-end" name="endDate" type="date" required />
+        </div>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="s-end">End</Label>
-        <Input id="s-end" name="endDate" type="date" required />
-      </div>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Adding…" : "Add season"}
-      </Button>
       {state.error ? (
-        <p className="text-sm text-destructive sm:basis-full" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {state.error}
         </p>
       ) : null}
+      <Button type="submit" disabled={pending} className="w-full">
+        {pending ? "Adding…" : "Add season"}
+      </Button>
     </form>
   );
 }
@@ -105,14 +108,20 @@ export function SeasonRow({ season }: { season: SeasonView }) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4">
-      <div>
-        <p className="font-sport text-base font-bold text-foreground">{season.name}</p>
-        <p className="text-sm text-muted-foreground">
+    <div className="group flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 shadow-xs ring-1 ring-transparent transition-all hover:border-primary hover:shadow-sm hover:ring-primary/10">
+      <span
+        aria-hidden
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+      >
+        <CalendarRange className="size-4.5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-sport text-sm font-bold text-foreground">{season.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
           {season.start} → {season.end}
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <StatusBadge status={season.status} />
         <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
           Edit

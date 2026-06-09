@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Megaphone } from "lucide-react";
 
 import { StatusBadge } from "@/components/console";
 import { markPlatformAnnouncementReadAction } from "@/modules/announcements/platform-actions";
@@ -25,9 +26,12 @@ function fmt(d: Date | string | null): string {
 export function PlatformAnnouncementsPanel({
   items,
   unread,
+  accent = false,
 }: {
   items: MyPlatformAnnouncement[];
   unread: number;
+  /** When true, prefix the header with an accent bar + icon (club dashboard). */
+  accent?: boolean;
 }) {
   const [readIds, setReadIds] = useState<Set<string>>(new Set(items.filter((i) => i.read).map((i) => i.id)));
   const [openId, setOpenId] = useState<string | null>(null);
@@ -48,7 +52,15 @@ export function PlatformAnnouncementsPanel({
   return (
     <section className="rounded-xl border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="font-sport text-base font-bold tracking-tight text-foreground">Platform announcements</h2>
+        <h2 className="flex items-center gap-2 font-sport text-base font-bold tracking-tight text-foreground">
+          {accent ? (
+            <>
+              <span className="h-5 w-1 rounded-full bg-primary" aria-hidden />
+              <Megaphone className="size-4 text-primary" aria-hidden />
+            </>
+          ) : null}
+          Platform announcements
+        </h2>
         {liveUnread > 0 ? (
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">{liveUnread} new</span>
         ) : null}

@@ -17,6 +17,7 @@ import {
   TabsTrigger,
 } from "@/components/console";
 import { Button } from "@/components/ui/button";
+import { ScrollPanel } from "@/components/app/scroll-panel";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { addPlayerRemarkAction, setRemarkVisibilityAction } from "@/modules/remarks/actions";
 import { INITIAL_STATE } from "@/modules/remarks/action-state";
@@ -137,13 +138,14 @@ function OverviewPanel({
         <AttendanceTrendChart points={trend} />
       </div>
 
-      {/* Per-player detail (links to the drill-down). */}
-      <div className="mt-6 flex flex-col gap-2">
+      {/* Per-player detail (links to the drill-down) — hollow scrollable list. */}
+      <h2 className="mt-6 mb-3 font-sport text-base font-bold tracking-tight text-foreground">Individual attendance</h2>
+      <ScrollPanel maxHeightClass="max-h-104">
         {rows.map((r) => (
           <Link
             key={r.playerId}
             href={`/attendance/${r.playerId}`}
-            className="flex items-center gap-4 rounded-xl border bg-card p-3.5 transition-colors hover:border-primary"
+            className="flex items-center gap-4 rounded-xl border bg-card p-3.5 transition-all hover:border-primary hover:shadow-sm"
           >
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-foreground">{r.name}</p>
@@ -159,7 +161,7 @@ function OverviewPanel({
             </div>
           </Link>
         ))}
-      </div>
+      </ScrollPanel>
     </>
   );
 }

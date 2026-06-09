@@ -1,6 +1,7 @@
 "use client";
 
 import type { ScheduleEvent } from "@/modules/events/service";
+import { ScrollPanel } from "@/components/app/scroll-panel";
 
 import { EventCard } from "./event-card";
 
@@ -43,11 +44,13 @@ export function DayEventsRail({
       {sorted.length === 0 ? (
         <p className="app-card p-6 text-center text-sm text-muted-foreground">{emptyLabel}</p>
       ) : (
-        sorted.map((e) => (
-          <EventCard key={e.id} event={e} onOpen={onOpenEvent}>
-            {renderExtra ? renderExtra(e) : null}
-          </EventCard>
-        ))
+        <ScrollPanel maxHeightClass="max-h-128" gapClass="gap-3">
+          {sorted.map((e) => (
+            <EventCard key={e.id} event={e} onOpen={onOpenEvent}>
+              {renderExtra ? renderExtra(e) : null}
+            </EventCard>
+          ))}
+        </ScrollPanel>
       )}
     </div>
   );
