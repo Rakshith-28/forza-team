@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { InviteLinkDialog } from "@/components/app/invite-link-dialog";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,13 @@ export function InviteGuardianForm({ playerId }: { playerId: string }) {
   const [state, action, pending] = useActionState(inviteGuardianAction, INITIAL_STATE);
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // After a successful invite, clear the fields so the next parent can be
+  // invited right away (the email otherwise keeps the previous value).
+  useEffect(() => {
+    if (state.ok) formRef.current?.reset();
+  }, [state]);
   // Derive the dialog from the action result (each invite has a unique URL); the
   // user dismisses it by remembering the last-shown URL — no setState-in-effect.
   const linkUrl = state.ok ? state.acceptUrl ?? null : null;
@@ -71,7 +78,7 @@ export function InviteGuardianForm({ playerId }: { playerId: string }) {
   }
 
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-lg border bg-card p-3">
+    <form ref={formRef} action={action} className="flex w-full flex-col gap-3 rounded-lg border bg-card p-3">
       <input type="hidden" name="playerId" value={playerId} />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="g-email">Parent email</Label>
@@ -128,7 +135,7 @@ export function LinkExistingGuardianForm({ playerId }: { playerId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
+    <div className="flex w-full flex-col gap-3 rounded-lg border bg-card p-3">
       <div className="flex items-end gap-2">
         <div className="flex flex-1 flex-col gap-1.5">
           <Label htmlFor="g-search">Find a parent</Label>

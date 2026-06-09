@@ -258,8 +258,8 @@ export function ChatThread({
             }
           }}
           rows={1}
-          placeholder="Type a message…  (Enter to send, Shift+Enter for a new line)"
-          aria-label="Message"
+          placeholder="Type a message…"
+          aria-label="Message (Enter to send, Shift+Enter for a new line)"
           maxLength={4000}
           className="max-h-35 min-h-9 flex-1 resize-none rounded-2xl border border-input bg-background px-3.5 py-2 text-sm shadow-xs transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         />

@@ -54,7 +54,10 @@ export default function RootLayout({
       className={`${archivo.variable} ${oswald.variable} ${bungee.variable} h-full antialiased`}
     >
       <body className="flex min-h-dvh flex-col overflow-x-clip">
-        {children}
+        {/* The page content fills at least one full viewport so the global
+            footer always sits below the fold (reached after ~one page scroll),
+            never butting up against short content. */}
+        <div className="flex min-h-dvh w-full flex-col">{children}</div>
         <Footer />
         <SpeedInsights />
         <Analytics />
