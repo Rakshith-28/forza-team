@@ -2,11 +2,10 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
-import { RevokeInviteButton } from "@/components/app/revoke-invite-button";
 import { ListContainer } from "@/components/console";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth-guards";
-import { copyParentInviteLinkAction, revokeParentInvitationAction } from "@/modules/roster/actions";
+import { copyParentInviteLinkAction } from "@/modules/roster/actions";
 import { listParents, listPendingParentInvitations } from "@/modules/roster/service";
 
 export default async function ParentsPage() {
@@ -54,7 +53,6 @@ export default async function ParentsPage() {
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-1">
                     <CopyInviteLinkButton invitationId={inv.id} action={copyParentInviteLinkAction} />
-                    <RevokeInviteButton invitationId={inv.id} action={revokeParentInvitationAction} />
                   </div>
                 </li>
               ))}

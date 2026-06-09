@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 
-import { InviteLinkDialog } from "@/components/app/invite-link-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,33 +46,22 @@ function RelationshipFields() {
 export function InviteGuardianForm({ playerId }: { playerId: string }) {
   const [state, action, pending] = useActionState(inviteGuardianAction, INITIAL_STATE);
   const [open, setOpen] = useState(false);
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // After a successful invite, clear the fields so the next parent can be
-  // invited right away (the email otherwise keeps the previous value).
+  // After a successful invite, clear the fields so the next parent's email can
+  // be typed straight away (reset() is a DOM call, not setState — no cascade).
   useEffect(() => {
     if (state.ok) formRef.current?.reset();
   }, [state]);
-  // Derive the dialog from the action result (each invite has a unique URL); the
-  // user dismisses it by remembering the last-shown URL — no setState-in-effect.
+
   const linkUrl = state.ok ? state.acceptUrl ?? null : null;
-  const linkDialog = (
-    <InviteLinkDialog
-      url={linkUrl}
-      open={linkUrl !== null && linkUrl !== dismissed}
-      onOpenChange={(o) => !o && setDismissed(linkUrl)}
-    />
-  );
 
   if (!open) {
     return (
-      <>
-        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-          Invite parent
-        </Button>
-        {linkDialog}
-      </>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Invite parent
+      </Button>
     );
   }
 
@@ -86,17 +74,52 @@ export function InviteGuardianForm({ playerId }: { playerId: string }) {
       </div>
       <RelationshipFields />
       {state.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
-      {state.ok && !state.notice ? <p className="text-sm text-primary" role="status">Invitation sent.</p> : null}
-      {state.ok && state.notice ? <p className="text-sm text-amber-600" role="status">{state.notice}</p> : null}
+      {state.ok ? (
+        <p className="text-sm text-primary" role="status">
+          {state.notice ?? "Invitation sent — enter another email to invite the next parent."}
+        </p>
+      ) : null}
+
+      {/* Inline invite link — shown in the form (no blocking modal), so the
+          email field stays editable for inviting the next parent. */}
+      {linkUrl ? (
+        <div className="flex flex-col gap-1.5 rounded-md border bg-secondary/30 p-2.5">
+          <p className="text-xs font-medium text-foreground">Invite link — copy and share it:</p>
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              value={linkUrl}
+              className="font-mono text-xs"
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(linkUrl);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                } catch {
+                  /* clipboard blocked — the field is selectable for manual copy */
+                }
+              }}
+            >
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Sending…" : "Send invite"}
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
-          Cancel
+          Close
         </Button>
       </div>
-      {linkDialog}
     </form>
   );
 }
