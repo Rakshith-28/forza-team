@@ -53,7 +53,7 @@ export default function RootLayout({
       lang="en"
       className={`${archivo.variable} ${oswald.variable} ${bungee.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col overflow-x-clip">
+      <body className="flex min-h-dvh flex-col overflow-x-clip">
         {children}
         <Footer />
         <SpeedInsights />
