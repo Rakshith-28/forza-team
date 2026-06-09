@@ -2,10 +2,11 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
+import { RevokeInviteButton } from "@/components/app/revoke-invite-button";
 import { ListContainer } from "@/components/console";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth-guards";
-import { copyParentInviteLinkAction } from "@/modules/roster/actions";
+import { copyParentInviteLinkAction, revokeParentInvitationAction } from "@/modules/roster/actions";
 import { listParents, listPendingParentInvitations } from "@/modules/roster/service";
 
 export default async function ParentsPage() {
@@ -41,11 +42,19 @@ export default async function ParentsPage() {
           <CardContent>
             <ul className="flex flex-col gap-2">
               {pending.map((inv) => (
-                <li key={inv.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 text-sm">
-                  <span className="text-foreground">{inv.email}</span>
-                  <div className="flex shrink-0 items-center gap-2">
+                <li
+                  key={inv.id}
+                  className="flex flex-col gap-2 rounded-lg border bg-card p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Pending
+                    </span>
+                    <span className="min-w-0 truncate text-foreground">{inv.email}</span>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-1">
                     <CopyInviteLinkButton invitationId={inv.id} action={copyParentInviteLinkAction} />
-                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Pending</span>
+                    <RevokeInviteButton invitationId={inv.id} action={revokeParentInvitationAction} />
                   </div>
                 </li>
               ))}

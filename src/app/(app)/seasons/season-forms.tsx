@@ -3,6 +3,13 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { CalendarRange } from "lucide-react";
 
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/console";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +71,7 @@ export function CreateSeasonForm() {
 // (which bumps `version`) remounts this row collapsed; errors keep it open.
 export function SeasonRow({ season }: { season: SeasonView }) {
   const [editing, setEditing] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [state, action, pending] = useActionState(updateSeasonAction, INITIAL_STATE);
 
   if (editing) {
@@ -108,34 +116,78 @@ export function SeasonRow({ season }: { season: SeasonView }) {
   }
 
   return (
-    <div className="group flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 shadow-xs ring-1 ring-transparent transition-all hover:border-primary hover:shadow-sm hover:ring-primary/10">
-      <span
-        aria-hidden
-        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
-      >
-        <CalendarRange className="size-4.5" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-sport text-sm font-bold text-foreground">{season.name}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {season.start} → {season.end}
-        </p>
+    <>
+      <div className="group flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 shadow-xs ring-1 ring-transparent transition-all hover:border-primary hover:shadow-sm hover:ring-primary/10">
+        {/* Tapping the season opens its full details (names/dates truncate on
+            small screens, so the dialog is the way to read them in full). */}
+        <button
+          type="button"
+          onClick={() => setDetailsOpen(true)}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          aria-label={`View ${season.name} details`}
+        >
+          <span
+            aria-hidden
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+          >
+            <CalendarRange className="size-4.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-sport text-sm font-bold text-foreground">{season.name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {season.start} → {season.end}
+            </p>
+          </div>
+        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusBadge status={season.status} />
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+            Edit
+          </Button>
+          {season.status !== "ARCHIVED" ? (
+            <form action={archiveSeasonAction}>
+              <input type="hidden" name="seasonId" value={season.id} />
+              <Button size="sm" variant="ghost" type="submit" className="text-muted-foreground">
+                Archive
+              </Button>
+            </form>
+          ) : null}
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <StatusBadge status={season.status} />
-        <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-          Edit
-        </Button>
-        {season.status !== "ARCHIVED" ? (
-          <form action={archiveSeasonAction}>
-            <input type="hidden" name="seasonId" value={season.id} />
-            <Button size="sm" variant="ghost" type="submit" className="text-muted-foreground">
-              Archive
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{season.name}</DialogTitle>
+          </DialogHeader>
+          <DialogBody className="flex flex-col gap-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Status</span>
+              <StatusBadge status={season.status} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Start date</span>
+              <span className="font-medium tabular-nums text-foreground">{season.start}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">End date</span>
+              <span className="font-medium tabular-nums text-foreground">{season.end}</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1 self-start"
+              onClick={() => {
+                setDetailsOpen(false);
+                setEditing(true);
+              }}
+            >
+              Edit season
             </Button>
-          </form>
-        ) : null}
-      </div>
-    </div>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

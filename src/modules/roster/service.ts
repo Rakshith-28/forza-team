@@ -12,7 +12,7 @@ import {
   ForbiddenError,
   type AuthContext,
 } from "@/lib/rbac";
-import { createInvitation, parseLinkMetadata, resendInvitation } from "@/modules/identity/invitations";
+import { createInvitation, parseLinkMetadata, resendInvitation, revokeInvitation } from "@/modules/identity/invitations";
 import {
   ownChildView,
   parentSafeRoster,
@@ -322,6 +322,31 @@ export async function listPendingParentInvitations(ctx: AuthContext, clubId: str
     orderBy: { createdAt: "desc" },
     select: { id: true, email: true, createdAt: true, expiresAt: true },
   });
+}
+
+/**
+ * Revoke a pending PARENT invitation — its accept link stops working. Club-scoped
+ * (parents.manage) + audited. Returns false if no matching pending invite exists.
+ */
+export async function revokeParentInvitation(ctx: AuthContext, invitationId: string): Promise<boolean> {
+  const invitation = await prisma.invitation.findFirst({
+    where: { id: invitationId, roleCode: "PARENT", status: "PENDING" },
+    select: { id: true, clubId: true },
+  });
+  if (!invitation || !invitation.clubId) return false;
+  assertCan(ctx, "parents.manage", { clubId: invitation.clubId });
+
+  const revoked = await revokeInvitation(invitationId);
+  if (revoked) {
+    await recordAuditStandalone({
+      action: "parent.invite_revoke",
+      resourceType: "invitation",
+      resourceId: invitationId,
+      clubId: invitation.clubId,
+      actorUserId: ctx.userId,
+    });
+  }
+  return revoked;
 }
 
 export async function getParent(ctx: AuthContext, parentId: string) {

@@ -16,6 +16,7 @@ import {
   linkParentToPlayer,
   removePlayerFromTeam,
   resendParentInvitation,
+  revokeParentInvitation,
   searchClubParents,
   unlinkParentFromPlayer,
   updateOwnChild,
@@ -284,6 +285,21 @@ export async function copyParentInviteLinkAction(
   } catch (e) {
     return { ok: false, error: failService(e).error };
   }
+}
+
+/** Revoke a pending parent invitation (its accept link stops working). */
+export async function revokeParentInvitationAction(
+  invitationId: string,
+): Promise<{ ok: boolean; error: string | null }> {
+  const { ctx } = await requireUserAndContext();
+  try {
+    const ok = await revokeParentInvitation(ctx, invitationId);
+    if (!ok) return { ok: false, error: "Invitation not found." };
+  } catch (e) {
+    return { ok: false, error: failService(e).error };
+  }
+  revalidatePath("/parents");
+  return { ok: true, error: null };
 }
 
 /** Search club parents for the "Link existing parent" picker. Returns [] on denial/empty. */
