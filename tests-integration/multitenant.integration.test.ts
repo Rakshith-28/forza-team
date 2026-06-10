@@ -129,15 +129,21 @@ run("multi-tenant integrity", () => {
     await prisma.$disconnect();
   });
 
-  it("coach scope = aggregate of assigned teams only (no club B)", async () => {
-    const ctx = await loadAuthContext(ids.coachUser, ids.clubA);
-    expect(ctx).toBeTruthy();
-    expect(ctx!.coachTeamIds.sort()).toEqual([ids.a1, ids.a2].sort());
-    const players = await listPlayers(ctx!, ids.clubA);
+  it("coach authorization scope = both assigned teams; roster scopes to the ACTIVE team only", async () => {
+    // Authorization scope still spans every assigned team (used by guards)…
+    const base = await loadAuthContext(ids.coachUser, ids.clubA);
+    expect(base).toBeTruthy();
+    expect(base!.coachTeamIds.sort()).toEqual([ids.a1, ids.a2].sort());
+
+    // …but the ROSTER narrows to the one active team — acting as A1 returns A1
+    // members (childX + the two-team player) only, never A2-only childY, never
+    // club B. The two-team player still carries both memberships.
+    const ctxA1 = await loadAuthContext(ids.coachUser, ids.clubA, null, ids.a1);
+    const players = await listPlayers(ctxA1!, ids.clubA);
     const playerIds = players.map((p) => p.id);
-    expect(playerIds).toEqual(expect.arrayContaining([ids.childX, ids.childY, ids.pBoth]));
+    expect(playerIds).toEqual(expect.arrayContaining([ids.childX, ids.pBoth]));
+    expect(playerIds).not.toContain(ids.childY); // A2-only player absent
     expect(playerIds).not.toContain(ids.pB1); // no cross-club leakage
-    // The two-team player appears once (de-duped), with both team memberships.
     expect(playerIds.filter((id) => id === ids.pBoth)).toHaveLength(1);
     const both = players.find((p) => p.id === ids.pBoth);
     expect(both?.teamMemberships.map((m) => m.teamId).sort()).toEqual([ids.a1, ids.a2].sort());

@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/db/client";
 import { Prisma } from "@/db/generated/client";
 import { recordAudit, recordAuditStandalone } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 import {
   assertCan,
   assertChildScope,
@@ -64,7 +65,12 @@ function requireActiveClub(ctx: AuthContext): string {
 // Players — full (admin / coach within scope)
 // ===========================================================================
 
-/** Full club/team roster. Admin = whole club; Coach = assigned-team players. */
+/**
+ * Roster list. Admin = whole club. Coach = the players on the ONE team they're
+ * currently acting as (active team), never a union across all assigned teams —
+ * a coach must never see a merged multi-team roster (cross-team leak). An
+ * explicit `opts.teamId` (e.g. event attendance) overrides the active team.
+ */
 export async function listPlayers(
   ctx: AuthContext,
   clubId: string,
@@ -79,8 +85,22 @@ export async function listPlayers(
     assertTeamScope(ctx, { clubId, teamId: opts.teamId });
     where.teamMemberships = { some: { teamId: opts.teamId, status: "ACTIVE" } };
   } else if (ctx.role === "COACH") {
-    // Club-wide list, but a coach only ever sees their assigned-team players.
-    where.id = { in: ctx.coachTeamPlayerIds };
+    const activeTeamId = ctx.activeTeamId ?? null;
+    if (!activeTeamId) {
+      // No active team selected. Degrade to an EMPTY roster — never union across
+      // the coach's teams (that re-opens the cross-team leak this guards). The
+      // role gate is responsible for forcing a team pick upstream; a coach who
+      // holds teams but has no active team here is an unexpected state.
+      if (ctx.coachTeamIds.length > 0) {
+        logger.warn("coach roster requested with no active team", { userId: ctx.userId, clubId });
+      }
+      where.id = { in: [] };
+    } else {
+      // Scope to the active team only; assertTeamScope rejects a tampered team
+      // the coach isn't actually assigned to.
+      assertTeamScope(ctx, { clubId, teamId: activeTeamId });
+      where.teamMemberships = { some: { teamId: activeTeamId, status: "ACTIVE" } };
+    }
   }
 
   return prisma.player.findMany({

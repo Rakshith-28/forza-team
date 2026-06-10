@@ -17,6 +17,14 @@ export interface AuthContext {
   activeClubId: string | null;
   /** Teams this user coaches in the active club (COACH team scope). */
   coachTeamIds: string[];
+  /**
+   * COACH: the single team the coach is currently acting as, from the active
+   * identity (`active_identity` cookie → parseIdentityKey().teamId). Team-scoped
+   * views (e.g. the roster) narrow to THIS team; `coachTeamIds` stays the full
+   * assigned set used for authorization. Optional/omitted ⇒ treated as null (no
+   * active team) — callers must NOT union across teams in that case.
+   */
+  activeTeamId?: string | null;
   /** Players on this user's coached teams (COACH child scope). */
   coachTeamPlayerIds: string[];
   /** Players linked to this user as a parent (PARENT child scope). */

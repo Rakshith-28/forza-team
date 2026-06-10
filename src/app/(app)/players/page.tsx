@@ -18,6 +18,9 @@ export default async function PlayersPage() {
 
   const clubId = ctx.activeClubId;
   const isCoach = ctx.role === "COACH";
+  // A coach scopes to their ACTIVE team only; with none selected the roster is
+  // intentionally empty (never a union across teams) — prompt them to pick.
+  const coachNoActiveTeam = isCoach && !ctx.activeTeamId;
   const canCreate = can(ctx, "players.create", { clubId });
   const [players, teams] = await Promise.all([listPlayers(ctx, clubId), listTeams(ctx, clubId)]);
   const teamOptions = teams
@@ -46,6 +49,7 @@ export default async function PlayersPage() {
       isCoach={isCoach}
       teamOptions={teamOptions}
       teamRequired={isCoach}
+      emptyMessage={coachNoActiveTeam ? "Select a team to view its roster." : undefined}
     />
   );
 }

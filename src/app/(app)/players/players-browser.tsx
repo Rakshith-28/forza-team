@@ -61,6 +61,7 @@ export function PlayersBrowser({
   isCoach,
   teamOptions,
   teamRequired,
+  emptyMessage,
 }: {
   players: PlayerListItem[];
   description: string;
@@ -68,6 +69,8 @@ export function PlayersBrowser({
   isCoach: boolean;
   teamOptions: TeamOption[];
   teamRequired: boolean;
+  /** Overrides the zero-players message (e.g. a coach with no active team selected). */
+  emptyMessage?: string;
 }) {
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
@@ -135,7 +138,8 @@ export function PlayersBrowser({
               <div className="flex flex-col gap-2.5">
               {players.length === 0 ? (
                 <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-                  {canCreate ? "No players yet. Use the form to add your first player." : "No players to show."}
+                  {emptyMessage ??
+                    (canCreate ? "No players yet. Use the form to add your first player." : "No players to show.")}
                 </p>
               ) : filtered.length === 0 ? (
                 <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">

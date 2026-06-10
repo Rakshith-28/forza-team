@@ -39,6 +39,7 @@ export const loadAuthContext = cache(async (
   userId: string,
   activeClubId: string | null,
   preferredRole: Role | null = null,
+  activeTeamId: string | null = null,
 ): Promise<AuthContext | null> => {
   const assignments = await prisma.userRoleAssignment.findMany({
     where: { userId, status: "ACTIVE" },
@@ -57,6 +58,7 @@ export const loadAuthContext = cache(async (
       role: "MASTER_ADMIN",
       activeClubId,
       coachTeamIds: [],
+      activeTeamId: null,
       coachTeamPlayerIds: [],
       linkedPlayerIds: [],
       childTeamIds: [],
@@ -120,7 +122,10 @@ export const loadAuthContext = cache(async (
       )
     : [];
 
-  return { userId, role, activeClubId, coachTeamIds, coachTeamPlayerIds, linkedPlayerIds, childTeamIds };
+  // Store the raw active team from the identity (only meaningful for a COACH).
+  // It is NOT trusted here: team-scoped reads still assertTeamScope against
+  // coachTeamIds, so a tampered cookie team throws rather than leaks.
+  return { userId, role, activeClubId, coachTeamIds, activeTeamId, coachTeamPlayerIds, linkedPlayerIds, childTeamIds };
 });
 
 function unique<T>(items: T[]): T[] {

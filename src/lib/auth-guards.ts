@@ -22,13 +22,16 @@ import {
  * assignments, so a stale or forged cookie degrades to no-access, never
  * escalates. Falls back to the user's default club when no identity is chosen.
  */
-async function resolveActiveScope(userId: string): Promise<{ activeClubId: string | null; preferredRole: Role | null }> {
+async function resolveActiveScope(
+  userId: string,
+): Promise<{ activeClubId: string | null; preferredRole: Role | null; activeTeamId: string | null }> {
   const identity = await readActiveIdentity();
   if (identity?.role === "MASTER_ADMIN") {
-    return { activeClubId: null, preferredRole: "MASTER_ADMIN" };
+    return { activeClubId: null, preferredRole: "MASTER_ADMIN", activeTeamId: null };
   }
   const activeClubId = identity?.clubId ?? (await resolveActiveClubId(userId));
-  return { activeClubId, preferredRole: identity?.role ?? null };
+  // COACH: the active team the coach is acting as (from the identity cookie key).
+  return { activeClubId, preferredRole: identity?.role ?? null, activeTeamId: identity?.teamId ?? null };
 }
 
 /**
@@ -58,8 +61,8 @@ type SessionResult = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 /** Require an authenticated user AND their resolved authorization context. */
 export async function requireUserAndContext(): Promise<{ session: SessionResult; ctx: AuthContext }> {
   const session = await requireUser();
-  const { activeClubId, preferredRole } = await resolveActiveScope(session.user.id);
-  const ctx = await loadAuthContext(session.user.id, activeClubId, preferredRole);
+  const { activeClubId, preferredRole, activeTeamId } = await resolveActiveScope(session.user.id);
+  const ctx = await loadAuthContext(session.user.id, activeClubId, preferredRole, activeTeamId);
   if (!ctx) redirect("/no-access");
   return { session, ctx };
 }
@@ -88,8 +91,8 @@ export async function requireRole(...roles: Role[]): Promise<AuthContext> {
 export async function getApiContext(): Promise<AuthContext | null> {
   const session = await getSession();
   if (!session) return null;
-  const { activeClubId, preferredRole } = await resolveActiveScope(session.user.id);
-  return loadAuthContext(session.user.id, activeClubId, preferredRole);
+  const { activeClubId, preferredRole, activeTeamId } = await resolveActiveScope(session.user.id);
+  return loadAuthContext(session.user.id, activeClubId, preferredRole, activeTeamId);
 }
 
 /**

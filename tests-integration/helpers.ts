@@ -61,12 +61,18 @@ export function adminCtx(clubId: string): AuthContext {
   };
 }
 
-export function coachCtx(clubId: string, teamIds: string[], playerIds: string[]): AuthContext {
+export function coachCtx(
+  clubId: string,
+  teamIds: string[],
+  playerIds: string[],
+  activeTeamId: string | null = null,
+): AuthContext {
   return {
     userId: uid(),
     role: "COACH",
     activeClubId: clubId,
     coachTeamIds: teamIds,
+    activeTeamId,
     coachTeamPlayerIds: playerIds,
     linkedPlayerIds: [],
     childTeamIds: [],
