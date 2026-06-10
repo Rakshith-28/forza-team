@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Building2, LogOut, Menu, Settings, X } from "lucide-react";
 
 import { signOut } from "@/lib/auth-client";
@@ -66,7 +67,10 @@ export function ConsoleMobileNav({
         <Menu className="size-5" />
       </button>
 
-      {open ? (
+      {/* Portal to <body>: the glass header sets backdrop-filter, which would
+          otherwise make this fixed overlay resolve to the header box (not the
+          viewport) and clamp the drawer to the header's height. */}
+      {open && typeof document !== "undefined" ? createPortal(
         <div className="fixed inset-0 z-50">
           <div
             className="absolute inset-0 bg-black/50 motion-safe:animate-in motion-safe:fade-in"
@@ -163,7 +167,8 @@ export function ConsoleMobileNav({
               </button>
             </div>
           </aside>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );
