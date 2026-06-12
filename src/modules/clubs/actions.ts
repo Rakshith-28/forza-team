@@ -11,11 +11,11 @@ import {
   assignCoach,
   archiveClub,
   archiveSeason,
-  archiveTeam,
   ConflictError,
   createClub,
   createSeason,
   createTeam,
+  deleteTeam,
   removeCoach,
   updateClub,
   updateClubSettings,
@@ -214,9 +214,10 @@ export async function updateTeamAction(_prev: FormState, fd: FormData): Promise<
   return { ok: true, error: null };
 }
 
-export async function archiveTeamAction(fd: FormData): Promise<void> {
+/** HARD, permanent team deletion (CLUB_ADMIN only). Typed-name gate is the UI control. */
+export async function deleteTeamAction(fd: FormData): Promise<void> {
   const { ctx } = await requireUserAndContext();
-  await archiveTeam(ctx, str(fd, "teamId"));
+  await deleteTeam(ctx, str(fd, "teamId"));
   revalidatePath("/teams");
   redirect("/teams");
 }

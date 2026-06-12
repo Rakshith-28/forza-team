@@ -368,9 +368,12 @@ model TeamCoach {
   teamId    String   @map("team_id") @db.Uuid
   userId    String   @map("user_id") @db.Uuid
   roleType  String   @map("role_type") @db.VarChar(50)
-  status    String   @default("ACTIVE") @db.VarChar(50)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy String?  @map("created_by") @db.Uuid
+  // ACTIVE while assigned; ENDED once un-assigned (the row is preserved as
+  // assignment history, with endedAt set, rather than deleted).
+  status    String    @default("ACTIVE") @db.VarChar(50)
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
 
   club Club @relation(fields: [clubId], references: [id])
   team Team @relation(fields: [teamId], references: [id])

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Shield } from "lucide-react";
 
-import { ListContainer, PageHeader, TwoPane } from "@/components/console";
+import { AddModal, ListContainer, PageHeader } from "@/components/console";
 import { requireAuthContext } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listSeasons, listTeams } from "@/modules/clubs/service";
@@ -73,17 +73,19 @@ export default async function TeamsPage() {
   }
 
   return (
-    <TwoPane
-      title="Teams"
-      description="Create and manage your club's teams."
-      formTitle="New team"
-      form={
-        <CreateTeamForm
-          seasons={seasons.filter((s) => s.status !== "ARCHIVED").map((s) => ({ id: s.id, name: s.name }))}
-        />
-      }
-    >
-      {list}
-    </TwoPane>
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="Teams"
+        description="Create and manage your club's teams."
+        actions={
+          <AddModal label="Add Team" title="New team" description="Create a team for your club.">
+            <CreateTeamForm
+              seasons={seasons.filter((s) => s.status !== "ARCHIVED").map((s) => ({ id: s.id, name: s.name }))}
+            />
+          </AddModal>
+        }
+      />
+      <div className="mt-6">{list}</div>
+    </div>
   );
 }

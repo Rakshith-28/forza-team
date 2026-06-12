@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/console/t
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { requireAuthContext } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
-import { archiveTeamAction, removeCoachAction } from "@/modules/clubs/actions";
+import { DeleteConfirmDialog } from "@/components/console";
+import { deleteTeamAction, removeCoachAction } from "@/modules/clubs/actions";
 import { COACH_ROLE_LABELS } from "@/modules/clubs/schemas";
 import { getTeam, listAssignableCoaches, listSeasons, listTeamCoaches } from "@/modules/clubs/service";
 import { getClubTimezone, listScheduleEvents } from "@/modules/events/service";
@@ -29,6 +30,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   if (!team) notFound();
 
   const canManage = can(ctx, "teams.manage", { clubId: team.clubId, teamId });
+  const canDelete = can(ctx, "team.delete", { clubId: team.clubId });
   const tz = await getClubTimezone(ctx, team.clubId);
   const { todayKey, month, from, to } = scheduleWindow(new Date(), tz);
   const [coaches, seasons, assignable, teamEvents] = await Promise.all([
@@ -129,13 +131,36 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         </CardContent>
       </Card>
 
-          {canManage && team.status !== "ARCHIVED" ? (
-            <form action={archiveTeamAction} className="mt-6">
-              <input type="hidden" name="teamId" value={team.id} />
-              <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
-                Archive this team
-              </button>
-            </form>
+          {canDelete ? (
+            <div className="mt-8 flex min-w-0 flex-col gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-5">
+              <div className="min-w-0">
+                <h2 className="font-sport text-base font-bold text-foreground">Danger zone</h2>
+                <p className="mt-1 text-sm text-muted-foreground break-words">
+                  Deleting a team is permanent and cannot be undone.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {(
+                  <DeleteConfirmDialog
+                    triggerLabel="Delete permanently"
+                    title="Delete this team permanently?"
+                    confirmPhrase={team.name}
+                    action={deleteTeamAction}
+                    fields={{ teamId: team.id }}
+                    description={
+                      <>
+                        Permanently deletes <span className="font-semibold text-foreground">{team.name}</span> and
+                        everything it owns — its events, team chat, announcements and evaluations. Its{" "}
+                        <span className="font-semibold text-foreground">{coaches.length}</span> coach(es) and all
+                        rostered players are{" "}
+                        <span className="font-semibold text-foreground">detached, not deleted</span> (players and
+                        coaches on other teams keep those). <span className="font-semibold text-foreground">This cannot be undone.</span>
+                      </>
+                    }
+                  />
+                )}
+              </div>
+            </div>
           ) : null}
         </TabsContent>
 

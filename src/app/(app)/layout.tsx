@@ -46,6 +46,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Waivers" },
     { label: "Evaluations", href: "/evaluations" },
     { label: "Reports", href: "/dashboard/club" },
+    { label: "Audit Logs", href: "/audit-logs" },
     { label: "Settings", href: "/settings" },
   ],
   COACH: [

@@ -8,7 +8,8 @@ import { requireRole } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
 import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
-import { archivePlayerAction, copyPlayerAccountInviteLinkAction, removeGuardianAction, removeMembershipAction } from "@/modules/roster/actions";
+import { DeleteConfirmDialog } from "@/components/console";
+import { copyPlayerAccountInviteLinkAction, deletePlayerAction, removeGuardianAction, removeMembershipAction } from "@/modules/roster/actions";
 import { getPlayer, listPlayerGuardians } from "@/modules/roster/service";
 import { getClubTimezone, listScheduleEvents } from "@/modules/events/service";
 import { scheduleWindow } from "@/modules/events/schedule-window";
@@ -34,6 +35,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
   if (!player) notFound();
 
   const canEdit = can(ctx, "players.edit_full", { clubId: player.clubId, playerId });
+  const canDelete = can(ctx, "player.delete", { clubId: player.clubId });
   const guardians = await listPlayerGuardians(ctx, playerId);
   const teams = canEdit ? await listTeams(ctx, player.clubId) : [];
   const memberTeamIds = new Set(player.teamMemberships.map((m) => m.teamId));
@@ -148,7 +150,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
                               <input type="hidden" name="playerId" value={player.id} />
                               <input type="hidden" name="membershipId" value={m.id} />
                               <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
-                                Remove
+                                Remove from team
                               </button>
                             </form>
                           ) : null}
@@ -222,13 +224,37 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
             </div>
           </div>
 
-          {canEdit && player.status !== "ARCHIVED" ? (
-            <form action={archivePlayerAction} className="mt-6">
-              <input type="hidden" name="playerId" value={player.id} />
-              <button type="submit" className="text-sm font-medium text-muted-foreground hover:text-destructive">
-                Archive this player
-              </button>
-            </form>
+          {canDelete ? (
+            <div className="mt-8 flex min-w-0 flex-col gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-5">
+              <div className="min-w-0">
+                <h2 className="font-sport text-base font-bold text-foreground">Danger zone</h2>
+                <p className="mt-1 text-sm text-muted-foreground break-words">
+                  Deleting a player is permanent and cannot be undone.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {(
+                  <DeleteConfirmDialog
+                    triggerLabel="Delete permanently"
+                    title="Delete this player permanently?"
+                    confirmPhrase={`${player.firstName} ${player.lastName}`}
+                    action={deletePlayerAction}
+                    fields={{ playerId: player.id }}
+                    description={
+                      <>
+                        This permanently removes{" "}
+                        <span className="font-semibold text-foreground">
+                          {player.firstName} {player.lastName}
+                        </span>{" "}
+                        and all of their memberships, evaluations, attendance, development goals, remarks, RSVPs and
+                        guardian links. Team and guardian records are not deleted.{" "}
+                        <span className="font-semibold text-foreground">This cannot be undone.</span>
+                      </>
+                    }
+                  />
+                )}
+              </div>
+            </div>
           ) : null}
         </TabsContent>
 

@@ -10,8 +10,8 @@ import type { FormState } from "@/modules/roster/action-state";
 import {
   ConflictError,
   addPlayerToTeam,
-  archivePlayer,
   createPlayer,
+  deletePlayer,
   invitePlayerAccountForPlayer,
   linkPlayerAccountToPlayer,
   removePlayerFromTeam,
@@ -117,9 +117,10 @@ export async function updatePlayerAction(_prev: FormState, fd: FormData): Promis
   return { ok: true, error: null };
 }
 
-export async function archivePlayerAction(fd: FormData): Promise<void> {
+/** HARD, permanent player deletion (CLUB_ADMIN only). Typed-name gate is the UI control. */
+export async function deletePlayerAction(fd: FormData): Promise<void> {
   const { ctx } = await requireUserAndContext();
-  await archivePlayer(ctx, str(fd, "playerId"));
+  await deletePlayer(ctx, str(fd, "playerId"));
   revalidatePath("/players");
   redirect("/players");
 }
@@ -148,6 +149,20 @@ export async function removeMembershipAction(fd: FormData): Promise<void> {
   const playerId = str(fd, "playerId");
   await removePlayerFromTeam(ctx, str(fd, "membershipId"));
   revalidatePath(`/players/${playerId}`);
+}
+
+/**
+ * Assign a teamless player to a team from the "Unassigned / No team" section
+ * (admin: chosen team) or the coach add-player picker (their active team).
+ * `addPlayerToTeam` enforces team scope + club membership.
+ */
+export async function assignTeamlessPlayerAction(fd: FormData): Promise<void> {
+  const { ctx } = await requireUserAndContext();
+  const playerId = str(fd, "playerId");
+  const teamId = str(fd, "teamId");
+  if (!playerId || !teamId) return;
+  await addPlayerToTeam(ctx, { playerId, teamId, seasonId: null });
+  revalidatePath("/players");
 }
 
 // --- Player accounts -------------------------------------------------------

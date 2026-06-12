@@ -2,19 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  PageHeader,
-  StatusBadge,
-} from "@/components/console";
-import { Button } from "@/components/ui/button";
+import { AddModal, PageHeader, StatusBadge } from "@/components/console";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -122,7 +112,17 @@ export function PlayersBrowser({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader title="Players" description={description} />
+      <PageHeader
+        title="Players"
+        description={description}
+        actions={
+          canCreate && !(isCoach && teamOptions.length === 0) ? (
+            <AddModal label="Add Player" title="Add a player" description="Register a new player to your roster.">
+              <CreatePlayerForm teams={teamOptions} teamRequired={teamRequired} />
+            </AddModal>
+          ) : null
+        }
+      />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         {/* Left pane — search above a bordered roster container that stretches to
@@ -251,38 +251,6 @@ export function PlayersBrowser({
             </div>
           </div>
 
-          {canCreate ? (
-            <div data-glass className="rounded-xl border bg-card p-4 shadow-sm">
-              <h2 className="font-sport text-base font-bold text-foreground">Add a player</h2>
-              {isCoach && teamOptions.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  You aren&apos;t assigned to any teams yet, so you can&apos;t add players.
-                </p>
-              ) : (
-                <>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Register a new player to your roster.
-                  </p>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="mt-3 w-full">
-                        <Plus className="size-4" aria-hidden />
-                        Add a player
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add a player</DialogTitle>
-                      </DialogHeader>
-                      <DialogBody>
-                        <CreatePlayerForm teams={teamOptions} teamRequired={teamRequired} />
-                      </DialogBody>
-                    </DialogContent>
-                  </Dialog>
-                </>
-              )}
-            </div>
-          ) : null}
         </aside>
       </div>
     </div>

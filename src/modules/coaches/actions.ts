@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ForbiddenError } from "@/lib/rbac";
 import type { FormState } from "@/modules/coaches/action-state";
-import { ConflictError, inviteCoach, resendCoachInvitation } from "@/modules/coaches/service";
+import { ConflictError, deleteCoach, inviteCoach, resendCoachInvitation } from "@/modules/coaches/service";
 import { inviteCoachSchema } from "@/modules/coaches/schemas";
 // Assign / remove reuse the Phase 2 clubs service (already scoped + audited).
 import { assignCoach, ConflictError as ClubsConflictError, removeCoach } from "@/modules/clubs/service";
@@ -78,6 +78,13 @@ export async function assignCoachAction(_prev: FormState, fd: FormData): Promise
 export async function removeCoachAssignmentAction(fd: FormData): Promise<void> {
   const { ctx } = await requireUserAndContext();
   await removeCoach(ctx, str(fd, "teamId"), str(fd, "userId"));
+  revalidatePath("/coaches");
+}
+
+/** HARD, permanent coach deletion for the active club (CLUB_ADMIN only). Typed-name gate is the UI control. */
+export async function deleteCoachAction(fd: FormData): Promise<void> {
+  const { ctx } = await requireUserAndContext();
+  await deleteCoach(ctx, str(fd, "coachUserId"));
   revalidatePath("/coaches");
 }
 

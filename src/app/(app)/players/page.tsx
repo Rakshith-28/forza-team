@@ -1,9 +1,10 @@
 import { requireRole } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
-import { listPlayers } from "@/modules/roster/service";
+import { listPlayers, listTeamlessPlayers } from "@/modules/roster/service";
 
 import { PlayersBrowser, type PlayerListItem } from "./players-browser";
+import { TeamlessSection } from "./teamless-section";
 
 export default async function PlayersPage() {
   const ctx = await requireRole("MASTER_ADMIN", "CLUB_ADMIN", "COACH");
@@ -27,6 +28,12 @@ export default async function PlayersPage() {
     .filter((t) => t.status !== "ARCHIVED")
     .map((t) => ({ id: t.id, name: t.name }));
 
+  // Teamless pool: admins always see it; a coach sees it only when acting as a
+  // team (their add target). Gated by players.create, same as the service.
+  const coachTeam = isCoach && ctx.activeTeamId ? teamOptions.find((t) => t.id === ctx.activeTeamId) ?? null : null;
+  const showTeamless = canCreate && (!isCoach || coachTeam != null);
+  const teamlessPlayers = showTeamless ? await listTeamlessPlayers(ctx, clubId) : [];
+
   const description = isCoach ? "Players on the teams you coach." : "The players registered in your club.";
 
   const items: PlayerListItem[] = players.map((p) => ({
@@ -42,14 +49,24 @@ export default async function PlayersPage() {
   }));
 
   return (
-    <PlayersBrowser
-      players={items}
-      description={description}
-      canCreate={canCreate}
-      isCoach={isCoach}
-      teamOptions={teamOptions}
-      teamRequired={isCoach}
-      emptyMessage={coachNoActiveTeam ? "Select a team to view its roster." : undefined}
-    />
+    <>
+      <PlayersBrowser
+        players={items}
+        description={description}
+        canCreate={canCreate}
+        isCoach={isCoach}
+        teamOptions={teamOptions}
+        teamRequired={isCoach}
+        emptyMessage={coachNoActiveTeam ? "Select a team to view its roster." : undefined}
+      />
+      {showTeamless ? (
+        <TeamlessSection
+          players={teamlessPlayers}
+          mode={isCoach ? "coach" : "admin"}
+          teamOptions={teamOptions}
+          coachTeam={coachTeam}
+        />
+      ) : null}
+    </>
   );
 }

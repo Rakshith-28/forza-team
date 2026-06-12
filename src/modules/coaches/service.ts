@@ -1,8 +1,8 @@
 import "server-only";
 
 import { prisma } from "@/db/client";
-import { recordAuditStandalone } from "@/lib/audit";
-import { assertCan, ForbiddenError, type AuthContext } from "@/lib/rbac";
+import { recordAudit, recordAuditStandalone } from "@/lib/audit";
+import { assertCan, assertClubScope, ForbiddenError, type AuthContext } from "@/lib/rbac";
 import { createInvitation, resendInvitation } from "@/modules/identity/invitations";
 import type { CoachFilters, InviteCoachInput, CoachStatus } from "@/modules/coaches/schemas";
 
@@ -164,6 +164,255 @@ export async function inviteCoach(ctx: AuthContext, clubId: string, input: Invit
     metadata: { email: input.email, teamId: input.teamId ?? null, roleType: input.roleType ?? null },
   });
   return invitation;
+}
+
+// ===========================================================================
+// Coach deletion (HARD, permanent — deletion-spec §3). A "coach" is a User with
+// team_coaches + a COACH role assignment; there is no Coach entity. Deleting a
+// coach strips THIS club's coach footprint and revokes access — the User row,
+// other-club roles, and any player-account survive.
+// ===========================================================================
+
+/** One team a coach is on + whether removing him leaves it coachless. */
+export interface CoachTeamImpact {
+  teamId: string;
+  teamName: string;
+  /** True ONLY when zero coaches remain on the team after removal. */
+  willBeCoachless: boolean;
+  /** A coach who still covers the team (when not coachless), else null. */
+  remainingCoachName: string | null;
+}
+
+interface TeamCoachLite {
+  teamId: string;
+  teamName: string;
+  userId: string;
+  coachName: string;
+}
+
+/**
+ * Pure impact rule (unit-testable): for each team the target coaches, is there
+ * another active coach left? Never reports "coachless" unless zero coaches
+ * remain. `teamCoaches` is the full set of active (team, coach) pairs in scope.
+ */
+export function computeCoachImpact(coachUserId: string, teamCoaches: TeamCoachLite[]): CoachTeamImpact[] {
+  const targetTeamIds = [
+    ...new Set(teamCoaches.filter((t) => t.userId === coachUserId).map((t) => t.teamId)),
+  ];
+  return targetTeamIds.map((teamId) => {
+    const onTeam = teamCoaches.filter((t) => t.teamId === teamId);
+    const others = onTeam.filter((t) => t.userId !== coachUserId);
+    return {
+      teamId,
+      teamName: onTeam[0]?.teamName ?? "",
+      willBeCoachless: others.length === 0,
+      remainingCoachName: others[0]?.coachName ?? null,
+    };
+  });
+}
+
+function displayUser(u: { name: string | null; firstName: string; lastName: string; email: string }): string {
+  return u.name?.trim() || `${u.firstName} ${u.lastName}`.trim() || u.email;
+}
+
+/** Per-team impact of removing a coach from the active club (read-only preview). */
+export async function getCoachDeletionImpact(ctx: AuthContext, coachUserId: string): Promise<CoachTeamImpact[]> {
+  const clubId = ctx.activeClubId;
+  if (!clubId) throw new ForbiddenError("No active club");
+  assertCan(ctx, "coach.delete", { clubId });
+  assertClubScope(ctx, clubId);
+
+  const rows = await prisma.teamCoach.findMany({
+    where: { clubId, status: "ACTIVE" },
+    select: {
+      teamId: true,
+      userId: true,
+      team: { select: { name: true } },
+      user: { select: { name: true, firstName: true, lastName: true, email: true } },
+    },
+  });
+  const teamCoaches: TeamCoachLite[] = rows.map((r) => ({
+    teamId: r.teamId,
+    teamName: r.team.name,
+    userId: r.userId,
+    coachName: displayUser(r.user),
+  }));
+  return computeCoachImpact(coachUserId, teamCoaches);
+}
+
+/**
+ * HARD-delete a coach from the active club, in ONE transaction (deletion-spec §3):
+ * remove all of this club's team_coaches rows (teams survive), deactivate this
+ * club's COACH role assignment(s), and — if the login then has zero active roles
+ * of ANY kind — kill its sessions (emergent zero-roles ⇒ /no-access). The User
+ * row persists; other-club roles and any player-account are untouched. Coach-
+ * authored content uses scalar `created_by` (no FK) and is left intact.
+ */
+export async function deleteCoach(ctx: AuthContext, coachUserId: string): Promise<void> {
+  const clubId = ctx.activeClubId;
+  if (!clubId) throw new ForbiddenError("No active club");
+  assertCan(ctx, "coach.delete", { clubId });
+  assertClubScope(ctx, clubId);
+
+  const [user, teamCoaches, coachAssignments] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: coachUserId },
+      select: { id: true, name: true, firstName: true, lastName: true, email: true },
+    }),
+    prisma.teamCoach.findMany({
+      where: { userId: coachUserId, clubId, status: "ACTIVE" },
+      select: { teamId: true, roleType: true, team: { select: { name: true } } },
+    }),
+    prisma.userRoleAssignment.count({
+      where: { userId: coachUserId, clubId, status: "ACTIVE", role: { code: "COACH" } },
+    }),
+  ]);
+  if (!user) throw new ForbiddenError("Coach not found");
+  // Must actually be a coach in THIS club (don't let a Club Admin delete arbitrary users).
+  if (teamCoaches.length === 0 && coachAssignments === 0) {
+    throw new ForbiddenError("That user is not a coach in this club");
+  }
+
+  const coachName = displayUser(user);
+  const snapshot = {
+    coachUserId,
+    name: coachName,
+    email: user.email,
+    teams: teamCoaches.map((tc) => tc.team.name),
+    // Coach-attributable history (parallels the team-deletion snapshot).
+    affectedCoaches: teamCoaches.map((tc) => ({
+      userId: coachUserId,
+      name: coachName,
+      roleType: tc.roleType,
+      teamId: tc.teamId,
+      teamName: tc.team.name,
+    })),
+  };
+
+  await prisma.$transaction(async (tx) => {
+    // Clear ALL of this club's coach assignment rows (teams survive).
+    await tx.teamCoach.deleteMany({ where: { userId: coachUserId, clubId } });
+    // Deactivate this club's COACH role assignment(s) (reuse the Stage-2 pattern).
+    await tx.userRoleAssignment.updateMany({
+      where: { userId: coachUserId, clubId, status: "ACTIVE", role: { code: "COACH" } },
+      data: { status: "INACTIVE" },
+    });
+    // Revoke access if no active role of ANY kind remains for this login.
+    const [assignments, coachRoles] = await Promise.all([
+      tx.userRoleAssignment.count({ where: { userId: coachUserId, status: "ACTIVE" } }),
+      tx.teamCoach.count({ where: { userId: coachUserId, status: "ACTIVE" } }),
+    ]);
+    if (assignments + coachRoles === 0) {
+      await tx.session.deleteMany({ where: { userId: coachUserId } });
+    }
+    await recordAudit(tx, {
+      action: "coach.delete",
+      resourceType: "coach",
+      resourceId: coachUserId,
+      clubId,
+      actorUserId: ctx.userId,
+      metadata: { snapshot },
+    });
+  });
+}
+
+// ===========================================================================
+// Coach profile (full record + current/past assignment history)
+// ===========================================================================
+
+export interface CoachTeamAssignment {
+  teamId: string | null;
+  teamName: string;
+  roleType: string | null;
+  /** When the assignment ended (past only). */
+  endedAt: Date | null;
+  /** True when the team itself was deleted (sourced from the audit snapshot). */
+  teamDeleted: boolean;
+}
+
+export interface CoachProfile {
+  userId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  lastLoginAt: Date | null;
+  currentTeams: { teamId: string; teamName: string; roleType: string }[];
+  pastTeams: CoachTeamAssignment[];
+}
+
+interface AffectedCoach {
+  userId: string;
+  name: string;
+  roleType: string | null;
+  teamId: string | null;
+  teamName: string;
+}
+
+/**
+ * Full coach profile for the active club: contact + status, CURRENT teams (active
+ * team_coaches), and PAST assignments — both ENDED team_coaches for still-live
+ * teams and, for DELETED teams, entries reconstructed from the team-deletion
+ * audit snapshots' `affectedCoaches`. Returns null if the user isn't a coach in
+ * this club. Admin-only (`teams.manage`).
+ */
+export async function getCoachProfile(ctx: AuthContext, coachUserId: string): Promise<CoachProfile | null> {
+  const clubId = ctx.activeClubId;
+  if (!clubId) throw new ForbiddenError("No active club");
+  assertCan(ctx, "teams.manage", { clubId });
+  assertClubScope(ctx, clubId);
+
+  const user = await prisma.user.findUnique({
+    where: { id: coachUserId },
+    select: { id: true, name: true, firstName: true, lastName: true, email: true, phone: true, status: true, lastLoginAt: true },
+  });
+  if (!user) return null;
+
+  const teamCoaches = await prisma.teamCoach.findMany({
+    where: { userId: coachUserId, clubId },
+    select: { teamId: true, roleType: true, status: true, endedAt: true, team: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  const hasCoachAssignment = await prisma.userRoleAssignment.count({
+    where: { userId: coachUserId, clubId, role: { code: "COACH" } },
+  });
+  // Not a coach in this club (now or ever) ⇒ no coach profile here.
+  if (teamCoaches.length === 0 && hasCoachAssignment === 0) return null;
+
+  const currentTeams = teamCoaches
+    .filter((tc) => tc.status === "ACTIVE")
+    .map((tc) => ({ teamId: tc.teamId, teamName: tc.team.name, roleType: tc.roleType }));
+
+  const pastLive: CoachTeamAssignment[] = teamCoaches
+    .filter((tc) => tc.status !== "ACTIVE")
+    .map((tc) => ({ teamId: tc.teamId, teamName: tc.team.name, roleType: tc.roleType, endedAt: tc.endedAt, teamDeleted: false }));
+
+  // Deleted teams: reconstruct from team-deletion audit snapshots (small per club).
+  const teamDeletes = await prisma.auditLog.findMany({
+    where: { clubId, action: "team.delete" },
+    select: { createdAt: true, metadataJson: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const pastDeleted: CoachTeamAssignment[] = [];
+  for (const log of teamDeletes) {
+    const snap = (log.metadataJson as { snapshot?: { affectedCoaches?: AffectedCoach[] } } | null)?.snapshot;
+    if (!Array.isArray(snap?.affectedCoaches)) continue;
+    for (const a of snap.affectedCoaches) {
+      if (a.userId !== coachUserId) continue;
+      pastDeleted.push({ teamId: a.teamId, teamName: a.teamName, roleType: a.roleType, endedAt: log.createdAt, teamDeleted: true });
+    }
+  }
+
+  return {
+    userId: user.id,
+    name: displayUser(user),
+    email: user.email,
+    phone: user.phone,
+    status: user.status,
+    lastLoginAt: user.lastLoginAt,
+    currentTeams,
+    pastTeams: [...pastLive, ...pastDeleted],
+  };
 }
 
 /**

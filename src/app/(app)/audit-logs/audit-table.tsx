@@ -11,7 +11,18 @@ import {
   DialogTitle,
   type Column,
 } from "@/components/console";
-import type { MasterAuditRow } from "@/modules/master/service";
+/** Structural row shared by the Master (system-wide) and Club (single-club) audit views. */
+export interface AuditRow {
+  id: string;
+  createdAt: Date;
+  actorName: string | null;
+  clubName: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  metadata: unknown;
+  ipAddress: string | null;
+}
 
 function fmtDateTime(d: Date | string): string {
   return new Date(d).toLocaleString(undefined, {
@@ -23,17 +34,42 @@ function fmtDateTime(d: Date | string): string {
   });
 }
 
+/** Render one metadata value: arrays join, nested objects expand one level (the delete `snapshot`). */
+function ValueView({ value }: { value: unknown }) {
+  if (value == null || value === "") return <span className="text-muted-foreground">—</span>;
+  if (Array.isArray(value)) {
+    return value.length ? <>{value.map((v) => String(v)).join(", ")}</> : <span className="text-muted-foreground">—</span>;
+  }
+  if (typeof value === "object") {
+    return (
+      <dl className="mt-1 grid grid-cols-2 gap-2 rounded-md bg-secondary/40 p-2">
+        {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
+          <div key={k} className="min-w-0">
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{k}</dt>
+            <dd className="mt-0.5 break-words text-sm text-foreground">
+              <ValueView value={v} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+  return <>{String(value)}</>;
+}
+
 function MetadataView({ metadata }: { metadata: unknown }) {
   if (metadata == null) return <p className="text-sm text-muted-foreground">No details.</p>;
   if (typeof metadata === "object" && !Array.isArray(metadata)) {
     const entries = Object.entries(metadata as Record<string, unknown>);
     if (entries.length === 0) return <p className="text-sm text-muted-foreground">No details.</p>;
     return (
-      <dl className="grid grid-cols-2 gap-3">
+      <dl className="grid grid-cols-1 gap-3">
         {entries.map(([k, v]) => (
-          <div key={k}>
+          <div key={k} className="min-w-0">
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{k}</dt>
-            <dd className="mt-0.5 break-words text-sm text-foreground">{typeof v === "object" ? JSON.stringify(v) : String(v)}</dd>
+            <dd className="mt-0.5 break-words text-sm text-foreground">
+              <ValueView value={v} />
+            </dd>
           </div>
         ))}
       </dl>
@@ -42,10 +78,10 @@ function MetadataView({ metadata }: { metadata: unknown }) {
   return <pre className="overflow-x-auto rounded-md bg-secondary/60 p-3 text-xs">{JSON.stringify(metadata, null, 2)}</pre>;
 }
 
-export function AuditTable({ rows }: { rows: MasterAuditRow[] }) {
-  const [selected, setSelected] = useState<MasterAuditRow | null>(null);
+export function AuditTable({ rows }: { rows: AuditRow[] }) {
+  const [selected, setSelected] = useState<AuditRow | null>(null);
 
-  const columns: Column<MasterAuditRow>[] = [
+  const columns: Column<AuditRow>[] = [
     { key: "ts", header: "Timestamp", cell: (r) => <span suppressHydrationWarning className="whitespace-nowrap text-muted-foreground">{fmtDateTime(r.createdAt)}</span> },
     { key: "actor", header: "Actor", cell: (r) => r.actorName ?? <span className="text-muted-foreground">System</span> },
     { key: "club", header: "Club", cell: (r) => r.clubName ?? <span className="text-muted-foreground">—</span> },

@@ -39,6 +39,14 @@ export const PERMISSIONS = {
   // Player accounts (§6.7)
   "playerAccounts.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB" },
 
+  // Hard deletions (permanent). CLUB_ADMIN only, scoped to their own club —
+  // Master Admin deliberately has NO delete capability for these entities, so
+  // it is absent here (grantedScope returns null ⇒ denied). Gated additionally
+  // by assertClubScope at the service layer; every delete is audited.
+  "player.delete": { CLUB_ADMIN: "CLUB" },
+  "coach.delete": { CLUB_ADMIN: "CLUB" },
+  "team.delete": { CLUB_ADMIN: "CLUB" },
+
   // Schedule / RSVP / attendance (§6.12–6.14)
   "events.view": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM", PLAYER: "CHILD" },
   "events.manage": { MASTER_ADMIN: "SYSTEM", CLUB_ADMIN: "CLUB", COACH: "TEAM" },

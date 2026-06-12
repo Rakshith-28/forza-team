@@ -18,8 +18,22 @@ const DialogClose = DialogPrimitive.Close;
 function DialogContent({
   className,
   children,
+  variant = "drawer",
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  /** "drawer" = right-side sheet (default); "center" = centered modal (add forms, confirms). */
+  variant?: "drawer" | "center";
+}) {
+  const surface =
+    variant === "center"
+      ? cn(
+          "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border bg-card shadow-xl",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:zoom-in-95",
+        )
+      : cn(
+          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-xl flex-col border-l bg-card shadow-xl",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
+        );
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -28,14 +42,7 @@ function DialogContent({
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out",
         )}
       />
-      <DialogPrimitive.Content
-        className={cn(
-          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-xl flex-col border-l bg-card shadow-xl",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
-          className,
-        )}
-        {...props}
-      >
+      <DialogPrimitive.Content className={cn(surface, className)} {...props}>
         {children}
         <DialogPrimitive.Close
           className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"

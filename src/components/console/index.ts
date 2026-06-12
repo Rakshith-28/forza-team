@@ -19,3 +19,5 @@ export {
   DialogDescription,
 } from "./dialog";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
+export { DeleteConfirmDialog } from "./delete-confirm-dialog";
+export { AddModal } from "./add-modal";

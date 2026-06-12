@@ -2,6 +2,7 @@ import { FilterBar, FilterSelect, PageHeader, Pagination } from "@/components/co
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireRole } from "@/lib/auth-guards";
+import { listClubAuditLog, getClubAuditFilterOptions } from "@/modules/audit/service";
 import { getAuditFilterOptions, getMasterAuditLogs, listClubOptions } from "@/modules/master/service";
 import { parseIntParam } from "@/modules/master/schemas";
 
@@ -26,26 +27,51 @@ export default async function AuditLogsPage({
     page?: string;
   }>;
 }) {
-  const ctx = await requireRole("MASTER_ADMIN");
+  // System-wide for Master Admin; single-club for Club Admin (their own club only).
+  const ctx = await requireRole("MASTER_ADMIN", "CLUB_ADMIN");
   const sp = await searchParams;
+  const isMaster = ctx.role === "MASTER_ADMIN";
+
+  const common = {
+    dateFrom: parseDate(sp.date_from),
+    dateTo: parseDate(sp.date_to, true),
+    actorUserId: sp.actor || undefined,
+    action: sp.action || undefined,
+    resourceType: sp.resource_type || undefined,
+    page: parseIntParam(sp.page) ?? 1,
+  };
+
+  if (!isMaster && !ctx.activeClubId) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <PageHeader title="Audit Log" description="Record of sensitive actions in your club." />
+        <p className="mt-6 rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+          Your account isn&apos;t scoped to a club yet.
+        </p>
+      </div>
+    );
+  }
+
+  const clubId = ctx.activeClubId as string;
 
   const [result, options, clubOptions] = await Promise.all([
-    getMasterAuditLogs(ctx, {
-      dateFrom: parseDate(sp.date_from),
-      dateTo: parseDate(sp.date_to, true),
-      actorUserId: sp.actor || undefined,
-      clubId: sp.club_id || undefined,
-      action: sp.action || undefined,
-      resourceType: sp.resource_type || undefined,
-      page: parseIntParam(sp.page) ?? 1,
-    }),
-    getAuditFilterOptions(ctx),
-    listClubOptions(ctx),
+    isMaster
+      ? getMasterAuditLogs(ctx, { ...common, clubId: sp.club_id || undefined })
+      : listClubAuditLog(ctx, clubId, common),
+    isMaster ? getAuditFilterOptions(ctx) : getClubAuditFilterOptions(ctx, clubId),
+    isMaster ? listClubOptions(ctx) : Promise.resolve([]),
   ]);
 
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHeader title="Audit Logs" description="System-wide record of sensitive actions." />
+      <PageHeader
+        title={isMaster ? "Audit Logs" : "Audit Log"}
+        description={
+          isMaster
+            ? "System-wide record of sensitive actions."
+            : "Record of sensitive actions in your club. Entries are permanent and include a snapshot of deleted records."
+        }
+      />
 
       <div className="mt-6">
         <FilterBar>
@@ -64,13 +90,15 @@ export default async function AuditLogsPage({
             allLabel="All actors"
             options={options.actors.map((a) => ({ value: a.id, label: a.name }))}
           />
-          <FilterSelect
-            name="club_id"
-            label="Club"
-            defaultValue={sp.club_id}
-            allLabel="All clubs"
-            options={clubOptions.map((c) => ({ value: c.id, label: c.name }))}
-          />
+          {isMaster ? (
+            <FilterSelect
+              name="club_id"
+              label="Club"
+              defaultValue={sp.club_id}
+              allLabel="All clubs"
+              options={clubOptions.map((c) => ({ value: c.id, label: c.name }))}
+            />
+          ) : null}
           <FilterSelect
             name="action"
             label="Action"
@@ -101,7 +129,7 @@ export default async function AuditLogsPage({
             date_from: sp.date_from,
             date_to: sp.date_to,
             actor: sp.actor,
-            club_id: sp.club_id,
+            club_id: isMaster ? sp.club_id : undefined,
             action: sp.action,
             resource_type: sp.resource_type,
           }}

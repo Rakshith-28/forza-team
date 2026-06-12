@@ -117,6 +117,36 @@ export async function listPlayers(
   });
 }
 
+/**
+ * The club's teamless pool: players with ZERO active team memberships. Used by
+ * the Club Admin "Unassigned / No team" section and the coach add-player picker
+ * (deletion-spec §5 — team deletion detaches players into this pool). Returns the
+ * PLAYER-SAFE projection (no DOB/medical/contact PII), so it is safe for a coach
+ * recruiting from outside their own team. Gated by `players.create` (the
+ * capability to add a player to a team — MASTER_ADMIN/CLUB_ADMIN/COACH) so a
+ * PLAYER account can never enumerate the pool.
+ */
+export async function listTeamlessPlayers(ctx: AuthContext, clubId: string): Promise<SafePlayer[]> {
+  assertCan(ctx, "players.create", { clubId });
+  assertClubScope(ctx, clubId);
+
+  const players = await prisma.player.findMany({
+    where: { clubId, deletedAt: null, teamMemberships: { none: { status: "ACTIVE" } } },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      preferredName: true,
+      jerseyNumber: true,
+      primaryPosition: true,
+      photoUrl: true,
+    },
+  });
+  // Safe projection (photos withheld — staff don't need them to assign a team).
+  return playerSafeRoster(players);
+}
+
 /** Full player record + memberships + account links. Admin / assigned coach only. */
 export async function getPlayer(ctx: AuthContext, playerId: string) {
   const player = await prisma.player.findFirst({
@@ -232,24 +262,114 @@ export async function updatePlayer(ctx: AuthContext, playerId: string, input: Up
   });
 }
 
-export async function archivePlayer(ctx: AuthContext, playerId: string) {
-  const player = await prisma.player.findFirst({ where: { id: playerId, deletedAt: null } });
+/**
+ * HARD, permanent deletion of a player and every dependent row, in ONE
+ * transaction (deletion-spec §2). Gated by `player.delete` (CLUB_ADMIN only —
+ * Master Admin holds no delete permission) + `assertClubScope`. There is no
+ * soft-delete/restore: the audit snapshot in `metadata.snapshot` is the only
+ * record afterward.
+ *
+ * FK cleanup order (RESTRICT by default, so children go first). Three children
+ * are DB-cascaded from their parents and need no explicit delete:
+ * `player_evaluation_scores` (← player_evaluations), `development_goal_updates`
+ * (← development_goals), `registration_answers` (← registration_submissions).
+ * `invoices.player_id` is SET NULL (financial record survives, detached).
+ *
+ * 1 → 0 rule: when a linked PlayerAccount is left with zero active child links,
+ * its spent PLAYER role assignment + the account are deactivated; and when the
+ * underlying login then has zero active roles of ANY kind, its sessions are
+ * deleted (emergent zero-roles ⇒ /no-access shows "not part of any teams").
+ */
+export async function deletePlayer(ctx: AuthContext, playerId: string): Promise<void> {
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: {
+      id: true,
+      clubId: true,
+      firstName: true,
+      lastName: true,
+      preferredName: true,
+      jerseyNumber: true,
+      teamMemberships: { where: { status: "ACTIVE" }, select: { team: { select: { name: true } } } },
+      accountLinks: {
+        where: { status: "ACTIVE" },
+        select: { playerAccount: { select: { id: true, userId: true, clubId: true, email: true } } },
+      },
+    },
+  });
   if (!player) throw new ForbiddenError("Player not found");
-  assertCan(ctx, "players.edit_full", { clubId: player.clubId, playerId });
+  assertCan(ctx, "player.delete", { clubId: player.clubId });
+  assertClubScope(ctx, player.clubId);
 
-  return prisma.$transaction(async (tx) => {
-    const archived = await tx.player.update({
-      where: { id: playerId },
-      data: { status: "ARCHIVED", deletedAt: new Date(), deletedBy: ctx.userId, updatedAt: new Date(), updatedBy: ctx.userId },
-    });
+  // Denormalized snapshot — the player row won't exist to join against afterward.
+  const snapshot = {
+    playerId: player.id,
+    name: `${player.preferredName?.trim() || player.firstName} ${player.lastName}`.trim(),
+    jerseyNumber: player.jerseyNumber,
+    teams: player.teamMemberships.map((m) => m.team.name),
+    playerAccountEmails: [...new Set(player.accountLinks.map((l) => l.playerAccount.email))],
+  };
+  // Unique affected accounts (a player may be linked to multiple guardians' logins).
+  const affectedAccounts = [
+    ...new Map(player.accountLinks.map((l) => [l.playerAccount.id, l.playerAccount])).values(),
+  ];
+
+  await prisma.$transaction(async (tx) => {
+    // Children first (RESTRICT). Cascading children handled by the DB.
+    await tx.eventRsvp.deleteMany({ where: { playerId } });
+    await tx.attendanceRecord.deleteMany({ where: { playerId } });
+    await tx.playerRemark.deleteMany({ where: { playerId } });
+    await tx.waiverAcceptance.deleteMany({ where: { playerId } });
+    await tx.registrationSubmission.deleteMany({ where: { playerId } }); // → registration_answers cascade
+    await tx.developmentGoal.deleteMany({ where: { playerId } }); // → development_goal_updates cascade
+    await tx.playerEvaluation.deleteMany({ where: { playerId } }); // → player_evaluation_scores cascade
+    // Player-scoped files: drop attachment joins first (RESTRICT), then the files.
+    await tx.messageAttachment.deleteMany({ where: { file: { playerId } } });
+    await tx.eventAttachment.deleteMany({ where: { file: { playerId } } });
+    await tx.file.deleteMany({ where: { playerId } });
+    // Financial records survive, detached.
+    await tx.invoice.updateMany({ where: { playerId }, data: { playerId: null } });
+    // The account links (guardianship), then memberships, then the player itself.
+    await tx.playerAccountLink.deleteMany({ where: { playerId } });
+    await tx.playerTeamMembership.deleteMany({ where: { playerId } });
+    await tx.player.delete({ where: { id: playerId } });
+
+    // 1 → 0 rule.
+    const affectedUserIds = new Set<string>();
+    for (const acct of affectedAccounts) {
+      affectedUserIds.add(acct.userId);
+      const remaining = await tx.playerAccountLink.count({
+        where: { playerAccountId: acct.id, status: "ACTIVE" },
+      });
+      if (remaining === 0) {
+        // Spent PLAYER role: deactivate the account + its PLAYER assignment in this club,
+        // so the login no longer resolves to a childless player context.
+        await tx.playerAccount.update({ where: { id: acct.id }, data: { status: "INACTIVE" } });
+        await tx.userRoleAssignment.updateMany({
+          where: { userId: acct.userId, clubId: acct.clubId, status: "ACTIVE", role: { code: "PLAYER" } },
+          data: { status: "INACTIVE" },
+        });
+      }
+    }
+    // Kill sessions for any login left with zero active roles of ANY kind.
+    for (const userId of affectedUserIds) {
+      const [assignments, coachRoles] = await Promise.all([
+        tx.userRoleAssignment.count({ where: { userId, status: "ACTIVE" } }),
+        tx.teamCoach.count({ where: { userId, status: "ACTIVE" } }),
+      ]);
+      if (assignments + coachRoles === 0) {
+        await tx.session.deleteMany({ where: { userId } });
+      }
+    }
+
     await recordAudit(tx, {
-      action: "player.archive",
+      action: "player.delete",
       resourceType: "player",
       resourceId: playerId,
       clubId: player.clubId,
       actorUserId: ctx.userId,
+      metadata: { snapshot },
     });
-    return archived;
   });
 }
 

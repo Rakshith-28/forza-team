@@ -379,24 +379,126 @@ export async function updateTeam(ctx: AuthContext, teamId: string, input: Update
   }
 }
 
-export async function archiveTeam(ctx: AuthContext, teamId: string) {
-  const team = await prisma.team.findFirst({ where: { id: teamId, deletedAt: null } });
+/**
+ * HARD, permanent team deletion in ONE transaction (deletion-spec §4). Gated by
+ * `team.delete` (CLUB_ADMIN only) + `assertClubScope`. DETACH-ONLY for people:
+ * players and coaches are removed from THIS team but their records survive (a
+ * player on no other team becomes teamless; a coach on no other team becomes
+ * unassigned). Team-OWNED data is deleted.
+ *
+ * Multi-target survival guards (FK-corrections A & B):
+ *  - Events: detach this team's `event_teams`; delete an event ONLY if it was
+ *    team-scoped (`audienceScope = "TEAMS"`) and now has zero remaining team
+ *    targets. CLUB_WIDE and still-multi-team events survive (their deprecated
+ *    `events.team_id` pointer to this team is nulled).
+ *  - Announcements: team-exclusive announcements (single `team_id`) are deleted;
+ *    club-wide announcements (`team_id` null) are untouched.
+ *
+ * Snapshot records the team + how many players/coaches were detached.
+ */
+export async function deleteTeam(ctx: AuthContext, teamId: string): Promise<void> {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { id: true, clubId: true, name: true, teamCode: true },
+  });
   if (!team) throw new ForbiddenError("Team not found");
-  assertCan(ctx, "teams.manage", { clubId: team.clubId, teamId });
+  assertCan(ctx, "team.delete", { clubId: team.clubId });
+  assertClubScope(ctx, team.clubId);
 
-  return prisma.$transaction(async (tx) => {
-    const archived = await tx.team.update({
-      where: { id: teamId },
-      data: { status: "ARCHIVED", deletedAt: new Date(), deletedBy: ctx.userId, updatedAt: new Date(), updatedBy: ctx.userId },
-    });
+  const [playersDetached, activeCoaches] = await Promise.all([
+    prisma.playerTeamMembership.count({ where: { teamId, status: "ACTIVE" } }),
+    prisma.teamCoach.findMany({
+      where: { teamId, status: "ACTIVE" },
+      select: {
+        userId: true,
+        roleType: true,
+        user: { select: { name: true, firstName: true, lastName: true, email: true } },
+      },
+    }),
+  ]);
+  // Coach-attributable history: the snapshot preserves who coached this team so a
+  // coach's "(team deleted)" past assignments stay recoverable from the audit log.
+  const affectedCoaches = activeCoaches.map((c) => ({
+    userId: c.userId,
+    name: c.user.name?.trim() || `${c.user.firstName} ${c.user.lastName}`.trim() || c.user.email,
+    roleType: c.roleType,
+    teamId: team.id,
+    teamName: team.name,
+  }));
+  const snapshot = {
+    teamId: team.id,
+    name: team.name,
+    teamCode: team.teamCode,
+    playersDetached,
+    coachesUnassigned: affectedCoaches.length,
+    affectedCoaches,
+  };
+
+  await prisma.$transaction(async (tx) => {
+    // ---- Events: detach this team, then delete only team-orphaned events ----
+    const affected = await tx.eventTeam.findMany({ where: { teamId }, select: { eventId: true } });
+    const affectedEventIds = [...new Set(affected.map((e) => e.eventId))];
+    await tx.eventTeam.deleteMany({ where: { teamId } });
+    if (affectedEventIds.length) {
+      // Team-scoped events with no remaining team target are now orphaned.
+      const orphans = await tx.event.findMany({
+        where: { id: { in: affectedEventIds }, audienceScope: "TEAMS", eventTeams: { none: {} } },
+        select: { id: true },
+      });
+      const orphanIds = orphans.map((o) => o.id);
+      if (orphanIds.length) {
+        await tx.eventRsvp.deleteMany({ where: { eventId: { in: orphanIds } } });
+        await tx.attendanceRecord.deleteMany({ where: { eventId: { in: orphanIds } } });
+        await tx.eventAttachment.deleteMany({ where: { eventId: { in: orphanIds } } });
+        await tx.event.deleteMany({ where: { id: { in: orphanIds } } });
+      }
+    }
+    // Surviving events that still carry the deprecated team_id pointer → null it.
+    await tx.event.updateMany({ where: { teamId }, data: { teamId: null } });
+
+    // ---- Team-exclusive announcements (reads cascade) ----
+    await tx.announcement.deleteMany({ where: { teamId } });
+
+    // ---- Team chat + its messages/members/attachments ----
+    const chats = await tx.chat.findMany({ where: { teamId }, select: { id: true } });
+    const chatIds = chats.map((c) => c.id);
+    if (chatIds.length) {
+      await tx.messageAttachment.deleteMany({ where: { message: { chatId: { in: chatIds } } } });
+      await tx.message.deleteMany({ where: { chatId: { in: chatIds } } });
+      await tx.chatMember.deleteMany({ where: { chatId: { in: chatIds } } });
+      await tx.chat.deleteMany({ where: { id: { in: chatIds } } });
+    }
+
+    // ---- Team-scoped evaluations + cycles (scores cascade) ----
+    await tx.playerEvaluation.deleteMany({ where: { teamId } });
+    await tx.evaluationCycle.deleteMany({ where: { teamId } });
+
+    // ---- Development goals: the goal belongs to the surviving player → detach ----
+    await tx.developmentGoal.updateMany({ where: { teamId }, data: { teamId: null } });
+
+    // ---- Team-scoped files → detach (blobs survive; out of scope) ----
+    await tx.file.updateMany({ where: { teamId }, data: { teamId: null } });
+
+    // ---- Detach people (records survive) ----
+    await tx.playerTeamMembership.deleteMany({ where: { teamId } });
+    await tx.teamCoach.deleteMany({ where: { teamId } });
+    // Team-scoped COACH role rows are deleted (NOT nulled — nulling would widen
+    // a team coach to club-wide). Club-level assignments are untouched.
+    await tx.userRoleAssignment.deleteMany({ where: { teamId } });
+    // Pending invites scoped to this team lose their team target (FK).
+    await tx.invitation.updateMany({ where: { teamId }, data: { teamId: null } });
+
+    // ---- The team itself ----
+    await tx.team.delete({ where: { id: teamId } });
+
     await recordAudit(tx, {
-      action: "team.archive",
+      action: "team.delete",
       resourceType: "team",
       resourceId: teamId,
       clubId: team.clubId,
       actorUserId: ctx.userId,
+      metadata: { snapshot },
     });
-    return archived;
   });
 }
 
@@ -476,9 +578,11 @@ export async function removeCoach(ctx: AuthContext, teamId: string, userId: stri
   assertCan(ctx, "teams.manage", { clubId: team.clubId, teamId });
 
   return prisma.$transaction(async (tx) => {
+    // Preserve the assignment as history: mark it ENDED with a timestamp rather
+    // than deleting it (so the coach profile can show past teams).
     const removed = await tx.teamCoach.update({
       where: { teamId_userId: { teamId, userId } },
-      data: { status: "INACTIVE" },
+      data: { status: "ENDED", endedAt: new Date() },
     });
     await recordAudit(tx, {
       action: "coach.remove",

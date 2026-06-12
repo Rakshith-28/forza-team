@@ -2,7 +2,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FilterBar, FilterSelect, FilterText, PageHeader, Pagination, TwoPane } from "@/components/console";
+import Link from "next/link";
+
+import { AddModal, FilterBar, FilterSelect, FilterText, PageHeader, Pagination } from "@/components/console";
 import { requireRole } from "@/lib/auth-guards";
 import { listTeams } from "@/modules/clubs/service";
 import { COACH_ROLE_LABELS, COACH_ROLE_TYPES } from "@/modules/clubs/schemas";
@@ -134,12 +136,21 @@ export default async function CoachesPage({
   const teamOptions = teams.filter((t) => t.status !== "ARCHIVED").map((t) => ({ id: t.id, name: t.name }));
 
   return (
-    <TwoPane
-      title="Coaches"
-      description="Invite coaches and assign them to teams."
-      formTitle="Invite a coach"
-      form={<InviteCoachForm teams={teamOptions} />}
-    >
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="Coaches"
+        description="Invite coaches and assign them to teams."
+        actions={
+          <AddModal
+            label="Add Coach"
+            title="Invite a coach"
+            description="Invite a coach by email; the role and any initial team apply on acceptance."
+          >
+            <InviteCoachForm teams={teamOptions} />
+          </AddModal>
+        }
+      />
+      <div className="mt-6 flex flex-col gap-4">
       {/* Filters */}
       <form className="flex flex-wrap items-end gap-3" method="get">
         <div className="flex flex-1 flex-col gap-1.5">
@@ -186,21 +197,37 @@ export default async function CoachesPage({
           </ScrollPanel>
         </div>
       )}
-    </TwoPane>
+      </div>
+    </div>
   );
 }
 
-function CoachCard({ coach, teamOptions }: { coach: CoachRow; teamOptions: { id: string; name: string }[] }) {
+function CoachCard({
+  coach,
+  teamOptions,
+}: {
+  coach: CoachRow;
+  teamOptions: { id: string; name: string }[];
+}) {
   return (
     <div className="rounded-lg border bg-card p-4">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-full bg-secondary text-sm font-bold text-secondary-foreground">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-bold text-secondary-foreground">
             {initial(coach.name, coach.email)}
           </span>
-          <div>
-            <p className="font-sport text-base font-bold text-foreground">{coach.name}</p>
-            <p className="text-sm text-muted-foreground">{coach.email}</p>
+          <div className="min-w-0">
+            {coach.kind === "USER" ? (
+              <Link
+                href={`/coaches/${coach.id}`}
+                className="font-sport text-base font-bold text-foreground underline-offset-4 hover:text-primary hover:underline"
+              >
+                {coach.name}
+              </Link>
+            ) : (
+              <p className="font-sport text-base font-bold text-foreground">{coach.name}</p>
+            )}
+            <p className="truncate text-sm text-muted-foreground">{coach.email}</p>
             {coach.lastLoginAt ? (
               <p className="text-xs text-muted-foreground">Last login {coach.lastLoginAt.toISOString().slice(0, 10)}</p>
             ) : null}
@@ -233,8 +260,14 @@ function CoachCard({ coach, teamOptions }: { coach: CoachRow; teamOptions: { id:
       </div>
 
       {coach.kind === "USER" ? (
-        <div className="mt-3 border-t pt-3">
+        <div className="mt-3 flex flex-col gap-3 border-t pt-3">
           <AssignCoachForm userId={coach.id} teams={teamOptions} />
+          <Link
+            href={`/coaches/${coach.id}`}
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            View profile →
+          </Link>
         </div>
       ) : (
         <div className="mt-3 flex items-center gap-2 border-t pt-3">
