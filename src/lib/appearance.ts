@@ -1,7 +1,7 @@
 /**
- * Player/parent appearance themes (client-safe — no server-only imports).
+ * Player appearance themes (client-safe — no server-only imports).
  *
- * The Console (admin/coach) has no theme switcher. Only the player/parent
+ * The Console (admin/coach) has no theme switcher. Only the player
  * surface is themed, via `data-theme` on its app-shell root. New users default
  * to Classic (the official, restrained look).
  */

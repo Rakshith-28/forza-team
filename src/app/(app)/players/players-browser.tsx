@@ -30,7 +30,7 @@ export interface PlayerListItem {
   jerseyNumber: string | null;
   primaryPosition: string | null;
   teamNames: string[];
-  parentCount: number;
+  playerCount: number;
   status: string;
   /** ISO date string, or null when unknown. */
   dateOfBirth: string | null;
@@ -175,7 +175,7 @@ export function PlayersBrowser({
                         </span>
                       ) : null}
                       <span className="hidden text-xs text-muted-foreground sm:inline">
-                        {p.parentCount} {p.parentCount === 1 ? "parent" : "parents"}
+                        {p.playerCount} {p.playerCount === 1 ? "player" : "players"}
                       </span>
                       <StatusBadge status={p.status} />
                     </div>

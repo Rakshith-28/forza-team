@@ -17,10 +17,10 @@ function fmt(d: Date | string | null): string {
 /**
  * Navbar announcements bell — combined unread (platform + club) badge with a
  * lazy-loaded dropdown. Opening an item marks it read; club items deep-link to
- * the announcements page. Works in any shell (console + parent).
+ * the announcements page. Works in any shell (console + player).
  *
  * `variant` controls only the trigger's appearance: `"icon"` (default) is the
- * compact header button; `"tab"` matches the parent app's nav buttons (stacked
+ * compact header button; `"tab"` matches the player app's nav buttons (stacked
  * icon + label) so the bell can dock in a desktop side rail. The dropdown and
  * click behavior are identical for both.
  */

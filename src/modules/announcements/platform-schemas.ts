@@ -21,7 +21,7 @@ export const ANNOUNCEMENT_STATUSES = ["DRAFT", "SCHEDULED", "PUBLISHED", "ARCHIV
 export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
 
 // Roles that can be targeted (Master Admin is the publisher, never a recipient).
-export const AUDIENCE_ROLE_CODES = ["CLUB_ADMIN", "COACH", "PARENT"] as const;
+export const AUDIENCE_ROLE_CODES = ["CLUB_ADMIN", "COACH", "PLAYER"] as const;
 export type AudienceRoleCode = (typeof AUDIENCE_ROLE_CODES)[number];
 
 const announcementShape = {

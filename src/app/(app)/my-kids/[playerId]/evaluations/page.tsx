@@ -4,17 +4,17 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth-guards";
 import { getOwnChild } from "@/modules/roster/service";
-import { getOwnChildEvaluationSummary, parentEvaluationViewEnabled } from "@/modules/evaluations/service";
+import { getOwnChildEvaluationSummary, playerEvaluationViewEnabled } from "@/modules/evaluations/service";
 
 export default async function ChildEvaluationsPage({ params }: { params: Promise<{ playerId: string }> }) {
   const { playerId } = await params;
-  const ctx = await requireRole("PARENT");
+  const ctx = await requireRole("PLAYER");
 
-  // Validates that this is the parent's own linked child.
+  // Validates that this is the player account's own linked child.
   const child = await getOwnChild(ctx, playerId);
   if (!child) notFound();
 
-  const enabled = ctx.activeClubId ? await parentEvaluationViewEnabled(ctx.activeClubId) : false;
+  const enabled = ctx.activeClubId ? await playerEvaluationViewEnabled(ctx.activeClubId) : false;
   const summaries = enabled ? await getOwnChildEvaluationSummary(ctx, playerId) : [];
 
   return (
@@ -27,7 +27,7 @@ export default async function ChildEvaluationsPage({ params }: { params: Promise
 
       {!enabled ? (
         <p className="mt-6 rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-          Your club hasn&apos;t enabled sharing player evaluations with parents.
+          Your club hasn&apos;t enabled sharing player evaluations with players.
         </p>
       ) : summaries.length === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
@@ -52,10 +52,10 @@ export default async function ChildEvaluationsPage({ params }: { params: Promise
                     <p className="whitespace-pre-wrap text-foreground">{s.summaryComment}</p>
                   </div>
                 ) : null}
-                {s.parentVisibleNotes ? (
+                {s.playerVisibleNotes ? (
                   <div>
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Notes</p>
-                    <p className="whitespace-pre-wrap text-foreground">{s.parentVisibleNotes}</p>
+                    <p className="whitespace-pre-wrap text-foreground">{s.playerVisibleNotes}</p>
                   </div>
                 ) : null}
               </CardContent>

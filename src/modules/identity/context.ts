@@ -8,7 +8,7 @@ import type { AuthContext } from "@/lib/rbac/scope";
 
 /**
  * Builds the request's {@link AuthContext} from our own authorization tables
- * (`user_role_assignments`, `team_coaches`, `parents`/`player_parent_links`,
+ * (`user_role_assignments`, `team_coaches`, `player_accounts`/`player_account_links`,
  * `player_team_memberships`). This is the bridge between Better Auth (identity)
  * and our RBAC engine (authorization). The pure scope rules live in
  * src/lib/rbac/scope.ts and are tested without a database.
@@ -49,7 +49,7 @@ export const loadAuthContext = cache(async (
 
   // Master Admin is system-scoped and short-circuits the club resolution —
   // unless the caller explicitly switched to a different (club-scoped) identity
-  // they also hold (e.g. a master admin who is also a parent), in which case we
+  // they also hold (e.g. a master admin who is also a player), in which case we
   // fall through and resolve that club role below.
   const hasMaster = assignments.some((a) => a.role.code === "MASTER_ADMIN");
   if (hasMaster && (preferredRole == null || preferredRole === "MASTER_ADMIN")) {
@@ -74,27 +74,27 @@ export const loadAuthContext = cache(async (
   const role = pickActiveRole(rolesInClub, preferredRole);
 
   // COACH scope: assigned teams = team_coaches OR a scoped role assignment
-  // (matrix §11). PARENT scope: linked children + their teams. The coach-side
-  // and parent-side lookups are independent of each other, so resolve them
+  // (matrix §11). PLAYER scope: linked children + their teams. The coach-side
+  // and account-side lookups are independent of each other, so resolve them
   // concurrently — on Vercel each query is a separate Neon round-trip, and
   // running them serially was the bulk of the context-load latency.
   const assignmentTeamIds = assignments
     .filter((a) => a.role.code === "COACH" && a.clubId === activeClubId && a.teamId != null)
     .map((a) => a.teamId as string);
 
-  const [coachTeams, parentRows] = await Promise.all([
+  const [coachTeams, playerAccountRows] = await Promise.all([
     prisma.teamCoach.findMany({
       where: { userId, clubId: activeClubId, status: "ACTIVE" },
       select: { teamId: true },
     }),
-    prisma.parent.findMany({
+    prisma.playerAccount.findMany({
       where: { userId, clubId: activeClubId, status: "ACTIVE" },
       select: { id: true },
     }),
   ]);
 
   const coachTeamIds = unique([...coachTeams.map((t) => t.teamId), ...assignmentTeamIds]);
-  const parentIds = parentRows.map((p) => p.id);
+  const playerAccountIds = playerAccountRows.map((p) => p.id);
 
   // Second wave: coached-team players and linked players are likewise
   // independent — fetch both at once.
@@ -104,9 +104,9 @@ export const loadAuthContext = cache(async (
           .findMany({ where: { teamId: { in: coachTeamIds }, status: "ACTIVE" }, select: { playerId: true } })
           .then((rows) => unique(rows.map((m) => m.playerId)))
       : Promise.resolve<string[]>([]),
-    parentIds.length
-      ? prisma.playerParentLink
-          .findMany({ where: { parentId: { in: parentIds }, status: "ACTIVE" }, select: { playerId: true } })
+    playerAccountIds.length
+      ? prisma.playerAccountLink
+          .findMany({ where: { playerAccountId: { in: playerAccountIds }, status: "ACTIVE" }, select: { playerId: true } })
           .then((rows) => unique(rows.map((l) => l.playerId)))
       : Promise.resolve<string[]>([]),
   ]);

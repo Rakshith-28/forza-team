@@ -2,7 +2,7 @@ import { Bell, CalendarDays, Home, MessageCircle, NotebookText, User, Users } fr
 import type { LucideIcon } from "lucide-react";
 
 /**
- * Single source of truth for the player/parent app navigation. Both the mobile
+ * Single source of truth for the player app navigation. Both the mobile
  * floating bottom tab bar and the desktop side rails render from this array so
  * the two layouts can never drift. `kind: "notifications"` is the announcements
  * bell (no route of its own); every other item is a route link.
@@ -11,7 +11,7 @@ import type { LucideIcon } from "lucide-react";
  * LEFT = Home / Squad / Play, RIGHT = Chat / Notifications / Me. The mobile
  * bottom bar shows the five route links only (the bell lives in the header).
  */
-export type ParentNavItem = {
+export type PlayerNavItem = {
   id: string;
   label: string;
   icon: LucideIcon;
@@ -22,8 +22,8 @@ export type ParentNavItem = {
   railOnly?: boolean;
 };
 
-export const PARENT_NAV_ITEMS: ParentNavItem[] = [
-  { id: "home", label: "Home", icon: Home, kind: "link", href: "/dashboard/parent" },
+export const PLAYER_NAV_ITEMS: PlayerNavItem[] = [
+  { id: "home", label: "Home", icon: Home, kind: "link", href: "/dashboard/player" },
   { id: "squad", label: "Squad", icon: Users, kind: "link", href: "/squad" },
   { id: "play", label: "Play", icon: CalendarDays, kind: "link", href: "/schedule" },
   { id: "chat", label: "Chat", icon: MessageCircle, kind: "link", href: "/chat" },
@@ -33,8 +33,8 @@ export const PARENT_NAV_ITEMS: ParentNavItem[] = [
 ];
 
 /** Route links for the mobile bottom tab bar (bell + rail-only items excluded). */
-export const PARENT_NAV_TABS = PARENT_NAV_ITEMS.filter(
-  (item): item is ParentNavItem & { href: string } => item.kind === "link" && !item.railOnly,
+export const PLAYER_NAV_TABS = PLAYER_NAV_ITEMS.filter(
+  (item): item is PlayerNavItem & { href: string } => item.kind === "link" && !item.railOnly,
 );
 
 /** Shared button geometry/typography for both the bottom bar and the rails. */
@@ -44,6 +44,6 @@ export const NAV_BUTTON_ACTIVE = "bg-primary text-primary-foreground";
 export const NAV_BUTTON_INACTIVE = "text-muted-foreground hover:text-foreground";
 
 export function isNavItemActive(pathname: string, href: string): boolean {
-  if (href === "/dashboard/parent") return pathname === "/dashboard/parent";
+  if (href === "/dashboard/player") return pathname === "/dashboard/player";
   return pathname === href || pathname.startsWith(`${href}/`);
 }

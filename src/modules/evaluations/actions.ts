@@ -168,7 +168,7 @@ export async function savePlayerEvaluationAction(_prev: FormState, fd: FormData)
     scores,
     summaryComment: optStr(fd, "summaryComment"),
     coachOnlyNotes: optStr(fd, "coachOnlyNotes"),
-    parentVisibleNotes: optStr(fd, "parentVisibleNotes"),
+    playerVisibleNotes: optStr(fd, "playerVisibleNotes"),
   });
   if (!parsed.success) return failZod(parsed.error);
   try {

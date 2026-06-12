@@ -46,11 +46,11 @@ function ctx(overrides: Partial<AuthContext>): AuthContext {
 
 const clubAdmin = ctx({ role: "CLUB_ADMIN" });
 const coach = ctx({ role: "COACH", coachTeamIds: ["t1"] });
-const parent = ctx({ role: "PARENT", linkedPlayerIds: ["kid"] });
+const player = ctx({ role: "PLAYER", linkedPlayerIds: ["kid"] });
 const nonMasters = [
   ["club admin", clubAdmin],
   ["coach", coach],
-  ["parent", parent],
+  ["player", player],
 ] as const;
 
 const SETTINGS_INPUT = {
@@ -106,7 +106,7 @@ describe("CLUB_ADMIN acceptance grants", () => {
     // user_role_assignment and applies these (empty) grants.
     expect(
       planInvitationGrants({ roleCode: "CLUB_ADMIN", clubId: "club-a", teamId: null, teamRoleType: null, linkMetadata: null }),
-    ).toEqual({ teamCoachRoleType: null, parentLink: null });
+    ).toEqual({ teamCoachRoleType: null, playerLink: null });
   });
 });
 

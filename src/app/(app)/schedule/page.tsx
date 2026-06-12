@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { ParentSchedule, type ParentChildRsvp } from "@/components/schedule/parent-schedule";
+import { PlayerSchedule, type PlayerChildRsvp } from "@/components/schedule/player-schedule";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { requireAuthContext } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
-import { getClubTimezone, listParentSchedule, listScheduleEvents } from "@/modules/events/service";
+import { getClubTimezone, listPlayerSchedule, listScheduleEvents } from "@/modules/events/service";
 import { scheduleWindow } from "@/modules/events/schedule-window";
 
 export default async function SchedulePage() {
@@ -21,8 +21,8 @@ export default async function SchedulePage() {
 
   const clubId = ctx.activeClubId;
 
-  // ---- Parent / player: themed calendar + per-child RSVP rail ----
-  if (ctx.role === "PARENT") {
+  // ---- Player: themed calendar + per-child RSVP rail ----
+  if (ctx.role === "PLAYER") {
     if (ctx.linkedPlayerIds.length === 0) {
       return (
         <div>
@@ -38,10 +38,10 @@ export default async function SchedulePage() {
     const { todayKey, month, from, to } = scheduleWindow(new Date(), tz);
     const [events, schedule] = await Promise.all([
       listScheduleEvents({ actor: ctx, from, to }),
-      listParentSchedule(ctx),
+      listPlayerSchedule(ctx),
     ]);
-    // Map each event → this parent's participating children + their RSVP.
-    const childrenByEvent: Record<string, ParentChildRsvp[]> = {};
+    // Map each event → this player's participating children + their RSVP.
+    const childrenByEvent: Record<string, PlayerChildRsvp[]> = {};
     for (const s of schedule) childrenByEvent[s.event.id] = s.children;
 
     return (
@@ -49,7 +49,7 @@ export default async function SchedulePage() {
         <h1 className="font-display text-2xl uppercase tracking-tight text-foreground">Schedule</h1>
         <p className="mt-1 text-sm text-muted-foreground">Events across all your children, with RSVP.</p>
         <div className="mt-6">
-          <ParentSchedule
+          <PlayerSchedule
             events={events}
             childrenByEvent={childrenByEvent}
             today={todayKey}

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * Presentational widgets for the player/parent home (bento tiles, collectible
+ * Presentational widgets for the player home (bento tiles, collectible
  * card, attendance ring, XP bar, stories strip). All styling is token-driven via
  * `.app-card` / `.app-pill` and the `--pop-*` palette, so Vibrant (thick ink
  * borders, hard shadows, rainbow) and Classic (hairline, soft, green-led) render

@@ -11,7 +11,7 @@ import { listUserIdentities } from "@/modules/identity/identities";
 
 /**
  * Switch the caller to one of the identities they hold (a "Coach · <team>",
- * "Parent · <child>", etc. entry from the login popup / top-bar switcher).
+ * "Player · <child>", etc. entry from the login popup / top-bar switcher).
  *
  * Authoritative guard: the chosen key must be present in the user's freshly
  * derived identity list. This can never escalate privileges — it only changes

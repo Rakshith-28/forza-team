@@ -8,15 +8,15 @@ import type { Identity } from "@/modules/identity/identities";
 
 import { BottomTabBar } from "./bottom-tab-bar";
 import { SideRails } from "./side-rails";
-import { ParentThemeProvider } from "./theme-provider";
+import { PlayerThemeProvider } from "./theme-provider";
 
 /**
- * The player/parent mobile app shell: a themed full-bleed surface with a slim
+ * The player mobile app shell: a themed full-bleed surface with a slim
  * top wordmark, a centered mobile content column, and the floating bottom tab
- * bar. Rendered ONLY for the PARENT role (see (app)/layout.tsx) — admins/coaches
+ * bar. Rendered ONLY for the PLAYER role (see (app)/layout.tsx) — admins/coaches
  * keep the Console shell, untouched.
  */
-export function ParentAppShell({
+export function PlayerAppShell({
   theme,
   initial,
   name,
@@ -36,9 +36,9 @@ export function ParentAppShell({
   children: React.ReactNode;
 }) {
   return (
-    <ParentThemeProvider initialTheme={theme}>
+    <PlayerThemeProvider initialTheme={theme}>
       <header className="app-card sticky top-2 z-30 mx-3 mt-2 flex h-14 items-center justify-between gap-2 px-4">
-        <Link href="/dashboard/parent" className="font-display text-lg uppercase tracking-tight text-primary">
+        <Link href="/dashboard/player" className="font-display text-lg uppercase tracking-tight text-primary">
           Forza
         </Link>
         <div className="flex items-center gap-2">
@@ -47,7 +47,7 @@ export function ParentAppShell({
             name={name}
             email={email}
             initial={initial}
-            roleLabel="Parent / Guardian"
+            roleLabel="Player"
             profileHref="/me"
             identities={identities}
             current={currentIdentity}
@@ -71,6 +71,6 @@ export function ParentAppShell({
 
       <BottomTabBar />
       <SideRails unreadAnnouncements={unreadAnnouncements} />
-    </ParentThemeProvider>
+    </PlayerThemeProvider>
   );
 }

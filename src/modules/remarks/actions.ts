@@ -18,13 +18,13 @@ function failService(error: unknown): FormState {
   throw error; // unexpected — let the error boundary handle it
 }
 
-/** Coach adds a remark (private unless the "visible to parents" toggle is on). */
+/** Coach adds a remark (private unless the "visible to players" toggle is on). */
 export async function addPlayerRemarkAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { ctx } = await requireUserAndContext();
   const parsed = addRemarkSchema.safeParse({
     playerId: fd.get("playerId"),
     body: fd.get("body"),
-    parentVisible: fd.get("parentVisible") != null,
+    playerVisible: fd.get("playerVisible") != null,
   });
   if (!parsed.success) return failZod(parsed.error);
 
@@ -37,14 +37,14 @@ export async function addPlayerRemarkAction(_prev: FormState, fd: FormData): Pro
   return { ok: true, error: null };
 }
 
-/** Coach toggles an existing remark's parent visibility (shares / hides it). */
+/** Coach toggles an existing remark's player visibility (shares / hides it). */
 export async function setRemarkVisibilityAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { ctx } = await requireUserAndContext();
   const remarkId = typeof fd.get("remarkId") === "string" ? (fd.get("remarkId") as string) : "";
-  const parentVisible = fd.get("parentVisible") != null;
+  const playerVisible = fd.get("playerVisible") != null;
 
   try {
-    await setRemarkVisibility(ctx, remarkId, parentVisible);
+    await setRemarkVisibility(ctx, remarkId, playerVisible);
   } catch (e) {
     return failService(e);
   }

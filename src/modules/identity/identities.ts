@@ -9,12 +9,12 @@ import { isRole, ROLE_LABELS, ROLE_PRIORITY, type Role } from "@/lib/rbac/roles"
  * An **Identity** is one selectable "who am I acting as right now" entry — the
  * unit behind the post-login "Select Role" popup and the top-bar identity
  * switcher. Each is a `(role, club, optional team for a coach, optional child
- * for a parent)` tuple with a stable {@link Identity.key} used in the cookie and
+ * for a player)` tuple with a stable {@link Identity.key} used in the cookie and
  * the switcher form value.
  *
  * Unlike {@link AuthContext} (which is role-wide within the active club), an
- * Identity narrows to a single target so a coach of two teams or a parent of two
- * children gets one entry per team/child — matching how the picker is presented.
+ * Identity narrows to a single target so a coach of two teams or a player with two
+ * linked children gets one entry per team/child — matching how the picker is presented.
  * The team/child only changes which target the UI focuses on; it never widens or
  * narrows authorization, which the service layer still derives from the role.
  */
@@ -26,7 +26,7 @@ export interface Identity {
   clubId: string | null;
   /** COACH: the focused team (null for a coach not yet assigned to any team). */
   teamId: string | null;
-  /** PARENT: the focused child. */
+  /** PLAYER: the focused child. */
   playerId: string | null;
   /** Role display, e.g. "Coach". */
   roleLabel: string;
@@ -84,7 +84,7 @@ function playerName(p: { firstName: string; lastName: string; preferredName: str
  * page that render the switcher.
  */
 export const listUserIdentities = cache(async (userId: string): Promise<Identity[]> => {
-  const [assignments, coachTeams, parents] = await Promise.all([
+  const [assignments, coachTeams, playerAccounts] = await Promise.all([
     prisma.userRoleAssignment.findMany({
       where: { userId, status: "ACTIVE" },
       select: {
@@ -104,7 +104,7 @@ export const listUserIdentities = cache(async (userId: string): Promise<Identity
         club: { select: { name: true } },
       },
     }),
-    prisma.parent.findMany({
+    prisma.playerAccount.findMany({
       where: { userId, status: "ACTIVE" },
       select: {
         clubId: true,
@@ -203,18 +203,18 @@ export const listUserIdentities = cache(async (userId: string): Promise<Identity
     }
   }
 
-  // PARENT — one identity per linked child.
-  for (const parent of parents) {
-    for (const link of parent.playerLinks) {
+  // PLAYER — one identity per linked child.
+  for (const account of playerAccounts) {
+    for (const link of account.playerLinks) {
       push({
-        key: identityKey({ role: "PARENT", clubId: parent.clubId, playerId: link.player.id }),
-        role: "PARENT",
-        clubId: parent.clubId,
+        key: identityKey({ role: "PLAYER", clubId: account.clubId, playerId: link.player.id }),
+        role: "PLAYER",
+        clubId: account.clubId,
         teamId: null,
         playerId: link.player.id,
-        roleLabel: ROLE_LABELS.PARENT,
+        roleLabel: ROLE_LABELS.PLAYER,
         contextLabel: playerName(link.player),
-        clubName: parent.club?.name ?? null,
+        clubName: account.club?.name ?? null,
       });
     }
   }

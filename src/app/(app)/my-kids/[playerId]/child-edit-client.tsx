@@ -19,7 +19,7 @@ export interface ChildEditData {
 }
 
 /**
- * Parent self-service edit — limited to the approved whitelist
+ * Player self-service edit — limited to the approved whitelist
  * (preferred name, photo, emergency contacts, medical/allergy notes). Jersey,
  * positions, status and team/links are deliberately not editable here and are
  * also rejected server-side.

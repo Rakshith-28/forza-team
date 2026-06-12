@@ -5,7 +5,7 @@ This document defines the Role-Based Access Control (RBAC) matrix for the Soccer
 - role permissions by module
 - allowed actions by page and API domain
 - field-level visibility rules
-- scope restrictions by club, team, and linked child
+- scope restrictions by club, team, and linked player profile
 - special rules for sensitive data and AI-generated workflows
 
 This document should be used together with the product requirements, technical architecture, database schema, API contract, and UI/UX page specification.
@@ -18,10 +18,10 @@ The RBAC model currently includes four primary roles:
 1. **Master Admin**
 2. **Club Manager**
 3. **Coach**
-4. **Parent / Guardian**
+4. **Player**
 
 ### Future-Ready Note
-The architecture supports eventual multi-role users (for example, one user acting as both Coach and Parent), but MVP enforcement should assume one active role context at a time.
+The architecture supports eventual multi-role users (for example, one user acting as both Coach and Player), but MVP enforcement should assume one active role context at a time.
 
 ---
 
@@ -49,20 +49,20 @@ Permissions are not determined only by role. Permissions also depend on scope.
 - **System Scope**: all tenants / clubs
 - **Club Scope**: all resources inside one club
 - **Team Scope**: only assigned team(s)
-- **Child Scope**: only linked child(ren)
+- **Profile Scope**: only linked player profile(s)
 
 ### 4.2 Scope Enforcement Rules
 - **Master Admin** = system scope
 - **Club Manager** = one club scope only
 - **Coach** = assigned team scope only
-- **Parent** = linked child scope, plus safe view of related team roster and team content
+- **Player** = linked profile scope, plus safe view of related team roster and team content
 
-### 4.3 Parent Safety Rule
-Parent access must never expose restricted data for other children.
-Parent can only fully access:
-- own linked child profile
+### 4.3 Player Safety Rule
+Player access must never expose restricted data for other players' profiles.
+A player account can only fully access:
+- own linked player profile
 - own invoices / waivers / registrations
-- own child development summary if club enables it
+- own profile development summary if club enables it
 
 ---
 
@@ -79,7 +79,7 @@ Parent can only fully access:
 
 ### Club Manager
 - Full access within own club
-- Can manage teams, players, parents, coaches, schedules, registrations, billing, waivers, evaluations, reports, and club settings
+- Can manage teams, players, player accounts, coaches, schedules, registrations, billing, waivers, evaluations, reports, and club settings
 - Cannot access other clubs
 
 ### Coach
@@ -87,11 +87,11 @@ Parent can only fully access:
 - Can manage team roster, schedule, attendance, messaging, evaluations, development goals, and team documents
 - Cannot manage club-wide billing, settings, or unrelated teams
 
-### Parent
-- Can access all linked children with one login
+### Player
+- Can access all linked player profiles with one login
 - Can view safe roster details for team members
-- Can edit only own child’s approved fields
-- Can RSVP, pay invoices, sign waivers, complete registrations, and view child development if enabled
+- Can edit only own profile’s approved fields
+- Can RSVP, pay invoices, sign waivers, complete registrations, and view profile development if enabled
 - Cannot access restricted data for other players
 
 ---
@@ -104,13 +104,13 @@ Parent can only fully access:
 - Master Admin: View/Edit own profile
 - Club Manager: View/Edit own profile
 - Coach: View/Edit own profile
-- Parent: View/Edit own profile
+- Player: View/Edit own profile
 
 ### Role Switching (future-ready)
 - Master Admin: Allowed
 - Club Manager: Allowed if multiple assignments exist
 - Coach: Allowed if multiple assignments exist
-- Parent: Allowed only if multiple role assignments exist in future
+- Player: Allowed only if multiple role assignments exist in future
 
 ---
 
@@ -120,19 +120,19 @@ Parent can only fully access:
 - Master Admin: View all / Create / Edit / Archive / Suspend
 - Club Manager: No access to clubs list outside own club manager dashboard context
 - Coach: No access
-- Parent: No access
+- Player: No access
 
 ### Club Detail
 - Master Admin: Full view / Edit / Manage
 - Club Manager: View/Edit own club only
 - Coach: View limited own club summary only if surfaced in team context
-- Parent: View limited club info only if surfaced (for example club name/logo/contact)
+- Player: View limited club info only if surfaced (for example club name/logo/contact)
 
 ### Club Settings
 - Master Admin: Manage all clubs
 - Club Manager: Manage own club only
 - Coach: No access
-- Parent: No access
+- Player: No access
 
 ---
 
@@ -142,7 +142,7 @@ Parent can only fully access:
 - Master Admin: View all
 - Club Manager: Create / View / Edit / Archive within own club
 - Coach: View seasons relevant to assigned team(s)
-- Parent: View season label only when attached to team/program context
+- Player: View season label only when attached to team/program context
 
 ---
 
@@ -152,31 +152,31 @@ Parent can only fully access:
 - Master Admin: View all teams
 - Club Manager: Create / View / Edit / Archive own club teams
 - Coach: View assigned teams only
-- Parent: View teams of linked children only
+- Player: View teams of linked children only
 
 ### Team Detail
 - Master Admin: Full view
 - Club Manager: Full view within club
 - Coach: Full operational view for assigned team(s)
-- Parent: View limited team detail for linked child’s team(s)
+- Player: View limited team detail for linked child’s team(s)
 
 ### Create Team
 - Master Admin: Yes
 - Club Manager: Yes (own club)
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Edit Team Metadata
 - Master Admin: Yes
 - Club Manager: Yes (own club)
 - Coach: No by default (optional limited edit if club allows specific fields)
-- Parent: No
+- Player: No
 
 ### Archive Team
 - Master Admin: Yes
 - Club Manager: Yes (own club)
 - Coach: No
-- Parent: No
+- Player: No
 
 ---
 
@@ -186,13 +186,13 @@ Parent can only fully access:
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: View assigned coaches for own team(s)
-- Parent: View coach display info for linked child’s team if allowed
+- Player: View coach display info for linked child’s team if allowed
 
 ### Assign / Remove Coach
 - Master Admin: Yes
 - Club Manager: Yes (own club)
 - Coach: No
-- Parent: No
+- Player: No
 
 ---
 
@@ -202,92 +202,92 @@ Parent can only fully access:
 - Master Admin: View all
 - Club Manager: View all own club
 - Coach: No club-wide page access unless filtered to assigned teams
-- Parent: No club-wide page access
+- Player: No club-wide page access
 
 ### Team Roster List
 - Master Admin: View all
 - Club Manager: View full within club
 - Coach: View full for assigned teams
-- Parent: View limited/safe roster for linked child team(s)
+- Player: View limited/safe roster for linked child team(s)
 
 ### Create Player
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams
-- Parent: No
+- Player: No
 
 ### Edit Player (Full)
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for players on assigned teams
-- Parent: No full edit
+- Player: No full edit
 
 ### Edit Player (Limited Own Child Fields)
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes
-- Parent: Yes, but only for linked child and only approved fields
+- Player: Yes, but only for linked child and only approved fields
 
 ### Archive Player
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Optional if club allows, otherwise No
-- Parent: No
+- Player: No
 
 ### View Player Detail
 - Master Admin: Full
 - Club Manager: Full
 - Coach: Full for assigned-team players
-- Parent: Full approved view for linked child only; limited view or blocked for other children
+- Player: Full approved view for linked child only; limited view or blocked for other children
 
 ---
 
-## 6.7 Parent / Guardian Module
+## 6.7 Player Account Module
 
-### Parent List
+### Player Account List
 - Master Admin: View all
-- Club Manager: View own club parents
-- Coach: View contact summary for parents of assigned team(s) if club policy allows
-- Parent: No general parent list access
+- Club Manager: View own club player accounts
+- Coach: View contact summary for player accounts of assigned team(s) if club policy allows
+- Player: No general player-account list access
 
-### Create / Invite Parent (always child-linked)
-Parent invitations are **always created from a specific player's context** (the
-player's *Guardians* section), never as a standalone parent record. The invite
-carries which child to link; on acceptance the parent account is provisioned and
-the `player_parent_link` is created together. There is intentionally **no
-standalone "invite a parent" action** on the Club Admin Parents page (that page
+### Create / Invite Player Account (always profile-linked)
+Player-account invitations are **always created from a specific player's context** (the
+player's *Guardians* section), never as a standalone account record. The invite
+carries which profile to link; on acceptance the player account is provisioned and
+the `player_account_link` is created together. There is intentionally **no
+standalone "invite" action** on the Club Admin Player Accounts page (that page
 is view + link only).
 - Master Admin: Yes (any player, within scope)
 - Club Manager: Yes (any player in own club, from the player's detail page)
 - Coach: Yes for a player on an assigned team, when the club's
-  `allow_coach_invite_parents` setting is on; otherwise No
-- Parent: No
+  `allow_coach_invite_players` setting is on; otherwise No
+- Player: No
 
 > **Access pattern.** This repo has no committed OpenAPI/REST contract for these
-> flows. Coach and parent invites (and invite acceptance) are implemented as
+> flows. Coach and player-account invites (and invite acceptance) are implemented as
 > **Next.js server actions** (`inviteCoach` / `inviteGuardianAction` →
-> `inviteParentForPlayer`; `acceptInviteAction` → `acceptInvitation`), not public
+> `invitePlayerForProfile`; `acceptInviteAction` → `acceptInvitation`), not public
 > `/api/v1/...` REST endpoints. A REST surface is **TBD** and would only be added
 > when a non-web client (e.g. mobile) needs one.
 
-### Edit Parent Profile
+### Edit Player Account Profile
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No, except possibly limited contact note field if club permits
-- Parent: Edit own parent profile only
+- Player: Edit own account profile only
 
-### Link / Unlink Parent to Player
+### Link / Unlink Player Account to Player
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned-team players if club policy allows
-- Parent: No direct linking actions
+- Player: No direct linking actions
 
 ---
 
 ## 6.8 Roster Safe Visibility Matrix
 
 ### For Other Players in Team Roster
-#### Fields Parent Can View
+#### Fields a Player Account Can View
 - display name
 - preferred name
 - jersey number
@@ -295,7 +295,7 @@ is view + link only).
 - optional photo (if club setting enabled)
 - team name / age group in context
 
-#### Fields Parent Cannot View for Other Players
+#### Fields a Player Account Cannot View for Other Players
 - date of birth
 - medical notes
 - emergency contacts
@@ -305,10 +305,10 @@ is view + link only).
 - evaluation scores
 - bucket labels / rankings unless club explicitly enables a limited view (not recommended)
 - invoices, waivers, registration details
-- parent contact info for other families unless club explicitly shares it
+- player-account contact info for other families unless club explicitly shares it
 
-### For Own Linked Child
-Parent can view and potentially edit approved fields based on club policy.
+### For Own Linked Profile
+A player account can view and potentially edit approved fields based on club policy.
 
 ---
 
@@ -318,19 +318,19 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams/resources
-- Parent: Yes only in approved contexts (registration uploads, child photo, waiver related docs, team chat attachments if allowed)
+- Player: Yes only in approved contexts (registration uploads, child photo, waiver related docs, team chat attachments if allowed)
 
 ### View Files
 - Master Admin: All
 - Club Manager: Own club files
 - Coach: Team-scoped files and permitted player/team docs
-- Parent: Only files tied to linked child or shared team/club documents
+- Player: Only files tied to linked child or shared team/club documents
 
 ### Delete / Archive Files
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for coach-uploaded team documents if within scope and policy allows
-- Parent: No by default, except remove own draft upload before submit in limited workflows
+- Player: No by default, except remove own draft upload before submit in limited workflows
 
 ---
 
@@ -340,31 +340,31 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: All
 - Club Manager: Own club
 - Coach: Assigned teams + club announcements visible to coaches
-- Parent: Linked child team announcements + club announcements relevant to parents
+- Player: Linked profile team announcements + club announcements relevant to players
 
 ### Create Announcement
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned team announcements only
-- Parent: No
+- Player: No
 
 ### Edit Draft Announcement
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for own team drafts
-- Parent: No
+- Player: No
 
 ### Publish Announcement
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned team announcements only
-- Parent: No
+- Player: No
 
 ### Delete / Archive Announcement
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for own team announcement drafts/posted announcements if policy allows
-- Parent: No
+- Player: No
 
 ---
 
@@ -374,31 +374,31 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: Yes if support/audit policy permits
 - Club Manager: Yes for club teams if policy permits moderation visibility
 - Coach: Yes for assigned teams
-- Parent: Yes for linked child teams
+- Player: Yes for linked child teams
 
 ### Send Team Message
 - Master Admin: Not typical but allowed in support/admin context if needed
 - Club Manager: Yes for club/team channels where permitted
 - Coach: Yes for assigned teams
-- Parent: Yes for linked child team chat if chat is enabled
+- Player: Yes for linked child team chat if chat is enabled
 
-### Parent-to-Parent Messaging
+### Player-to-Player Messaging
 - Master Admin: N/A admin visibility only
 - Club Manager: Configure allowed/disabled
 - Coach: N/A for controlling, may participate in shared channel
-- Parent: Allowed only if club setting enables it
+- Player: Allowed only if club setting enables it
 
 ### Delete / Moderate Message
 - Master Admin: Yes
 - Club Manager: Yes for moderation
 - Coach: Limited moderation for assigned team chat if policy allows
-- Parent: No, except delete/edit own message within short grace window if product supports it
+- Player: No, except delete/edit own message within short grace window if product supports it
 
 ### View Direct Messages
 - Master Admin: Only if policy/support review permits
 - Club Manager: Optional moderation visibility by policy
 - Coach: Yes where part of conversation
-- Parent: Yes where part of conversation
+- Player: Yes where part of conversation
 
 ---
 
@@ -408,31 +408,31 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: Yes
 - Club Manager: Yes within club
 - Coach: Yes for assigned teams
-- Parent: Yes for linked child teams
+- Player: Yes for linked child teams
 
 ### Create Event
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams
-- Parent: No
+- Player: No
 
 ### Edit Event
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams
-- Parent: No
+- Player: No
 
 ### Cancel Event
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams
-- Parent: No
+- Player: No
 
 ### View Club-Wide Events
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: View relevant club events if exposed
-- Parent: View relevant club events if exposed
+- Player: View relevant club events if exposed
 
 ---
 
@@ -442,19 +442,19 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: Override only if needed
 - Club Manager: Override yes
 - Coach: Optional override yes if club allows
-- Parent: Yes for linked child only
+- Player: Yes for linked child only
 
 ### View RSVP Summary
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams/events
-- Parent: View own child RSVP and possibly aggregate counts if shown, but not necessarily all individual child responses unless allowed in UI
+- Player: View own child RSVP and possibly aggregate counts if shown, but not necessarily all individual child responses unless allowed in UI
 
 ### Edit RSVP After Submission
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Override yes if policy allows
-- Parent: Yes for linked child until event lock/deadline rules apply
+- Player: Yes for linked child until event lock/deadline rules apply
 
 ---
 
@@ -464,19 +464,19 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams
-- Parent: No
+- Player: No
 
 ### View Attendance Summary
 - Master Admin: All
 - Club Manager: Own club
 - Coach: Assigned teams and assigned players
-- Parent: Own child only
+- Player: Own child only
 
 ### Export Attendance
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Optional for assigned team if policy allows
-- Parent: No
+- Player: No
 
 ---
 
@@ -486,37 +486,37 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: View published programs if needed, generally read-only
-- Parent: Yes for club or linked child relevant programs
+- Player: Yes for club or linked child relevant programs
 
 ### Create / Edit Registration Program
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Create / Edit Registration Form Schema
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Submit Registration
 - Master Admin: Yes for admin support use case
 - Club Manager: Yes for support/manual entry
 - Coach: No by default
-- Parent: Yes for linked child only
+- Player: Yes for linked child only
 
 ### Review / Approve / Reject Registration
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: View-only completeness status optional for assigned team if club allows, but no approve/reject by default
-- Parent: No
+- Player: No
 
 ### View Registration Submission Detail
 - Master Admin: Full
 - Club Manager: Full within club
 - Coach: Limited view only if allowed and only for assigned team players; no financial/private legal details unless explicitly allowed
-- Parent: Full for own linked child submissions
+- Player: Full for own linked child submissions
 
 ---
 
@@ -526,49 +526,49 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: All
 - Club Manager: Own club
 - Coach: No by default
-- Parent: Own family / linked child invoices only
+- Player: Own family / linked child invoices only
 
 ### Create Invoice
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Edit Invoice / Void Invoice
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Record Offline Payment
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Initiate Online Payment
 - Master Admin: Support/admin action yes if needed
 - Club Manager: Optional support action yes
 - Coach: No
-- Parent: Yes for own invoice only
+- Player: Yes for own invoice only
 
 ### View Payment History
 - Master Admin: All
 - Club Manager: Own club
 - Coach: No
-- Parent: Own family only
+- Player: Own family only
 
 ### Refund Payment
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### View Billing Summary Reports
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No by default
-- Parent: No aggregated reports; only own invoice summary pages
+- Player: No aggregated reports; only own invoice summary pages
 
 ---
 
@@ -578,31 +578,31 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: All
 - Club Manager: Own club
 - Coach: No by default, but may view compliance summary for assigned team if club allows
-- Parent: Own linked child required waivers only
+- Player: Own linked child required waivers only
 
 ### Create / Edit Waiver
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Add Waiver Version
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Accept Waiver
 - Master Admin: Support/admin action yes if acting on behalf under policy
 - Club Manager: Support/manual action yes if policy permits
 - Coach: No
-- Parent: Yes for linked child only
+- Player: Yes for linked child only
 
 ### View Waiver Compliance Summary
 - Master Admin: All
 - Club Manager: Own club
 - Coach: Limited team-level compliance yes if club allows (for operational readiness only)
-- Parent: Own linked child only
+- Player: Own linked child only
 
 ---
 
@@ -612,67 +612,67 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: All
 - Club Manager: Own club
 - Coach: View active template(s) for assigned team use
-- Parent: No
+- Player: No
 
 ### Create / Edit Evaluation Template
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No by default
-- Parent: No
+- Player: No
 
 ### View / Edit Evaluation Criteria
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: View only
-- Parent: No
+- Player: No
 
 ### View / Edit Position Weight Profiles
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: View only by default; optional propose changes if business wants later
-- Parent: No
+- Player: No
 
 ### Create Evaluation Cycle
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams if club allows
-- Parent: No
+- Player: No
 
 ### Create Player Evaluation
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for players on assigned teams
-- Parent: No
+- Player: No
 
 ### Edit Player Evaluation
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for evaluations within assigned scope
-- Parent: No
+- Player: No
 
 ### View Player Evaluation
 - Master Admin: Full
 - Club Manager: Full within club
 - Coach: Full for assigned-team players
-- Parent: Own child parent-visible evaluation summary only if club setting allows
+- Player: Own child player-visible evaluation summary only if club setting allows
 
 ### View Team Ranking / Buckets
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams
-- Parent: No by default
+- Player: No by default
 
 ### View Radar Comparison
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams
-- Parent: No by default
+- Player: No by default
 
-### Share Evaluation with Parent
+### Share Evaluation with Player
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes if club setting allows
-- Parent: N/A recipient only
+- Player: N/A recipient only
 
 ---
 
@@ -682,37 +682,37 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: All
 - Club Manager: Own club
 - Coach: Assigned team players
-- Parent: Own child parent-visible goals only
+- Player: Own child player-visible goals only
 
 ### Create Development Goal
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned team players
-- Parent: No
+- Player: No
 
 ### Edit Goal / Add Updates
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned team players
-- Parent: No, unless future parent reflection/comment feature is intentionally added
+- Player: No, unless future player reflection/comment feature is intentionally added
 
 ### Mark Goal Complete
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes
-- Parent: No
+- Player: No
 
 ### View Coach-Only Notes
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes
-- Parent: No
+- Player: No
 
-### View Parent-Visible Notes
+### View Player-Visible Notes
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes
-- Parent: Yes for linked child only if club enables development view
+- Player: Yes for linked child only if club enables development view
 
 ---
 
@@ -722,19 +722,19 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes
-- Parent: Yes
+- Player: Yes
 
 ### Update Notification Preferences
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes
-- Parent: Yes
+- Player: Yes
 
 ### Send Notifications (manual trigger)
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Limited for assigned team announcements/reminders where supported
-- Parent: No
+- Player: No
 
 ---
 
@@ -744,31 +744,31 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: All
 - Club Manager: Own club
 - Coach: Assigned team reports
-- Parent: No aggregate report, own child attendance summary only
+- Player: No aggregate report, own child attendance summary only
 
 ### View Registration Reports
 - Master Admin: All
 - Club Manager: Own club
 - Coach: Limited completeness view only if allowed
-- Parent: No aggregate reports
+- Player: No aggregate reports
 
 ### View Billing Reports
 - Master Admin: All
 - Club Manager: Own club
 - Coach: No
-- Parent: No aggregate reports
+- Player: No aggregate reports
 
 ### View Evaluation Reports
 - Master Admin: All
 - Club Manager: Own club
 - Coach: Assigned team reports
-- Parent: No aggregate reports
+- Player: No aggregate reports
 
 ### Export Reports
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Limited export for team attendance/evaluation if policy allows
-- Parent: No
+- Player: No
 
 ---
 
@@ -778,37 +778,37 @@ Parent can view and potentially edit approved fields based on club policy.
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes
-- Parent: Optional limited read/use cases if enabled later
+- Player: Optional limited read/use cases if enabled later
 
 ### Draft Announcement with AI
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned teams
-- Parent: No
+- Player: No
 
 ### Draft Payment Reminder with AI
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: No
-- Parent: No
+- Player: No
 
 ### Draft Training Plan with AI
 - Master Admin: Optional
 - Club Manager: Optional
 - Coach: Yes
-- Parent: No
+- Player: No
 
 ### Generate Player Development Summary with AI
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned players
-- Parent: No direct generation, only read shared summary if enabled
+- Player: No direct generation, only read shared summary if enabled
 
 ### Publish AI-Generated Content
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Yes for assigned team content where applicable
-- Parent: No
+- Player: No
 
 ### AI Guardrails
 Regardless of role:
@@ -824,13 +824,13 @@ Regardless of role:
 - Master Admin: Full system-wide
 - Club Manager: Own club logs only
 - Coach: No by default
-- Parent: No
+- Player: No
 
 ### Export Audit Logs
 - Master Admin: Yes
 - Club Manager: Optional own club export if policy allows
 - Coach: No
-- Parent: No
+- Player: No
 
 ---
 
@@ -856,7 +856,7 @@ Regardless of role:
 - evaluation data within allowed scope
 - development notes within allowed scope
 
-### Fields Visible to Parent for Own Child
+### Fields Visible to a Player Account for Own Profile
 - first_name
 - last_name
 - preferred_name
@@ -870,17 +870,17 @@ Regardless of role:
 - linked teams
 - own child schedule
 - own child attendance summary
-- own child registrations, waivers, invoices
-- own child parent-visible evaluations/development if enabled
+- own profile registrations, waivers, invoices
+- own profile player-visible evaluations/development if enabled
 
-### Fields Visible to Parent for Other Players
+### Fields Visible to a Player Account for Other Players
 - display name
 - preferred name
 - jersey number
 - primary position
 - optional photo if enabled
 
-### Fields Hidden from Parent for Other Players
+### Fields Hidden from a Player Account for Other Players
 - DOB
 - address
 - medical notes
@@ -888,24 +888,24 @@ Regardless of role:
 - evaluation scores
 - rankings
 - coach-only notes
-- parent contact info
+- player-account contact info
 - invoice / waiver / registration records
 
 ---
 
-## 7.2 Parent Fields
+## 7.2 Player Account Fields
 
 ### Visible to Club Manager
-- full parent business profile
-- linked children
+- full player-account business profile
+- linked player profiles
 - contact details
 
 ### Visible to Coach
-- parent display name
+- player-account display name
 - contact methods for assigned team players, if club policy allows
 - pickup/payment permission summaries if operationally needed and permitted
 
-### Visible to Other Parents
+### Visible to Other Player Accounts
 - none by default
 - optional limited contact sharing only if club setting intentionally enables directory-style sharing
 
@@ -920,14 +920,14 @@ Regardless of role:
 - all player scores
 - rankings
 - coach notes
-- parent-visible notes
+- player-visible notes
 
 ### Visible to Coach
 - full evaluation data for assigned players
 
-### Visible to Parent
-- only own child
-- only parent-visible notes/summary
+### Visible to Player
+- only own profile
+- only player-visible notes/summary
 - optionally criterion scores if club allows
 - no teamwide ranking by default
 
@@ -942,7 +942,7 @@ Regardless of role:
 - none by default
 - optional registration completeness or compliance summary only, not amounts/payment methods
 
-### Visible to Parent
+### Visible to Player
 - own family invoices, balances, payment history, waiver status, registration status
 
 ---
@@ -960,7 +960,7 @@ Regardless of role:
 - Dashboard: Club Manager, Master Admin
 - Teams: Club Manager, Master Admin
 - Players: Club Manager, Master Admin
-- Parents: Club Manager, Master Admin
+- Player Accounts: Club Manager, Master Admin
 - Coaches: Club Manager, Master Admin
 - Schedule: Club Manager, Master Admin
 - Attendance: Club Manager, Master Admin
@@ -986,18 +986,18 @@ Regardless of role:
 - Documents: Coach assigned team only
 - AI Assistant: Coach assigned team only
 
-## 8.4 Parent Pages
-- My Kids Dashboard: Parent only
-- Child Profile: Parent linked child only
-- Schedule: Parent linked child only
-- Team Roster: Parent safe roster view only
-- Chat: Parent linked child teams only
-- Announcements: Parent linked child teams/clubs only
-- Registration: Parent linked child only
-- Payments: Parent own family only
-- Waivers: Parent linked child only
-- Development: Parent linked child only if enabled
-- Documents: Parent linked child/team docs only
+## 8.4 Player Pages
+- My Players Dashboard: Player only
+- Profile: Player linked profile only
+- Schedule: Player linked profile only
+- Team Roster: Player safe roster view only
+- Chat: Player linked profile teams only
+- Announcements: Player linked profile teams/clubs only
+- Registration: Player linked profile only
+- Payments: Player own family only
+- Waivers: Player linked profile only
+- Development: Player linked profile only if enabled
+- Documents: Player linked profile/team docs only
 
 ---
 
@@ -1007,27 +1007,27 @@ Use this section as implementation guidance for service/controller authorization
 ### Example Rules
 - `GET /teams/{teamId}/players`
   - Coach: allowed if assigned to team
-  - Parent: allowed if linked child is on team, but safe projection only
+  - Player: allowed if linked child is on team, but safe projection only
 
 - `PUT /players/{playerId}`
-  - Parent: allowed only if player linked to authenticated parent and only for whitelisted fields
+  - Player: allowed only if player linked to the authenticated player account and only for whitelisted fields
   - Coach: allowed only if player belongs to assigned team
 
 - `POST /events/{eventId}/attendance`
   - Coach: allowed only for assigned team event
-  - Parent: forbidden
+  - Player: forbidden
 
 - `POST /waivers/{waiverId}/accept`
-  - Parent: allowed only for linked child
+  - Player: allowed only for linked child
 
 - `POST /players/{playerId}/evaluations`
   - Coach: allowed only for assigned team player
-  - Parent: forbidden
+  - Player: forbidden
 
 - `GET /teams/{teamId}/radar-comparison`
   - Coach: allowed
   - Club Manager: allowed
-  - Parent: forbidden by default
+  - Player: forbidden by default
 
 ---
 
@@ -1044,7 +1044,7 @@ roster.view_safe
 players.create
 players.edit_full
 players.edit_limited_own_child
-parents.manage
+playerAccounts.manage
 events.manage
 rsvp.respond_own_child
 attendance.record
@@ -1080,7 +1080,7 @@ These can map to roles plus scope evaluation.
 1. **Route-level auth**: authenticated user required
 2. **Role check**: verify broad role eligibility
 3. **Scope check**: verify club/team/child linkage
-4. **Field whitelist**: especially for parent edits and parent-safe reads
+4. **Field whitelist**: especially for player-account edits and player-safe reads
 5. **Serializer projection**: enforce visible fields by role
 6. **Audit logging**: record sensitive changes and overrides
 
@@ -1088,21 +1088,21 @@ These can map to roles plus scope evaluation.
 
 ## 12. Special Rules and Edge Cases
 
-### 12.1 Coach Who Is Also a Parent (Future)
+### 12.1 Coach Who Is Also a Player (Future)
 If a single user has both roles:
 - require active role context selection or infer context from navigation area
-- never merge coach-level and parent-level data accidentally
-- parent-safe restrictions still apply when operating in parent context
+- never merge coach-level and player-level data accidentally
+- player-safe restrictions still apply when operating in player context
 
 ### 12.2 Club Manager Viewing Chat
 Club policy should decide whether club manager can view all chats for moderation/support. Default recommendation:
 - yes for team chats and official communications
 - direct message visibility only if policy/legal expectations allow
 
-### 12.3 Parent Visibility to Evaluation Data
+### 12.3 Player Visibility to Evaluation Data
 Default recommendation:
 - off for teamwide rankings
-- on only for own child summary if club explicitly enables
+- on only for own profile summary if club explicitly enables
 
 ### 12.4 Coach Access to Billing
 Default recommendation:
@@ -1118,17 +1118,17 @@ without showing amounts or payment methods
 ## 13. Test Cases for RBAC Validation
 The implementation should include automated tests for these examples:
 
-1. Parent cannot edit another child’s profile.
-2. Parent team roster response excludes restricted fields for other children.
+1. A player account cannot edit another player’s profile.
+2. A player-account team roster response excludes restricted fields for other players.
 3. Coach cannot access roster for unassigned team.
 4. Club Manager cannot access another club’s data.
-5. Parent cannot view another family’s invoice.
+5. A player account cannot view another family’s invoice.
 6. Coach can create evaluation only for assigned team player.
-7. Parent cannot access radar comparison endpoint.
+7. A player account cannot access radar comparison endpoint.
 8. Club Manager can update position weight profiles within own club.
 9. Coach cannot void invoice.
-10. Parent can RSVP only for linked child.
-11. Parent cannot see coach-only development notes.
+10. A player account can RSVP only for a linked profile.
+11. A player account cannot see coach-only development notes.
 12. AI draft generation cannot include hidden fields in output context.
 
 ---
@@ -1139,9 +1139,9 @@ Use this RBAC matrix as the authoritative permission guide for backend authoriza
 The most important implementation priorities are:
 - tenant scope enforcement by `club_id`
 - team scope enforcement for coaches
-- linked-child scope enforcement for parents
-- strict field-level filtering for parent-safe roster views
-- separation of coach-only vs parent-visible evaluation/development content
+- linked-profile scope enforcement for player accounts
+- strict field-level filtering for player-safe roster views
+- separation of coach-only vs player-visible evaluation/development content
 - no financial or sensitive child data leakage outside intended role/scope
 
 This document should eliminate ambiguity for Claude Code when implementing guards, policies, DTO whitelists, and UI-level role behavior.

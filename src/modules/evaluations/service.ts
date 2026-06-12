@@ -17,11 +17,11 @@ import {
   type UpdateCycleInput,
   type UpdateTemplateInput,
 } from "@/modules/evaluations/schemas";
-import { parentEvaluationSummary, type ParentEvaluationSummary } from "@/modules/evaluations/projections";
+import { playerEvaluationSummary, type PlayerEvaluationSummary } from "@/modules/evaluations/projections";
 
 /**
  * Evaluations module service layer — AUTHORITATIVE for authorization, tenant/
- * team/child scoping, UNWEIGHTED scoring, the parent serializer projection, and
+ * team/child scoping, UNWEIGHTED scoring, the player serializer projection, and
  * audit (BUILD_PLAN §2, RBAC matrix §6.18).
  *
  * MVP scope: simple unweighted aggregate; NO position weighting, ranking, or
@@ -288,7 +288,7 @@ export async function savePlayerEvaluation(ctx: AuthContext, input: SavePlayerEv
         overallScore: overall,
         summaryComment: input.summaryComment ?? null,
         coachOnlyNotes: input.coachOnlyNotes ?? null,
-        parentVisibleNotes: input.parentVisibleNotes ?? null,
+        playerVisibleNotes: input.playerVisibleNotes ?? null,
         createdBy: ctx.userId,
         // rankInScope / bucketLabel intentionally left NULL (no ranking in MVP).
       },
@@ -298,7 +298,7 @@ export async function savePlayerEvaluation(ctx: AuthContext, input: SavePlayerEv
         overallScore: overall,
         summaryComment: input.summaryComment ?? null,
         coachOnlyNotes: input.coachOnlyNotes ?? null,
-        parentVisibleNotes: input.parentVisibleNotes ?? null,
+        playerVisibleNotes: input.playerVisibleNotes ?? null,
         updatedAt: new Date(),
         updatedBy: ctx.userId,
       },
@@ -354,7 +354,7 @@ export async function listPlayerEvaluations(
   opts: { cycleId?: string; teamId?: string; playerId?: string } = {},
 ) {
   assertCan(ctx, "evaluations.view_team", { clubId });
-  if (ctx.role === "PARENT") throw new ForbiddenError("Parents use the own-child summary");
+  if (ctx.role === "PLAYER") throw new ForbiddenError("Player accounts use the own-child summary");
   const where: Prisma.PlayerEvaluationWhereInput = { clubId };
   if (opts.cycleId) where.evaluationCycleId = opts.cycleId;
   if (opts.playerId) where.playerId = opts.playerId;
@@ -374,29 +374,29 @@ export async function listPlayerEvaluations(
 }
 
 // ===========================================================================
-// Parent-facing summary (gated + serializer projection)
+// Player-account-facing summary (gated + serializer projection)
 // ===========================================================================
 
 /**
- * Own-child evaluation summaries for a parent. Gated by the club setting
- * `allow_parent_child_evaluation_view`; runs through the parent serializer so
+ * Own-child evaluation summaries for a player account. Gated by the club setting
+ * `allow_player_evaluation_view`; runs through the player serializer so
  * coach-only notes and per-criterion scores never leave the server.
  */
 export async function getOwnChildEvaluationSummary(
   ctx: AuthContext,
   playerId: string,
-): Promise<Array<ParentEvaluationSummary & { cycleName: string; templateName: string }>> {
+): Promise<Array<PlayerEvaluationSummary & { cycleName: string; templateName: string }>> {
   const player = await prisma.player.findFirst({ where: { id: playerId, deletedAt: null }, select: { clubId: true } });
   if (!player) throw new ForbiddenError("Player not found");
   // Own-child only.
   assertCan(ctx, "evaluations.view_own_child_summary", { clubId: player.clubId, playerId });
 
-  // Club gate — evaluation visibility for parents is opt-in per club.
+  // Club gate — evaluation visibility for player accounts is opt-in per club.
   const setting = await prisma.clubSetting.findUnique({
     where: { clubId: player.clubId },
-    select: { allowParentChildEvaluationView: true },
+    select: { allowPlayerEvaluationView: true },
   });
-  if (!setting?.allowParentChildEvaluationView) {
+  if (!setting?.allowPlayerEvaluationView) {
     throw new ForbiddenError("Evaluation sharing is not enabled for this club");
   }
 
@@ -410,19 +410,19 @@ export async function getOwnChildEvaluationSummary(
   });
   // Serializer projection strips coach_only_notes / criterion scores / ranking.
   return evaluations.map((e) => ({
-    ...parentEvaluationSummary(e),
+    ...playerEvaluationSummary(e),
     cycleName: e.evaluationCycle.name,
     templateName: e.template.name,
   }));
 }
 
-/** Whether the club exposes evaluation summaries to parents (dashboard gate). */
-export async function parentEvaluationViewEnabled(clubId: string): Promise<boolean> {
+/** Whether the club exposes evaluation summaries to player accounts (dashboard gate). */
+export async function playerEvaluationViewEnabled(clubId: string): Promise<boolean> {
   const setting = await prisma.clubSetting.findUnique({
     where: { clubId },
-    select: { allowParentChildEvaluationView: true },
+    select: { allowPlayerEvaluationView: true },
   });
-  return setting?.allowParentChildEvaluationView ?? false;
+  return setting?.allowPlayerEvaluationView ?? false;
 }
 
 // ===========================================================================

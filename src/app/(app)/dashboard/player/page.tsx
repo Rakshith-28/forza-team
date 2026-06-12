@@ -5,29 +5,29 @@ import { readActiveChildId, resolveActiveChild } from "@/lib/active-child";
 import { requireRole } from "@/lib/auth-guards";
 import { getMyPlatformAnnouncements, getMyUnreadPlatformAnnouncementCount } from "@/modules/announcements/platform-service";
 import { listLinkedChildren } from "@/modules/roster/service";
-import { getChildAttendance, listParentSchedule } from "@/modules/events/service";
+import { getChildAttendance, listPlayerSchedule } from "@/modules/events/service";
 import { listAnnouncements, listChatTeams } from "@/modules/comms/service";
 import { formatEventTime } from "@/modules/events/format";
-import { NextUpCarousel } from "@/components/app/parent/next-up-carousel";
+import { NextUpCarousel } from "@/components/app/player/next-up-carousel";
 import {
   AttendanceRing,
   CollectibleCard,
   StoriesStrip,
   XpBar,
-} from "@/components/app/parent/widgets";
+} from "@/components/app/player/widgets";
 
 /**
- * Player/parent HOME — a bento-grid dashboard inside the themed mobile shell.
+ * Player HOME — a bento-grid dashboard inside the themed mobile shell.
  * Real data: next match + RSVP, attendance ring, collectible card, XP/level,
  * announcements as a stories strip, chat peek. Vibrant/Classic render this same
  * markup differently purely via tokens.
  */
-export default async function ParentHome() {
-  const ctx = await requireRole("PARENT");
+export default async function PlayerHome() {
+  const ctx = await requireRole("PLAYER");
 
   const [children, schedule, chatTeams, platformAnnouncements, platformUnread] = await Promise.all([
     listLinkedChildren(ctx),
-    listParentSchedule(ctx, { upcomingOnly: true, limit: 5 }),
+    listPlayerSchedule(ctx, { upcomingOnly: true, limit: 5 }),
     listChatTeams(ctx),
     getMyPlatformAnnouncements(ctx),
     getMyUnreadPlatformAnnouncementCount(ctx),
@@ -44,7 +44,7 @@ export default async function ParentHome() {
     );
   }
 
-  // Focus on the child the parent selected (active-child switcher), else the first.
+  // Focus on the child the player account selected (active-child switcher), else the first.
   const primary = resolveActiveChild(children, await readActiveChildId());
   const upcoming = schedule.filter((s) => s.event.status !== "CANCELLED");
 

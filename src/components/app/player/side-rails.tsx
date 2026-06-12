@@ -10,21 +10,21 @@ import {
   NAV_BUTTON_ACTIVE,
   NAV_BUTTON_BASE,
   NAV_BUTTON_INACTIVE,
-  PARENT_NAV_ITEMS,
+  PLAYER_NAV_ITEMS,
   isNavItemActive,
-  type ParentNavItem,
+  type PlayerNavItem,
 } from "./nav-items";
 
 /**
  * Desktop (`lg`+) navigation: two vertical rails docked in the left and right
  * gutters, fixed and vertically centered so they stay put while the page
- * scrolls. They render from the same `PARENT_NAV_ITEMS` array as the mobile
+ * scrolls. They render from the same `PLAYER_NAV_ITEMS` array as the mobile
  * bottom tab bar — split down the middle: LEFT = Home / Squad / Play,
  * RIGHT = Chat / Notifications / Me. Buttons reuse the exact bottom-bar styling.
  * Hidden below `lg`, where the floating bottom bar takes over.
  */
-const LEFT_ITEMS = PARENT_NAV_ITEMS.slice(0, 3);
-const RIGHT_ITEMS = PARENT_NAV_ITEMS.slice(3);
+const LEFT_ITEMS = PLAYER_NAV_ITEMS.slice(0, 3);
+const RIGHT_ITEMS = PLAYER_NAV_ITEMS.slice(3);
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
@@ -33,7 +33,7 @@ function RailItem({
   pathname,
   unreadAnnouncements,
 }: {
-  item: ParentNavItem;
+  item: PlayerNavItem;
   pathname: string;
   unreadAnnouncements: number;
 }) {
@@ -61,7 +61,7 @@ function RailItem({
 export function SideRails({ unreadAnnouncements = 0 }: { unreadAnnouncements?: number }) {
   const pathname = usePathname();
 
-  const rail = (items: ParentNavItem[]) =>
+  const rail = (items: PlayerNavItem[]) =>
     items.map((item) => (
       <li key={item.id}>
         <RailItem item={item} pathname={pathname} unreadAnnouncements={unreadAnnouncements} />

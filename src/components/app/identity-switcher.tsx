@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Top-bar identity switcher: shows the identity the user is currently acting as
- * ("Coach · Mavericks FC U14 Boys", "Parent · Sohaan", …) and, on click, a
+ * ("Coach · Mavericks FC U14 Boys", "Player · Sohaan", …) and, on click, a
  * dropdown of every other identity they hold. Selecting one submits the
  * re-validated `setActiveIdentityAction`, which sets the cookie and redirects to
  * that role's home — so the whole shell instantly follows the new identity.

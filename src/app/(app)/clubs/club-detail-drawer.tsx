@@ -50,7 +50,7 @@ function roleLabel(code: string): string {
 
 /**
  * Shared, read-first club detail drawer (Overview/Teams/Users/Settings/Audit).
- * Controlled by the parent via `clubId` (null = closed). The inner content is
+ * Controlled by the caller via `clubId` (null = closed). The inner content is
  * keyed by clubId so switching clubs remounts with fresh state; it lazy-loads
  * detail on mount with loading/empty/error states. Row actions live in the
  * Clubs table.
@@ -133,7 +133,7 @@ function ClubDetailContent({ clubId }: { clubId: string }) {
                   <Metric label="Players" value={detail.metrics.players} />
                   <Metric label="Users" value={detail.metrics.users} />
                   <Metric label="Coaches" value={detail.metrics.coaches} />
-                  <Metric label="Parents" value={detail.metrics.parents} />
+                  <Metric label="Players" value={detail.metrics.playerAccounts} />
                   <Metric label="Open Invoices" value={detail.metrics.openInvoices} />
                   <Metric label="Waivers" value={detail.metrics.waiverAcceptances} />
                   <Metric label="Eval Cycles" value={detail.metrics.activeEvaluationCycles} />
@@ -219,8 +219,8 @@ function ClubDetailContent({ clubId }: { clubId: string }) {
                     <Field label="Registration" value={detail.settings.registrationEnabled ? "Enabled" : "Disabled"} />
                     <Field label="Billing" value={detail.settings.billingEnabled ? "Enabled" : "Disabled"} />
                     <Field label="Attendance tracking" value={detail.settings.attendanceTrackingEnabled ? "On" : "Off"} />
-                    <Field label="Player photos to parents" value={detail.settings.showPlayerPhotosToParents ? "On" : "Off"} />
-                    <Field label="Parent evaluation view" value={detail.settings.allowParentChildEvaluationView ? "On" : "Off"} />
+                    <Field label="Player photos to players" value={detail.settings.showPlayerPhotosToPlayers ? "On" : "Off"} />
+                    <Field label="Player evaluation view" value={detail.settings.allowPlayerEvaluationView ? "On" : "Off"} />
                   </dl>
                 ) : (
                   <p className="py-6 text-center text-sm text-muted-foreground">No settings record.</p>

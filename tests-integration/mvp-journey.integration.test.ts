@@ -6,7 +6,7 @@ import { loadAuthContext } from "@/modules/identity/context";
 import { applyInvitationGrants, type InvitationForGrants } from "@/modules/identity/invitations";
 import { createClub, createSeason, createTeam, updateClubSettings } from "@/modules/clubs/service";
 import { inviteCoach } from "@/modules/coaches/service";
-import { createPlayer, inviteParentForPlayer, listLinkedChildren } from "@/modules/roster/service";
+import { createPlayer, invitePlayerAccountForPlayer, listLinkedChildren } from "@/modules/roster/service";
 import { createAnnouncement, listAnnouncements, publishAnnouncement } from "@/modules/comms/service";
 import { createEvent, recordAttendance, submitRsvp } from "@/modules/events/service";
 import {
@@ -29,7 +29,7 @@ import { INTEGRATION, adminCtx, uid } from "./helpers";
  * directly provisioning the accepted user + applyInvitationGrants — the exact
  * grant path acceptInvitation runs post-signup (unit-tested separately).
  */
-const created: { clubId?: string; coachUserId?: string; parentUserId?: string } = {};
+const created: { clubId?: string; coachUserId?: string; playerUserId?: string } = {};
 
 const run = INTEGRATION ? describe : describe.skip;
 
@@ -39,7 +39,7 @@ run("MVP journey (service-layer end-to-end)", () => {
       ["MASTER_ADMIN", "Master Admin"],
       ["CLUB_ADMIN", "Club Manager"],
       ["COACH", "Coach"],
-      ["PARENT", "Parent / Guardian"],
+      ["PLAYER", "Player"],
     ] as const) {
       await prisma.role.upsert({ where: { code }, create: { code, name }, update: {} });
     }
@@ -58,10 +58,10 @@ run("MVP journey (service-layer end-to-end)", () => {
       await prisma.eventTeam.deleteMany({ where: { clubId } });
       await prisma.event.deleteMany({ where: { clubId } });
       await prisma.announcement.deleteMany({ where: { clubId } });
-      await prisma.playerParentLink.deleteMany({ where: { clubId } });
+      await prisma.playerAccountLink.deleteMany({ where: { clubId } });
       await prisma.teamCoach.deleteMany({ where: { clubId } });
       await prisma.playerTeamMembership.deleteMany({ where: { clubId } });
-      await prisma.parent.deleteMany({ where: { clubId } });
+      await prisma.playerAccount.deleteMany({ where: { clubId } });
       await prisma.invitation.deleteMany({ where: { clubId } });
       await prisma.userRoleAssignment.deleteMany({ where: { clubId } });
       await prisma.player.deleteMany({ where: { clubId } });
@@ -70,7 +70,7 @@ run("MVP journey (service-layer end-to-end)", () => {
       await prisma.clubSetting.deleteMany({ where: { clubId } });
       await prisma.club.deleteMany({ where: { id: clubId } });
     }
-    const userIds = [created.coachUserId, created.parentUserId].filter(Boolean) as string[];
+    const userIds = [created.coachUserId, created.playerUserId].filter(Boolean) as string[];
     if (userIds.length) await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.$disconnect();
   });
@@ -131,12 +131,12 @@ run("MVP journey (service-layer end-to-end)", () => {
       data: { status: "ACCEPTED", acceptedAt: new Date(), acceptedByUserId: coachUserId },
     });
 
-    // Coach parent invites are gated by the club's allow_coach_invite_parents setting.
+    // Coach player invites are gated by the club's allow_coach_invite_players setting.
     await updateClubSettings(admin, club.id, {
-      showPlayerPhotosToParents: false,
-      allowParentChildEvaluationView: false, // eval gate stays OFF until step (6)
+      showPlayerPhotosToPlayers: false,
+      allowPlayerEvaluationView: false, // eval gate stays OFF until step (6)
       attendanceTrackingEnabled: true,
-      allowCoachInviteParents: true,
+      allowCoachInvitePlayers: true,
     });
 
     // The coach's real context derives from the team_coaches assignment + membership.
@@ -144,41 +144,41 @@ run("MVP journey (service-layer end-to-end)", () => {
     expect(coachCtx.coachTeamIds).toContain(team.id);
     expect(coachCtx.coachTeamPlayerIds).toContain(player.id);
 
-    // (3b) The COACH invites the parent FOR their assigned-team player (child-linked).
-    const invitation = await inviteParentForPlayer(coachCtx, {
-      email: `journey-parent-${uid()}@it.test`,
+    // (3b) The COACH invites the player account FOR their assigned-team player (child-linked).
+    const invitation = await invitePlayerAccountForPlayer(coachCtx, {
+      email: `journey-player-${uid()}@it.test`,
       playerId: player.id,
       relationshipType: "GUARDIAN",
       canPickup: true,
       canPay: true,
     } as never);
 
-    // ...parent accepts (Better Auth signup represented directly + the real grant path).
+    // ...player accepts (Better Auth signup represented directly + the real grant path).
     const invRow = await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.id } });
-    const parentUserId = uid();
-    created.parentUserId = parentUserId;
-    const parentRole = (await prisma.role.findUnique({ where: { code: "PARENT" }, select: { id: true } }))!.id;
-    await prisma.user.create({ data: { id: parentUserId, email: invRow.email, firstName: "Journey", lastName: "Parent" } });
-    await prisma.userRoleAssignment.create({ data: { userId: parentUserId, roleId: parentRole, clubId: club.id, status: "ACTIVE" } });
-    const parent = await prisma.parent.create({
-      data: { clubId: club.id, userId: parentUserId, firstName: "Journey", lastName: "Parent", email: invRow.email, status: "ACTIVE" },
+    const playerUserId = uid();
+    created.playerUserId = playerUserId;
+    const playerRole = (await prisma.role.findUnique({ where: { code: "PLAYER" }, select: { id: true } }))!.id;
+    await prisma.user.create({ data: { id: playerUserId, email: invRow.email, firstName: "Journey", lastName: "Player" } });
+    await prisma.userRoleAssignment.create({ data: { userId: playerUserId, roleId: playerRole, clubId: club.id, status: "ACTIVE" } });
+    const playerAccount = await prisma.playerAccount.create({
+      data: { clubId: club.id, userId: playerUserId, firstName: "Journey", lastName: "Player", email: invRow.email, status: "ACTIVE" },
     });
     await prisma.$transaction((tx) =>
-      applyInvitationGrants(tx, { invitation: invRow as unknown as InvitationForGrants, userId: parentUserId, parentId: parent.id }),
+      applyInvitationGrants(tx, { invitation: invRow as unknown as InvitationForGrants, userId: playerUserId, playerAccountId: playerAccount.id }),
     );
 
-    // Parent's single login surfaces the linked child + team (real scope derivation).
-    const parentCtx = (await loadAuthContext(parentUserId, club.id))!;
-    expect(parentCtx.linkedPlayerIds).toContain(player.id);
-    expect(parentCtx.childTeamIds).toContain(team.id);
-    const kids = await listLinkedChildren(parentCtx);
+    // Player's single login surfaces the linked child + team (real scope derivation).
+    const playerCtx = (await loadAuthContext(playerUserId, club.id))!;
+    expect(playerCtx.linkedPlayerIds).toContain(player.id);
+    expect(playerCtx.childTeamIds).toContain(team.id);
+    const kids = await listLinkedChildren(playerCtx);
     expect(kids.map((k) => k.id)).toContain(player.id);
 
-    // (4) Announcement + event; parent RSVPs; staff records attendance.
+    // (4) Announcement + event; player RSVPs; staff records attendance.
     const ann = await createAnnouncement(admin, club.id, { title: "Welcome", body: "Season starts!", audienceType: "TEAM_ONLY", teamId: team.id } as never);
     await publishAnnouncement(admin, ann.id);
-    const parentFeed = await listAnnouncements(parentCtx, club.id);
-    expect(parentFeed.map((a) => a.id)).toContain(ann.id);
+    const playerFeed = await listAnnouncements(playerCtx, club.id);
+    expect(playerFeed.map((a) => a.id)).toContain(ann.id);
 
     const event = await createEvent(admin, club.id, {
       title: "Practice",
@@ -187,7 +187,7 @@ run("MVP journey (service-layer end-to-end)", () => {
       startAt: new Date(Date.now() + 86_400_000),
       endAt: new Date(Date.now() + 90_000_000),
     } as never);
-    await submitRsvp(parentCtx, event.id, { playerId: player.id, responseStatus: "GOING", comment: undefined });
+    await submitRsvp(playerCtx, event.id, { playerId: player.id, responseStatus: "GOING", comment: undefined });
     const rsvps = await prisma.eventRsvp.findMany({ where: { eventId: event.id, playerId: player.id } });
     expect(rsvps).toHaveLength(1);
     expect(rsvps[0].responseStatus).toBe("GOING");
@@ -196,7 +196,7 @@ run("MVP journey (service-layer end-to-end)", () => {
     const att = await prisma.attendanceRecord.findFirst({ where: { eventId: event.id, playerId: player.id } });
     expect(att?.attendanceStatus).toBe("PRESENT");
 
-    // (5) Evaluation; (6) parent sees ONLY the permitted summary, gated by the setting.
+    // (5) Evaluation; (6) player sees ONLY the permitted summary, gated by the setting.
     const template = await createTemplate(admin, club.id, { name: "Default", description: undefined });
     const cycle = await createCycle(admin, club.id, {
       name: "Mid",
@@ -213,20 +213,20 @@ run("MVP journey (service-layer end-to-end)", () => {
       templateId: template.id,
       scores: criteria.map((c) => ({ criterionId: c.id, rawScore: 7 })),
       summaryComment: "Great start",
-      parentVisibleNotes: "Work on first touch",
+      playerVisibleNotes: "Work on first touch",
       coachOnlyNotes: "SECRET — select squad",
     } as never);
 
-    // Gate OFF (default) → parent denied.
-    await expect(getOwnChildEvaluationSummary(parentCtx, player.id)).rejects.toBeTruthy();
+    // Gate OFF (default) → player denied.
+    await expect(getOwnChildEvaluationSummary(playerCtx, player.id)).rejects.toBeTruthy();
     // Gate ON → summary visible, coach-only notes never leak.
     await updateClubSettings(admin, club.id, {
-      showPlayerPhotosToParents: false,
-      allowParentChildEvaluationView: true,
+      showPlayerPhotosToPlayers: false,
+      allowPlayerEvaluationView: true,
       attendanceTrackingEnabled: true,
-      allowCoachInviteParents: true,
+      allowCoachInvitePlayers: true,
     });
-    const summaries = await getOwnChildEvaluationSummary(parentCtx, player.id);
+    const summaries = await getOwnChildEvaluationSummary(playerCtx, player.id);
     expect(summaries.length).toBeGreaterThan(0);
     expect(JSON.stringify(summaries)).not.toContain("SECRET");
   });

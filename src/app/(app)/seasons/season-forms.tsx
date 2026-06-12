@@ -67,7 +67,7 @@ export function CreateSeasonForm() {
   );
 }
 
-// Rendered with key={`${id}-${version}`} by the parent, so a successful save
+// Rendered with key={`${id}-${version}`} by the host, so a successful save
 // (which bumps `version`) remounts this row collapsed; errors keep it open.
 export function SeasonRow({ season }: { season: SeasonView }) {
   const [editing, setEditing] = useState(false);

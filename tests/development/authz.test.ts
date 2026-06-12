@@ -7,7 +7,7 @@ import { addGoalUpdateSchema, createGoalSchema } from "@/modules/evaluations/dev
 
 /**
  * Development goals + radar comparison authorization. The read entry points
- * assert `evaluations.view_team` first (before any DB access), so a PARENT is
+ * assert `evaluations.view_team` first (before any DB access), so a PLAYER is
  * provably rejected without a database.
  */
 
@@ -24,23 +24,23 @@ function ctx(role: AuthContext["role"], overrides: Partial<AuthContext> = {}): A
   };
 }
 
-const parent = ctx("PARENT");
+const player = ctx("PLAYER");
 
-describe("development reads reject parents before DB", () => {
+describe("development reads reject players before DB", () => {
   it("listDevelopmentGoals / listGoalPlayerOptions / getRadarComparison", async () => {
-    await expect(listDevelopmentGoals(parent, "club-a")).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(listGoalPlayerOptions(parent, "club-a")).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(getRadarComparison(parent, "club-a", ["p1"])).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(listDevelopmentGoals(player, "club-a")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(listGoalPlayerOptions(player, "club-a")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(getRadarComparison(player, "club-a", ["p1"])).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 
 describe("evaluation permissions", () => {
-  it("coach has team-scoped view/score; parent does not", () => {
+  it("coach has team-scoped view/score; player does not", () => {
     const coach = ctx("COACH");
     expect(can(coach, "evaluations.view_team", { clubId: "club-a" })).toBe(true);
     expect(can(coach, "evaluations.score_players", { clubId: "club-a", teamId: "t1", playerId: "p1" })).toBe(true);
-    expect(can(parent, "evaluations.view_team", { clubId: "club-a" })).toBe(false);
-    expect(can(parent, "evaluations.score_players", { clubId: "club-a", teamId: "t1", playerId: "p1" })).toBe(false);
+    expect(can(player, "evaluations.view_team", { clubId: "club-a" })).toBe(false);
+    expect(can(player, "evaluations.score_players", { clubId: "club-a", teamId: "t1", playerId: "p1" })).toBe(false);
   });
 });
 

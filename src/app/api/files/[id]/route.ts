@@ -8,7 +8,7 @@ import { loadAuthContext, resolveActiveClubId } from "@/modules/identity/context
 /**
  * Permission-checked file proxy. Storage keys are never exposed; every request
  * re-runs the scope check in getFileForDownload (club / team-chat / linked-child
- * + the show_player_photos_to_parents setting) before any bytes are streamed.
+ * + the show_player_photos_to_players setting) before any bytes are streamed.
  */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

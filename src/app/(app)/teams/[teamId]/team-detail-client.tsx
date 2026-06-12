@@ -26,7 +26,7 @@ export interface SeasonOption {
   name: string;
 }
 
-// Keyed by the team's `version` (updatedAt) at the parent, so a successful save
+// Keyed by the team's `version` (updatedAt) at the host, so a successful save
 // remounts it collapsed; validation errors keep it open.
 export function TeamEditSection({ team, seasons }: { team: TeamEditData; seasons: SeasonOption[] }) {
   const [editing, setEditing] = useState(false);

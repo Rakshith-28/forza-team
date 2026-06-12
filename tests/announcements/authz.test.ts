@@ -63,7 +63,7 @@ const TPL: PlatformTemplateInput = {
 };
 
 describe("platform announcement master services reject non-master roles", () => {
-  for (const role of ["CLUB_ADMIN", "COACH", "PARENT"] as const) {
+  for (const role of ["CLUB_ADMIN", "COACH", "PLAYER"] as const) {
     it(`rejects ${role}`, async () => {
       const c = ctx(role);
       await expect(createPlatformAnnouncement(c, ANN)).rejects.toBeInstanceOf(ForbiddenError);

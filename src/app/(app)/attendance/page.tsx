@@ -62,7 +62,7 @@ export default async function AttendancePage({
     remarks: p.remarks.map((r) => ({
       id: r.id,
       body: r.body,
-      parentVisible: r.parentVisible,
+      playerVisible: r.playerVisible,
       createdAt: r.createdAt.toISOString(),
     })),
   }));
@@ -71,7 +71,7 @@ export default async function AttendancePage({
     <div className="mx-auto max-w-3xl">
       <PageHeader
         title="Attendance"
-        description="Team attendance at a glance, plus private remarks you can share with parents."
+        description="Team attendance at a glance, plus private remarks you can share with players."
       />
 
       {teamOptions.length === 0 ? (

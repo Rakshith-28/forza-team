@@ -38,8 +38,8 @@ const coachA1 = ctx({
   coachTeamIds: [TEAM_A1],
   coachTeamPlayerIds: [PLAYER_A1],
 });
-const parentOfA1 = ctx({
-  role: "PARENT",
+const playerOfA1 = ctx({
+  role: "PLAYER",
   activeClubId: CLUB_A,
   linkedPlayerIds: [PLAYER_A1],
   childTeamIds: [TEAM_A1],
@@ -84,14 +84,14 @@ describe("assertTeamScope — coach team boundary", () => {
   });
 });
 
-describe("assertChildScope — parent/coach child boundary", () => {
-  it("allows a parent to reach their linked child", () => {
-    expect(() => assertChildScope(parentOfA1, { clubId: CLUB_A, playerId: PLAYER_A1 })).not.toThrow();
+describe("assertChildScope — player/coach child boundary", () => {
+  it("allows a player to reach their linked child", () => {
+    expect(() => assertChildScope(playerOfA1, { clubId: CLUB_A, playerId: PLAYER_A1 })).not.toThrow();
   });
 
-  // Matrix §13.1 — parent cannot reach another child.
-  it("BLOCKS a parent from another family's child", () => {
-    expect(() => assertChildScope(parentOfA1, { clubId: CLUB_A, playerId: PLAYER_A2 })).toThrow(
+  // Matrix §13.1 — player cannot reach another child.
+  it("BLOCKS a player from another family's child", () => {
+    expect(() => assertChildScope(playerOfA1, { clubId: CLUB_A, playerId: PLAYER_A2 })).toThrow(
       ForbiddenError,
     );
   });
@@ -106,9 +106,9 @@ describe("assertChildScope — parent/coach child boundary", () => {
 });
 
 describe("can() — matrix permission + scope combined", () => {
-  // Matrix §13.7 — parent cannot access radar/team evaluations.
-  it("denies a parent the team evaluation/radar view", () => {
-    expect(can(parentOfA1, "evaluations.view_team", { clubId: CLUB_A, teamId: TEAM_A1 })).toBe(false);
+  // Matrix §13.7 — player cannot access radar/team evaluations.
+  it("denies a player the team evaluation/radar view", () => {
+    expect(can(playerOfA1, "evaluations.view_team", { clubId: CLUB_A, teamId: TEAM_A1 })).toBe(false);
   });
 
   it("allows a coach the team evaluation view for their team only", () => {
@@ -121,10 +121,10 @@ describe("can() — matrix permission + scope combined", () => {
     expect(can(coachA1, "billing.manage", { clubId: CLUB_A })).toBe(false);
   });
 
-  // Matrix §13.5 — parent only sees own family billing, and not cross-tenant.
-  it("scopes parent billing to their own family/club", () => {
-    expect(can(parentOfA1, "billing.view_own_family", { clubId: CLUB_A })).toBe(true);
-    expect(can(parentOfA1, "billing.view_own_family", { clubId: CLUB_B })).toBe(false);
+  // Matrix §13.5 — player only sees own family billing, and not cross-tenant.
+  it("scopes player billing to their own family/club", () => {
+    expect(can(playerOfA1, "billing.view_own_family", { clubId: CLUB_A })).toBe(true);
+    expect(can(playerOfA1, "billing.view_own_family", { clubId: CLUB_B })).toBe(false);
   });
 
   // Matrix §13.6 — coach can score players on assigned teams only.
@@ -138,9 +138,9 @@ describe("can() — matrix permission + scope combined", () => {
     expect(can(masterAdmin, "audit.view", { clubId: CLUB_A })).toBe(true);
   });
 
-  // Matrix §13.10 — parent RSVP only for linked child.
-  it("lets a parent RSVP for their own child only", () => {
-    expect(can(parentOfA1, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: PLAYER_A1 })).toBe(true);
-    expect(can(parentOfA1, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: PLAYER_A2 })).toBe(false);
+  // Matrix §13.10 — player RSVP only for linked child.
+  it("lets a player RSVP for their own child only", () => {
+    expect(can(playerOfA1, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: PLAYER_A1 })).toBe(true);
+    expect(can(playerOfA1, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: PLAYER_A2 })).toBe(false);
   });
 });

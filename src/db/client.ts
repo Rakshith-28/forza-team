@@ -28,7 +28,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  *
  * IMPORTANT: do not query through this client directly from routes. All
  * tenant-owned reads/writes go through the module data-access layer, which
- * enforces `clubId` scoping and parent-safe projections (see
+ * enforces `clubId` scoping and player-safe projections (see
  * @docs/BUILD_PLAN.md §2).
  */
 function createPrismaClient() {

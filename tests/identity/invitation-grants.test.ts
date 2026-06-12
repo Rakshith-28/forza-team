@@ -20,7 +20,7 @@ describe("planInvitationGrants", () => {
   it("COACH + initial team → team_coaches with the chosen role type", () => {
     const g = planInvitationGrants({ ...base, roleCode: "COACH", teamId: "t1", teamRoleType: "HEAD_COACH" });
     expect(g.teamCoachRoleType).toBe("HEAD_COACH");
-    expect(g.parentLink).toBeNull();
+    expect(g.playerLink).toBeNull();
   });
 
   it("COACH + initial team + no explicit type → default ASSISTANT_COACH", () => {
@@ -33,14 +33,14 @@ describe("planInvitationGrants", () => {
     expect(planInvitationGrants({ ...base, roleCode: "COACH", teamId: null }).teamCoachRoleType).toBeNull();
   });
 
-  it("PARENT + link metadata → parent link with the carried fields", () => {
+  it("PLAYER + link metadata → player link with the carried fields", () => {
     const g = planInvitationGrants({
       ...base,
-      roleCode: "PARENT",
+      roleCode: "PLAYER",
       linkMetadata: { playerId: "p1", relationshipType: "MOTHER", isPrimaryGuardian: true, canPickup: true, canPay: false },
     });
     expect(g.teamCoachRoleType).toBeNull();
-    expect(g.parentLink).toEqual({
+    expect(g.playerLink).toEqual({
       playerId: "p1",
       relationshipType: "MOTHER",
       isPrimaryGuardian: true,
@@ -49,20 +49,20 @@ describe("planInvitationGrants", () => {
     });
   });
 
-  it("PARENT without metadata → no link", () => {
-    expect(planInvitationGrants({ ...base, roleCode: "PARENT" }).parentLink).toBeNull();
+  it("PLAYER without metadata → no link", () => {
+    expect(planInvitationGrants({ ...base, roleCode: "PLAYER" }).playerLink).toBeNull();
   });
 
-  it("PARENT without a club → no link", () => {
+  it("PLAYER without a club → no link", () => {
     expect(
-      planInvitationGrants({ ...base, clubId: null, roleCode: "PARENT", linkMetadata: { playerId: "p", relationshipType: "MOTHER" } })
-        .parentLink,
+      planInvitationGrants({ ...base, clubId: null, roleCode: "PLAYER", linkMetadata: { playerId: "p", relationshipType: "MOTHER" } })
+        .playerLink,
     ).toBeNull();
   });
 
-  it("non-coach/non-parent (e.g. CLUB_ADMIN) → no grants", () => {
+  it("non-coach/non-player (e.g. CLUB_ADMIN) → no grants", () => {
     const g = planInvitationGrants({ ...base, roleCode: "CLUB_ADMIN", teamId: "t1", linkMetadata: { playerId: "p", relationshipType: "X" } });
-    expect(g).toEqual({ teamCoachRoleType: null, parentLink: null });
+    expect(g).toEqual({ teamCoachRoleType: null, playerLink: null });
   });
 });
 

@@ -63,7 +63,7 @@ export interface MasterDashboardSummary {
   teams: number;
   players: number;
   coaches: number;
-  parents: number;
+  playerAccounts: number;
   users: number;
   openInvoices: number;
   overdueInvoices: number;
@@ -74,8 +74,8 @@ export interface MasterDashboardSummary {
 
 /**
  * System-wide totals for the Master Admin dashboard. Each metric degrades to 0
- * when its module has no data yet. Distinct-user counts (coaches/parents) are
- * by active role assignment.
+ * when its module has no data yet. Distinct-user counts (coaches/player accounts)
+ * are by active role assignment.
  */
 export async function getMasterDashboardSummary(ctx: AuthContext): Promise<MasterDashboardSummary> {
   assertMasterAdmin(ctx);
@@ -87,7 +87,7 @@ export async function getMasterDashboardSummary(ctx: AuthContext): Promise<Maste
     teams,
     players,
     coachAssignments,
-    parentAssignments,
+    playerAccountAssignments,
     users,
     openInvoices,
     overdueInvoices,
@@ -105,7 +105,7 @@ export async function getMasterDashboardSummary(ctx: AuthContext): Promise<Maste
       distinct: ["userId"],
     }),
     prisma.userRoleAssignment.findMany({
-      where: { status: "ACTIVE", role: { code: "PARENT" } },
+      where: { status: "ACTIVE", role: { code: "PLAYER" } },
       select: { userId: true },
       distinct: ["userId"],
     }),
@@ -123,7 +123,7 @@ export async function getMasterDashboardSummary(ctx: AuthContext): Promise<Maste
     teams,
     players,
     coaches: coachAssignments.length,
-    parents: parentAssignments.length,
+    playerAccounts: playerAccountAssignments.length,
     users,
     openInvoices,
     overdueInvoices,
@@ -275,7 +275,7 @@ export interface MasterClubDetail {
     players: number;
     users: number;
     coaches: number;
-    parents: number;
+    playerAccounts: number;
     openInvoices: number;
     waiverAcceptances: number;
     activeEvaluationCycles: number;
@@ -298,10 +298,10 @@ export interface MasterClubDetail {
     registrationEnabled: boolean;
     billingEnabled: boolean;
     attendanceTrackingEnabled: boolean;
-    showPlayerPhotosToParents: boolean;
-    allowParentChildEvaluationView: boolean;
-    allowCoachInviteParents: boolean;
-    allowParentToParentChat: boolean;
+    showPlayerPhotosToPlayers: boolean;
+    allowPlayerEvaluationView: boolean;
+    allowCoachInvitePlayers: boolean;
+    allowPlayerToPlayerChat: boolean;
   } | null;
   recentAudit: {
     id: string;
@@ -333,7 +333,7 @@ export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Pro
     playerCount,
     userPairs,
     coachPairs,
-    parentPairs,
+    playerAccountPairs,
     openInvoices,
     waiverAcceptances,
     activeEvaluationCycles,
@@ -346,7 +346,7 @@ export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Pro
     prisma.player.count({ where: { clubId, deletedAt: null } }),
     prisma.userRoleAssignment.findMany({ where: { clubId, status: "ACTIVE" }, select: { userId: true }, distinct: ["userId"] }),
     prisma.userRoleAssignment.findMany({ where: { clubId, status: "ACTIVE", role: { code: "COACH" } }, select: { userId: true }, distinct: ["userId"] }),
-    prisma.userRoleAssignment.findMany({ where: { clubId, status: "ACTIVE", role: { code: "PARENT" } }, select: { userId: true }, distinct: ["userId"] }),
+    prisma.userRoleAssignment.findMany({ where: { clubId, status: "ACTIVE", role: { code: "PLAYER" } }, select: { userId: true }, distinct: ["userId"] }),
     prisma.invoice.count({ where: { clubId, status: { in: ["OPEN", "PARTIALLY_PAID", "OVERDUE"] } } }),
     prisma.waiverAcceptance.count({ where: { clubId } }),
     prisma.evaluationCycle.count({ where: { clubId, status: "ACTIVE" } }),
@@ -442,7 +442,7 @@ export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Pro
       players: playerCount,
       users: userPairs.length,
       coaches: coachPairs.length,
-      parents: parentPairs.length,
+      playerAccounts: playerAccountPairs.length,
       openInvoices,
       waiverAcceptances,
       activeEvaluationCycles,
@@ -466,10 +466,10 @@ export async function getMasterClubDetail(ctx: AuthContext, clubId: string): Pro
           registrationEnabled: settings.registrationEnabled,
           billingEnabled: settings.billingEnabled,
           attendanceTrackingEnabled: settings.attendanceTrackingEnabled,
-          showPlayerPhotosToParents: settings.showPlayerPhotosToParents,
-          allowParentChildEvaluationView: settings.allowParentChildEvaluationView,
-          allowCoachInviteParents: settings.allowCoachInviteParents,
-          allowParentToParentChat: settings.allowParentToParentChat,
+          showPlayerPhotosToPlayers: settings.showPlayerPhotosToPlayers,
+          allowPlayerEvaluationView: settings.allowPlayerEvaluationView,
+          allowCoachInvitePlayers: settings.allowCoachInvitePlayers,
+          allowPlayerToPlayerChat: settings.allowPlayerToPlayerChat,
         }
       : null,
     recentAudit: recentAudit.map((a) => ({

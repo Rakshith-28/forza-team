@@ -12,23 +12,23 @@ import {
   addPlayerToTeam,
   archivePlayer,
   createPlayer,
-  inviteParentForPlayer,
-  linkParentToPlayer,
+  invitePlayerAccountForPlayer,
+  linkPlayerAccountToPlayer,
   removePlayerFromTeam,
-  resendParentInvitation,
-  searchClubParents,
-  unlinkParentFromPlayer,
+  resendPlayerAccountInvitation,
+  searchClubPlayerAccounts,
+  unlinkPlayerAccountFromPlayer,
   updateOwnChild,
-  updateParent,
+  updatePlayerAccount,
   updatePlayer,
 } from "@/modules/roster/service";
 import {
   addMembershipSchema,
   createPlayerSchema,
-  inviteParentForPlayerSchema,
-  linkParentSchema,
-  parentUpdatePlayerSchema,
-  updateParentSchema,
+  invitePlayerAccountForPlayerSchema,
+  linkPlayerAccountSchema,
+  playerAccountUpdatePlayerSchema,
+  updatePlayerAccountSchema,
   updatePlayerSchema,
 } from "@/modules/roster/schemas";
 
@@ -150,14 +150,15 @@ export async function removeMembershipAction(fd: FormData): Promise<void> {
   revalidatePath(`/players/${playerId}`);
 }
 
-// --- Parents ---------------------------------------------------------------
-// NOTE: There is no standalone "invite a parent" action. Parent invites are always
-// child-linked and created from a player's roster (see inviteGuardianAction below);
-// the parent account + player_parent_link are provisioned together on acceptance.
-export async function updateParentAction(_prev: FormState, fd: FormData): Promise<FormState> {
+// --- Player accounts -------------------------------------------------------
+// NOTE: There is no standalone "invite a player account" action. Player account
+// invites are always child-linked and created from a player's roster (see
+// inviteGuardianAction below); the player account + player_account_link are
+// provisioned together on acceptance.
+export async function updatePlayerAccountAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { ctx } = await requireUserAndContext();
-  const parentId = str(fd, "parentId");
-  const parsed = updateParentSchema.safeParse({
+  const playerAccountId = str(fd, "playerAccountId");
+  const parsed = updatePlayerAccountSchema.safeParse({
     firstName: str(fd, "firstName"),
     lastName: str(fd, "lastName"),
     phone: optStr(fd, "phone"),
@@ -171,23 +172,23 @@ export async function updateParentAction(_prev: FormState, fd: FormData): Promis
   });
   if (!parsed.success) return failZod(parsed.error);
   try {
-    await updateParent(ctx, parentId, parsed.data);
+    await updatePlayerAccount(ctx, playerAccountId, parsed.data);
   } catch (e) {
     return failService(e);
   }
-  revalidatePath("/parents");
-  revalidatePath(`/parents/${parentId}`);
+  revalidatePath("/player-accounts");
+  revalidatePath(`/player-accounts/${playerAccountId}`);
   revalidatePath("/profile");
   return { ok: true, error: null };
 }
 
-// --- Parent ↔ player links -------------------------------------------------
-export async function linkParentAction(_prev: FormState, fd: FormData): Promise<FormState> {
+// --- Player account ↔ player links -----------------------------------------
+export async function linkPlayerAccountAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { ctx } = await requireUserAndContext();
-  const parentId = str(fd, "parentId");
-  const parsed = linkParentSchema.safeParse({
+  const playerAccountId = str(fd, "playerAccountId");
+  const parsed = linkPlayerAccountSchema.safeParse({
     playerId: str(fd, "playerId"),
-    parentId,
+    playerAccountId,
     relationshipType: str(fd, "relationshipType"),
     isPrimaryGuardian: bool(fd, "isPrimaryGuardian"),
     canPickup: bool(fd, "canPickup"),
@@ -195,27 +196,27 @@ export async function linkParentAction(_prev: FormState, fd: FormData): Promise<
   });
   if (!parsed.success) return failZod(parsed.error);
   try {
-    await linkParentToPlayer(ctx, parsed.data);
+    await linkPlayerAccountToPlayer(ctx, parsed.data);
   } catch (e) {
     return failService(e);
   }
-  revalidatePath(`/parents/${parentId}`);
+  revalidatePath(`/player-accounts/${playerAccountId}`);
   revalidatePath(`/players/${parsed.data.playerId}`);
   return { ok: true, error: null };
 }
 
-export async function unlinkParentAction(fd: FormData): Promise<void> {
+export async function unlinkPlayerAccountAction(fd: FormData): Promise<void> {
   const { ctx } = await requireUserAndContext();
-  const parentId = str(fd, "parentId");
-  await unlinkParentFromPlayer(ctx, str(fd, "linkId"));
-  revalidatePath(`/parents/${parentId}`);
+  const playerAccountId = str(fd, "playerAccountId");
+  await unlinkPlayerAccountFromPlayer(ctx, str(fd, "linkId"));
+  revalidatePath(`/player-accounts/${playerAccountId}`);
 }
 
 // --- Player guardians (coach/admin, from the player detail page) -----------
 export async function inviteGuardianAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { ctx } = await requireUserAndContext();
   const playerId = str(fd, "playerId");
-  const parsed = inviteParentForPlayerSchema.safeParse({
+  const parsed = invitePlayerAccountForPlayerSchema.safeParse({
     email: str(fd, "email"),
     playerId,
     relationshipType: str(fd, "relationshipType"),
@@ -227,7 +228,7 @@ export async function inviteGuardianAction(_prev: FormState, fd: FormData): Prom
   let emailDelivered = true;
   let acceptUrl: string;
   try {
-    const result = await inviteParentForPlayer(ctx, parsed.data);
+    const result = await invitePlayerAccountForPlayer(ctx, parsed.data);
     emailDelivered = result.emailDelivered;
     acceptUrl = result.acceptUrl;
   } catch (e) {
@@ -247,9 +248,9 @@ export async function inviteGuardianAction(_prev: FormState, fd: FormData): Prom
 export async function linkGuardianAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { ctx } = await requireUserAndContext();
   const playerId = str(fd, "playerId");
-  const parsed = linkParentSchema.safeParse({
+  const parsed = linkPlayerAccountSchema.safeParse({
     playerId,
-    parentId: str(fd, "parentId"),
+    playerAccountId: str(fd, "playerAccountId"),
     relationshipType: str(fd, "relationshipType"),
     isPrimaryGuardian: bool(fd, "isPrimaryGuardian"),
     canPickup: bool(fd, "canPickup"),
@@ -257,7 +258,7 @@ export async function linkGuardianAction(_prev: FormState, fd: FormData): Promis
   });
   if (!parsed.success) return failZod(parsed.error);
   try {
-    await linkParentToPlayer(ctx, parsed.data);
+    await linkPlayerAccountToPlayer(ctx, parsed.data);
   } catch (e) {
     return failService(e);
   }
@@ -268,17 +269,17 @@ export async function linkGuardianAction(_prev: FormState, fd: FormData): Promis
 export async function removeGuardianAction(fd: FormData): Promise<void> {
   const { ctx } = await requireUserAndContext();
   const playerId = str(fd, "playerId");
-  await unlinkParentFromPlayer(ctx, str(fd, "linkId"));
+  await unlinkPlayerAccountFromPlayer(ctx, str(fd, "linkId"));
   revalidatePath(`/players/${playerId}`);
 }
 
-/** Regenerate + return the accept link for a pending parent invite (rotates the token). */
-export async function copyParentInviteLinkAction(
+/** Regenerate + return the accept link for a pending player account invite (rotates the token). */
+export async function copyPlayerAccountInviteLinkAction(
   invitationId: string,
 ): Promise<{ ok: boolean; error: string | null; acceptUrl?: string }> {
   const { ctx } = await requireUserAndContext();
   try {
-    const res = await resendParentInvitation(ctx, invitationId);
+    const res = await resendPlayerAccountInvitation(ctx, invitationId);
     if (!res) return { ok: false, error: "Invitation not found." };
     return { ok: true, error: null, acceptUrl: res.acceptUrl };
   } catch (e) {
@@ -286,26 +287,26 @@ export async function copyParentInviteLinkAction(
   }
 }
 
-/** Search club parents for the "Link existing parent" picker. Returns [] on denial/empty. */
+/** Search club player accounts for the "Link existing player account" picker. Returns [] on denial/empty. */
 export async function searchGuardiansAction(
   query: string,
 ): Promise<{ id: string; name: string; email: string }[]> {
   const { ctx } = await requireUserAndContext();
   if (!ctx.activeClubId) return [];
   try {
-    const parents = await searchClubParents(ctx, ctx.activeClubId, query);
-    return parents.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, email: p.email }));
+    const playerAccounts = await searchClubPlayerAccounts(ctx, ctx.activeClubId, query);
+    return playerAccounts.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, email: p.email }));
   } catch {
     return [];
   }
 }
 
-// --- Parent self-service: edit own child (approved fields only) ------------
+// --- Player account self-service: edit own child (approved fields only) ----
 export async function updateOwnChildAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { ctx } = await requireUserAndContext();
   const playerId = str(fd, "playerId");
   // Build only from whitelisted keys; the strict schema rejects anything else.
-  const parsed = parentUpdatePlayerSchema.safeParse({
+  const parsed = playerAccountUpdatePlayerSchema.safeParse({
     preferredName: optStr(fd, "preferredName"),
     photoUrl: optStr(fd, "photoUrl"),
     emergencyContactName: optStr(fd, "emergencyContactName"),
@@ -320,7 +321,7 @@ export async function updateOwnChildAction(_prev: FormState, fd: FormData): Prom
     return failService(e);
   }
   revalidatePath(`/my-kids/${playerId}`);
-  revalidatePath("/dashboard/parent");
+  revalidatePath("/dashboard/player");
   revalidatePath("/squad");
   return { ok: true, error: null };
 }

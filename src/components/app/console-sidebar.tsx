@@ -53,7 +53,7 @@ export const ICONS: Record<string, LucideIcon> = {
   Seasons: CalendarRange,
   Teams: Shield,
   Players: Users,
-  Parents: UserRound,
+  "Player Accounts": UserRound,
   Schedule: Calendar,
   Attendance: ClipboardCheck,
   Announcements: Megaphone,

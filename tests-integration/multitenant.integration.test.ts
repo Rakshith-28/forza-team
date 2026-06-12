@@ -3,13 +3,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/db/client";
 import { loadAuthContext } from "@/modules/identity/context";
 import { listLinkedChildren, listPlayers } from "@/modules/roster/service";
-import { listParentSchedule } from "@/modules/events/service";
+import { listPlayerSchedule } from "@/modules/events/service";
 
 import { INTEGRATION, uid } from "./helpers";
 
 /**
  * Multi-tenant / multi-team / multi-child integrity against an isolated DB.
- * Two clubs; a coach on two teams; a parent with two children on different
+ * Two clubs; a coach on two teams; a player with two children on different
  * teams; a player on two teams. Asserts scope derivation (the real
  * loadAuthContext), aggregation, cross-club isolation, and UNIQUE integrity.
  */
@@ -20,8 +20,8 @@ const ids = {
   a2: uid(),
   b1: uid(),
   coachUser: uid(),
-  parentUser: uid(),
-  parent: uid(),
+  playerUser: uid(),
+  playerAccount: uid(),
   childX: uid(),
   childY: uid(),
   pBoth: uid(),
@@ -36,11 +36,11 @@ const run = INTEGRATION ? describe : describe.skip;
 run("multi-tenant integrity", () => {
   beforeAll(async () => {
     // Roles (self-contained — don't depend on a prior seed).
-    for (const [code, name] of [["COACH", "Coach"], ["PARENT", "Parent / Guardian"]] as const) {
+    for (const [code, name] of [["COACH", "Coach"], ["PLAYER", "Player"]] as const) {
       await prisma.role.upsert({ where: { code }, create: { code, name }, update: {} });
     }
     const coachRole = (await prisma.role.findUnique({ where: { code: "COACH" }, select: { id: true } }))!.id;
-    const parentRole = (await prisma.role.findUnique({ where: { code: "PARENT" }, select: { id: true } }))!.id;
+    const playerRole = (await prisma.role.findUnique({ where: { code: "PLAYER" }, select: { id: true } }))!.id;
 
     await prisma.club.createMany({
       data: [
@@ -83,14 +83,14 @@ run("multi-tenant integrity", () => {
       ],
     });
 
-    // Parent with two children on different teams (single login).
-    await prisma.user.create({ data: { id: ids.parentUser, email: `mt-parent-${ids.parentUser}@it.test`, firstName: "Mt", lastName: "Parent" } });
-    await prisma.userRoleAssignment.create({ data: { userId: ids.parentUser, roleId: parentRole, clubId: ids.clubA, status: "ACTIVE" } });
-    await prisma.parent.create({ data: { id: ids.parent, clubId: ids.clubA, userId: ids.parentUser, firstName: "Mt", lastName: "Parent", email: `mt-parent-${ids.parentUser}@it.test` } });
-    await prisma.playerParentLink.createMany({
+    // Player account with two children on different teams (single login).
+    await prisma.user.create({ data: { id: ids.playerUser, email: `mt-player-${ids.playerUser}@it.test`, firstName: "Mt", lastName: "Player" } });
+    await prisma.userRoleAssignment.create({ data: { userId: ids.playerUser, roleId: playerRole, clubId: ids.clubA, status: "ACTIVE" } });
+    await prisma.playerAccount.create({ data: { id: ids.playerAccount, clubId: ids.clubA, userId: ids.playerUser, firstName: "Mt", lastName: "Player", email: `mt-player-${ids.playerUser}@it.test` } });
+    await prisma.playerAccountLink.createMany({
       data: [
-        { clubId: ids.clubA, playerId: ids.childX, parentId: ids.parent, relationshipType: "GUARDIAN" },
-        { clubId: ids.clubA, playerId: ids.childY, parentId: ids.parent, relationshipType: "GUARDIAN" },
+        { clubId: ids.clubA, playerId: ids.childX, playerAccountId: ids.playerAccount, relationshipType: "GUARDIAN" },
+        { clubId: ids.clubA, playerId: ids.childY, playerAccountId: ids.playerAccount, relationshipType: "GUARDIAN" },
       ],
     });
 
@@ -117,12 +117,12 @@ run("multi-tenant integrity", () => {
     await prisma.eventRsvp.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.eventTeam.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.event.deleteMany({ where: { clubId: { in: clubs } } });
-    await prisma.playerParentLink.deleteMany({ where: { clubId: { in: clubs } } });
+    await prisma.playerAccountLink.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.playerTeamMembership.deleteMany({ where: { clubId: { in: clubs } } });
-    await prisma.parent.deleteMany({ where: { clubId: { in: clubs } } });
+    await prisma.playerAccount.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.teamCoach.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.userRoleAssignment.deleteMany({ where: { clubId: { in: clubs } } });
-    await prisma.user.deleteMany({ where: { id: { in: [ids.coachUser, ids.parentUser] } } });
+    await prisma.user.deleteMany({ where: { id: { in: [ids.coachUser, ids.playerUser] } } });
     await prisma.player.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.team.deleteMany({ where: { clubId: { in: clubs } } });
     await prisma.club.deleteMany({ where: { id: { in: clubs } } });
@@ -149,27 +149,27 @@ run("multi-tenant integrity", () => {
     expect(both?.teamMemberships.map((m) => m.teamId).sort()).toEqual([ids.a1, ids.a2].sort());
   });
 
-  it("parent single login surfaces both children across teams; no cross-club leak", async () => {
-    const ctx = await loadAuthContext(ids.parentUser, ids.clubA);
+  it("player single login surfaces both children across teams; no cross-club leak", async () => {
+    const ctx = await loadAuthContext(ids.playerUser, ids.clubA);
     expect(ctx!.linkedPlayerIds.sort()).toEqual([ids.childX, ids.childY].sort());
     expect(ctx!.childTeamIds.sort()).toEqual([ids.a1, ids.a2].sort());
 
     const kids = await listLinkedChildren(ctx!);
     expect(kids.map((k) => k.id).sort()).toEqual([ids.childX, ids.childY].sort());
 
-    const schedule = await listParentSchedule(ctx!);
+    const schedule = await listPlayerSchedule(ctx!);
     const eventIds = schedule.map((s) => s.event.id);
     expect(eventIds).toEqual(expect.arrayContaining([ids.eventA1, ids.eventClubWideA]));
     expect(eventIds).not.toContain(ids.eventB1); // club B event never surfaces
     expect(new Set(eventIds).size).toBe(eventIds.length); // de-duped
   });
 
-  it("enforces UNIQUE(team_id, user_id) and UNIQUE(player_id, parent_id)", async () => {
+  it("enforces UNIQUE(team_id, user_id) and UNIQUE(player_id, player_account_id)", async () => {
     await expect(
       prisma.teamCoach.create({ data: { clubId: ids.clubA, teamId: ids.a1, userId: ids.coachUser, roleType: "HEAD_COACH", status: "ACTIVE" } }),
     ).rejects.toMatchObject({ code: "P2002" });
     await expect(
-      prisma.playerParentLink.create({ data: { clubId: ids.clubA, playerId: ids.childX, parentId: ids.parent, relationshipType: "GUARDIAN", status: "ACTIVE" } }),
+      prisma.playerAccountLink.create({ data: { clubId: ids.clubA, playerId: ids.childX, playerAccountId: ids.playerAccount, relationshipType: "GUARDIAN", status: "ACTIVE" } }),
     ).rejects.toMatchObject({ code: "P2002" });
   });
 });

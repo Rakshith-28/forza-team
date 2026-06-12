@@ -28,41 +28,41 @@ function ctx(overrides: Partial<AuthContext>): AuthContext {
 
 const clubAdminA = ctx({ role: "CLUB_ADMIN", activeClubId: CLUB_A });
 const coachA = ctx({ role: "COACH", activeClubId: CLUB_A, coachTeamIds: ["t1"], childTeamIds: [] });
-const parentA = ctx({ role: "PARENT", activeClubId: CLUB_A, linkedPlayerIds: ["kid"], childTeamIds: ["t2"] });
+const playerA = ctx({ role: "PLAYER", activeClubId: CLUB_A, linkedPlayerIds: ["kid"], childTeamIds: ["t2"] });
 
 // ---------------------------------------------------------------------------
-// 1 — Parent cannot create/edit/publish/archive announcements
+// 1 — Player cannot create/edit/publish/archive announcements
 // ---------------------------------------------------------------------------
-describe("parents cannot manage announcements", () => {
+describe("players cannot manage announcements", () => {
   it("rejects create for any audience", async () => {
     await expect(
-      createAnnouncement(parentA, CLUB_A, { title: "Hi", body: "x", audienceType: "CLUB_ALL", teamId: null }),
+      createAnnouncement(playerA, CLUB_A, { title: "Hi", body: "x", audienceType: "CLUB_ALL", teamId: null }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
-      createAnnouncement(parentA, CLUB_A, { title: "Hi", body: "x", audienceType: "TEAM_ONLY", teamId: "t2" }),
+      createAnnouncement(playerA, CLUB_A, { title: "Hi", body: "x", audienceType: "TEAM_ONLY", teamId: "t2" }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("holds no publish permission", () => {
-    expect(can(parentA, "announcements.publish_club", { clubId: CLUB_A })).toBe(false);
-    expect(can(parentA, "announcements.publish_team", { clubId: CLUB_A, teamId: "t2" })).toBe(false);
+    expect(can(playerA, "announcements.publish_club", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "announcements.publish_team", { clubId: CLUB_A, teamId: "t2" })).toBe(false);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 2 — Parent feed excludes COACHES_ONLY + drafts; includes own-child/parent/club
+// 2 — Player feed excludes COACHES_ONLY + drafts; includes own-child/player/club
 // ---------------------------------------------------------------------------
-describe("parent announcement visibility", () => {
+describe("player announcement visibility", () => {
   const draft = { status: "DRAFT", audienceType: "CLUB_ALL", teamId: null, createdBy: "someone" };
   it("excludes COACHES_ONLY and all drafts", () => {
-    expect(canViewAnnouncement(parentA, { status: "PUBLISHED", audienceType: "COACHES_ONLY", teamId: null, createdBy: "x" })).toBe(false);
-    expect(canViewAnnouncement(parentA, draft)).toBe(false);
+    expect(canViewAnnouncement(playerA, { status: "PUBLISHED", audienceType: "COACHES_ONLY", teamId: null, createdBy: "x" })).toBe(false);
+    expect(canViewAnnouncement(playerA, draft)).toBe(false);
   });
-  it("includes club-wide, parents-only, and own-child team announcements", () => {
-    expect(canViewAnnouncement(parentA, { status: "PUBLISHED", audienceType: "CLUB_ALL", teamId: null, createdBy: "x" })).toBe(true);
-    expect(canViewAnnouncement(parentA, { status: "PUBLISHED", audienceType: "PARENTS_ONLY", teamId: null, createdBy: "x" })).toBe(true);
-    expect(canViewAnnouncement(parentA, { status: "PUBLISHED", audienceType: "TEAM_ONLY", teamId: "t2", createdBy: "x" })).toBe(true);
-    expect(canViewAnnouncement(parentA, { status: "PUBLISHED", audienceType: "TEAM_ONLY", teamId: "t-other", createdBy: "x" })).toBe(false);
+  it("includes club-wide, players-only, and own-child team announcements", () => {
+    expect(canViewAnnouncement(playerA, { status: "PUBLISHED", audienceType: "CLUB_ALL", teamId: null, createdBy: "x" })).toBe(true);
+    expect(canViewAnnouncement(playerA, { status: "PUBLISHED", audienceType: "PLAYERS_ONLY", teamId: null, createdBy: "x" })).toBe(true);
+    expect(canViewAnnouncement(playerA, { status: "PUBLISHED", audienceType: "TEAM_ONLY", teamId: "t2", createdBy: "x" })).toBe(true);
+    expect(canViewAnnouncement(playerA, { status: "PUBLISHED", audienceType: "TEAM_ONLY", teamId: "t-other", createdBy: "x" })).toBe(false);
   });
   it("coach sees coach/club + assigned team, and others' drafts are hidden", () => {
     expect(canViewAnnouncement(coachA, { status: "PUBLISHED", audienceType: "COACHES_ONLY", teamId: null, createdBy: "x" })).toBe(true);
@@ -97,7 +97,7 @@ describe("coach announcement scope", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4 + 5 — Team chat scope (coach assigned; parent linked-child team only)
+// 4 + 5 — Team chat scope (coach assigned; player linked-child team only)
 // ---------------------------------------------------------------------------
 describe("team chat scope", () => {
   it("coach: read/post only for assigned teams", () => {
@@ -106,23 +106,23 @@ describe("team chat scope", () => {
     expect(can(coachA, "chat.view_team", { clubId: CLUB_A, teamId: "t-unassigned" })).toBe(false);
     expect(can(coachA, "chat.send_team", { clubId: CLUB_A, teamId: "t-unassigned" })).toBe(false);
   });
-  it("parent: read/post only in a linked child's team", () => {
-    expect(can(parentA, "chat.view_team", { clubId: CLUB_A, teamId: "t2" })).toBe(true);
-    expect(can(parentA, "chat.send_team", { clubId: CLUB_A, teamId: "t2" })).toBe(true);
-    expect(can(parentA, "chat.view_team", { clubId: CLUB_A, teamId: "t-other" })).toBe(false);
+  it("player: read/post only in a linked child's team", () => {
+    expect(can(playerA, "chat.view_team", { clubId: CLUB_A, teamId: "t2" })).toBe(true);
+    expect(can(playerA, "chat.send_team", { clubId: CLUB_A, teamId: "t2" })).toBe(true);
+    expect(can(playerA, "chat.view_team", { clubId: CLUB_A, teamId: "t-other" })).toBe(false);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 6 — No DM / parent-to-parent path exists
+// 6 — No DM / player-to-player path exists
 // ---------------------------------------------------------------------------
 describe("no direct-message surface", () => {
-  it("the permission catalog has no DM/direct/parent-to-parent permission", () => {
+  it("the permission catalog has no DM/direct/player-to-player permission", () => {
     const keys = Object.keys(PERMISSIONS);
-    expect(keys.some((k) => /\bdm\b|direct|parent_to_parent|p2p/i.test(k))).toBe(false);
+    expect(keys.some((k) => /\bdm\b|direct|player_to_player|p2p/i.test(k))).toBe(false);
   });
-  it("chat is team-scoped for every role (parents only via CHILD scope)", () => {
-    expect(PERMISSIONS["chat.send_team"].PARENT).toBe("CHILD");
+  it("chat is team-scoped for every role (players only via CHILD scope)", () => {
+    expect(PERMISSIONS["chat.send_team"].PLAYER).toBe("CHILD");
     expect(PERMISSIONS["chat.send_team"].COACH).toBe("TEAM");
   });
 });
@@ -133,7 +133,7 @@ describe("no direct-message surface", () => {
 describe("announcement cross-club isolation", () => {
   it("rejects listing another club's announcements", async () => {
     await expect(listAnnouncements(coachA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(listAnnouncements(parentA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(listAnnouncements(playerA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
     await expect(listAnnouncements(clubAdminA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

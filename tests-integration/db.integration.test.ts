@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/db/client";
 import { ForbiddenError } from "@/lib/rbac";
 import {
-  listParentSchedule,
+  listPlayerSchedule,
   recordAttendance,
   submitRsvp,
 } from "@/modules/events/service";
@@ -11,13 +11,13 @@ import { savePlayerEvaluation } from "@/modules/evaluations/service";
 import { listSafeTeamRoster } from "@/modules/roster/service";
 import { getOwnChildEvaluationSummary } from "@/modules/evaluations/service";
 
-import { INTEGRATION, adminCtx, coachCtx, parentCtx, uid } from "./helpers";
+import { INTEGRATION, adminCtx, coachCtx, playerCtx, uid } from "./helpers";
 
 /**
  * DB-backed behaviors previously verified only by the Phase-6 Step-0 script,
  * now real integration tests against an isolated DB (gated on TEST_DATABASE_URL).
- * Covers: RSVP/attendance/evaluation upsert uniqueness, parent multi-child
- * aggregation + cross-club scoping, parent-safe roster, and the evaluation
+ * Covers: RSVP/attendance/evaluation upsert uniqueness, player multi-child
+ * aggregation + cross-club scoping, player-safe roster, and the evaluation
  * gating flag.
  */
 
@@ -29,8 +29,8 @@ const ids = {
   teamA2: uid(),
   player1: uid(),
   player2: uid(),
-  parentUser: uid(),
-  parentId: uid(),
+  playerUser: uid(),
+  playerAccountId: uid(),
   eventTeamA1: uid(),
   eventClubWideA: uid(),
   eventClubWideB: uid(),
@@ -50,7 +50,7 @@ run("DB integration", () => {
       ],
     });
     await prisma.clubSetting.create({
-      data: { clubId: ids.clubA, showPlayerPhotosToParents: false, allowParentChildEvaluationView: false },
+      data: { clubId: ids.clubA, showPlayerPhotosToPlayers: false, allowPlayerEvaluationView: false },
     });
 
     await prisma.team.createMany({
@@ -74,7 +74,7 @@ run("DB integration", () => {
         { id: ids.player2, clubId: ids.clubA, firstName: "Kid", lastName: "Two", primaryPosition: "FWD" },
       ],
     });
-    // player1 → teamA1, player2 → teamA2 (parent has both children on two teams).
+    // player1 → teamA1, player2 → teamA2 (player account has both children on two teams).
     await prisma.playerTeamMembership.createMany({
       data: [
         { clubId: ids.clubA, playerId: ids.player1, teamId: ids.teamA1 },
@@ -83,15 +83,15 @@ run("DB integration", () => {
     });
 
     await prisma.user.create({
-      data: { id: ids.parentUser, email: `parent-${ids.parentUser}@it.test`, firstName: "Pat", lastName: "Parent" },
+      data: { id: ids.playerUser, email: `player-${ids.playerUser}@it.test`, firstName: "Pat", lastName: "Player" },
     });
-    await prisma.parent.create({
-      data: { id: ids.parentId, clubId: ids.clubA, userId: ids.parentUser, firstName: "Pat", lastName: "Parent", email: `parent-${ids.parentUser}@it.test` },
+    await prisma.playerAccount.create({
+      data: { id: ids.playerAccountId, clubId: ids.clubA, userId: ids.playerUser, firstName: "Pat", lastName: "Player", email: `player-${ids.playerUser}@it.test` },
     });
-    await prisma.playerParentLink.createMany({
+    await prisma.playerAccountLink.createMany({
       data: [
-        { clubId: ids.clubA, playerId: ids.player1, parentId: ids.parentId, relationshipType: "GUARDIAN" },
-        { clubId: ids.clubA, playerId: ids.player2, parentId: ids.parentId, relationshipType: "GUARDIAN" },
+        { clubId: ids.clubA, playerId: ids.player1, playerAccountId: ids.playerAccountId, relationshipType: "GUARDIAN" },
+        { clubId: ids.clubA, playerId: ids.player2, playerAccountId: ids.playerAccountId, relationshipType: "GUARDIAN" },
       ],
     });
 
@@ -129,11 +129,11 @@ run("DB integration", () => {
     await prisma.attendanceRecord.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.eventTeam.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.event.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
-    await prisma.playerParentLink.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
+    await prisma.playerAccountLink.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.playerTeamMembership.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
-    await prisma.parent.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
+    await prisma.playerAccount.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.player.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
-    await prisma.user.deleteMany({ where: { id: ids.parentUser } });
+    await prisma.user.deleteMany({ where: { id: ids.playerUser } });
     await prisma.team.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.clubSetting.deleteMany({ where: { clubId: { in: [ids.clubA, ids.clubB] } } });
     await prisma.club.deleteMany({ where: { id: { in: [ids.clubA, ids.clubB] } } });
@@ -141,7 +141,7 @@ run("DB integration", () => {
   });
 
   it("RSVP is an upsert keyed on (event, player) — repeated submits update, never duplicate", async () => {
-    const ctx = parentCtx(ids.clubA, [ids.player1, ids.player2], [ids.teamA1, ids.teamA2]);
+    const ctx = playerCtx(ids.clubA, [ids.player1, ids.player2], [ids.teamA1, ids.teamA2]);
     await submitRsvp(ctx, ids.eventTeamA1, { playerId: ids.player1, responseStatus: "GOING", comment: undefined });
     await submitRsvp(ctx, ids.eventTeamA1, { playerId: ids.player1, responseStatus: "NOT_GOING", comment: undefined });
     const rows = await prisma.eventRsvp.findMany({ where: { eventId: ids.eventTeamA1, playerId: ids.player1 } });
@@ -170,7 +170,7 @@ run("DB integration", () => {
       scores,
       summaryComment: undefined,
       coachOnlyNotes: undefined,
-      parentVisibleNotes: undefined,
+      playerVisibleNotes: undefined,
     };
     await savePlayerEvaluation(ctx, base);
     await savePlayerEvaluation(ctx, { ...base, scores: criteria.map((c) => ({ criterionId: c.id, rawScore: 10 })) });
@@ -182,9 +182,9 @@ run("DB integration", () => {
     for (const s of evScores) expect(Number(s.weightedScore)).toBe(Number(s.rawScore));
   });
 
-  it("parent multi-child schedule aggregates both children + club-wide, scoped to the club", async () => {
-    const ctx = parentCtx(ids.clubA, [ids.player1, ids.player2], [ids.teamA1, ids.teamA2]);
-    const schedule = await listParentSchedule(ctx);
+  it("player multi-child schedule aggregates both children + club-wide, scoped to the club", async () => {
+    const ctx = playerCtx(ids.clubA, [ids.player1, ids.player2], [ids.teamA1, ids.teamA2]);
+    const schedule = await listPlayerSchedule(ctx);
     const eventIds = schedule.map((s) => s.event.id);
     expect(eventIds).toContain(ids.eventTeamA1);
     expect(eventIds).toContain(ids.eventClubWideA);
@@ -197,21 +197,21 @@ run("DB integration", () => {
     expect(clubWide?.children.map((c) => c.playerId).sort()).toEqual([ids.player1, ids.player2].sort());
   });
 
-  it("parent-safe roster strips restricted PII and respects the photo setting", async () => {
-    const ctx = parentCtx(ids.clubA, [ids.player1, ids.player2], [ids.teamA1, ids.teamA2]);
+  it("player-safe roster strips restricted PII and respects the photo setting", async () => {
+    const ctx = playerCtx(ids.clubA, [ids.player1, ids.player2], [ids.teamA1, ids.teamA2]);
     const roster = await listSafeTeamRoster(ctx, ids.teamA1);
     const serialized = JSON.stringify(roster);
     expect(serialized).not.toContain("SECRET-MED");
     expect(serialized).not.toContain("555-SECRET");
-    expect(roster[0]?.photoUrl ?? null).toBeNull(); // showPlayerPhotosToParents = false
+    expect(roster[0]?.photoUrl ?? null).toBeNull(); // showPlayerPhotosToPlayers = false
   });
 
-  it("parent evaluation summary is gated by allow_parent_child_evaluation_view", async () => {
-    const ctx = parentCtx(ids.clubA, [ids.player1, ids.player2], [ids.teamA1, ids.teamA2]);
+  it("player evaluation summary is gated by allow_player_evaluation_view", async () => {
+    const ctx = playerCtx(ids.clubA, [ids.player1, ids.player2], [ids.teamA1, ids.teamA2]);
     // Gate OFF → rejected.
     await expect(getOwnChildEvaluationSummary(ctx, ids.player1)).rejects.toBeInstanceOf(ForbiddenError);
     // Flip the flag ON → allowed, and coach-only notes never leak.
-    await prisma.clubSetting.update({ where: { clubId: ids.clubA }, data: { allowParentChildEvaluationView: true } });
+    await prisma.clubSetting.update({ where: { clubId: ids.clubA }, data: { allowPlayerEvaluationView: true } });
     const summaries = await getOwnChildEvaluationSummary(ctx, ids.player1);
     expect(summaries.length).toBeGreaterThan(0);
     const serialized = JSON.stringify(summaries);

@@ -109,10 +109,10 @@ export async function updateClubSettingsAction(_prev: FormState, fd: FormData): 
   const { ctx, clubId } = await activeClub();
   if (!clubId) return { ok: false, error: "No active club." };
   const parsed = updateClubSettingsSchema.safeParse({
-    showPlayerPhotosToParents: fd.get("showPlayerPhotosToParents") != null,
-    allowParentChildEvaluationView: fd.get("allowParentChildEvaluationView") != null,
+    showPlayerPhotosToPlayers: fd.get("showPlayerPhotosToPlayers") != null,
+    allowPlayerEvaluationView: fd.get("allowPlayerEvaluationView") != null,
     attendanceTrackingEnabled: fd.get("attendanceTrackingEnabled") != null,
-    allowCoachInviteParents: fd.get("allowCoachInviteParents") != null,
+    allowCoachInvitePlayers: fd.get("allowCoachInvitePlayers") != null,
   });
   if (!parsed.success) return failZod(parsed.error);
   try {

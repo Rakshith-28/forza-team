@@ -23,7 +23,7 @@ function ctx(overrides: Partial<AuthContext>): AuthContext {
 const master = ctx({ role: "MASTER_ADMIN", activeClubId: null });
 const clubAdminA = ctx({ role: "CLUB_ADMIN", activeClubId: CLUB_A });
 const coachA = ctx({ role: "COACH", activeClubId: CLUB_A, coachTeamIds: ["t1"] });
-const parentA = ctx({ role: "PARENT", activeClubId: CLUB_A, linkedPlayerIds: ["p1"] });
+const playerA = ctx({ role: "PLAYER", activeClubId: CLUB_A, linkedPlayerIds: ["p1"] });
 
 describe("Phase 2 — tenant isolation (Club Admin cannot reach another club)", () => {
   for (const perm of ["clubs.manage", "seasons.manage", "teams.manage"] as const) {
@@ -54,10 +54,10 @@ describe("Phase 2 — role boundaries for create / edit / archive", () => {
     expect(can(coachA, "teams.manage", { clubId: CLUB_A })).toBe(false);
   });
 
-  it("parents cannot manage clubs, seasons, or teams", () => {
-    expect(can(parentA, "clubs.manage", { clubId: CLUB_A })).toBe(false);
-    expect(can(parentA, "seasons.manage", { clubId: CLUB_A })).toBe(false);
-    expect(can(parentA, "teams.manage", { clubId: CLUB_A })).toBe(false);
+  it("players cannot manage clubs, seasons, or teams", () => {
+    expect(can(playerA, "clubs.manage", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "seasons.manage", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "teams.manage", { clubId: CLUB_A })).toBe(false);
   });
 
   it("coaches may VIEW their assigned teams but not club-wide manage", () => {

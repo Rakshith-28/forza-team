@@ -279,7 +279,7 @@ export async function archiveSeason(ctx: AuthContext, seasonId: string) {
 
 export function listTeams(ctx: AuthContext, clubId: string, opts: { seasonId?: string } = {}) {
   assertClubScope(ctx, clubId);
-  if (ctx.role === "PARENT") throw new ForbiddenError("Use the parent roster view");
+  if (ctx.role === "PLAYER") throw new ForbiddenError("Use the player roster view");
 
   const where: Prisma.TeamWhereInput = { clubId, deletedAt: null };
   if (opts.seasonId) where.seasonId = opts.seasonId;
@@ -509,10 +509,10 @@ export async function getClubSettings(ctx: AuthContext, clubId: string) {
 }
 
 export interface UpdateClubSettingsInput {
-  showPlayerPhotosToParents: boolean;
-  allowParentChildEvaluationView: boolean;
+  showPlayerPhotosToPlayers: boolean;
+  allowPlayerEvaluationView: boolean;
   attendanceTrackingEnabled: boolean;
-  allowCoachInviteParents: boolean;
+  allowCoachInvitePlayers: boolean;
 }
 
 export async function updateClubSettings(ctx: AuthContext, clubId: string, input: UpdateClubSettingsInput) {

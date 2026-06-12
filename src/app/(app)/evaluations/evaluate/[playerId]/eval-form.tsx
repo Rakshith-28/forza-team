@@ -27,7 +27,7 @@ export interface NamedOpt {
 
 /**
  * Coach/admin player-evaluation form. Pick team + cycle + template, score each
- * criterion, and write summary / parent-visible / coach-only notes. The overall
+ * criterion, and write summary / player-visible / coach-only notes. The overall
  * score is computed server-side as the unweighted mean.
  */
 export function PlayerEvaluationForm({
@@ -104,9 +104,9 @@ export function PlayerEvaluationForm({
         ))}
       </div>
 
-      <Note name="summaryComment" label="Summary (visible to parents)" />
-      <Note name="parentVisibleNotes" label="Parent-visible notes" />
-      <Note name="coachOnlyNotes" label="Coach-only notes (never shown to parents)" />
+      <Note name="summaryComment" label="Summary (visible to players)" />
+      <Note name="playerVisibleNotes" label="Player-visible notes" />
+      <Note name="coachOnlyNotes" label="Coach-only notes (never shown to players)" />
 
       {state.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
       {state.ok ? <p className="text-sm text-primary" role="status">Evaluation saved.</p> : null}

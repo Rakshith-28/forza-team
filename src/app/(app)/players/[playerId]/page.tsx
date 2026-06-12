@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth-guards";
 import { can } from "@/lib/rbac";
 import { listTeams } from "@/modules/clubs/service";
 import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
-import { archivePlayerAction, copyParentInviteLinkAction, removeGuardianAction, removeMembershipAction } from "@/modules/roster/actions";
+import { archivePlayerAction, copyPlayerAccountInviteLinkAction, removeGuardianAction, removeMembershipAction } from "@/modules/roster/actions";
 import { getPlayer, listPlayerGuardians } from "@/modules/roster/service";
 import { getClubTimezone, listScheduleEvents } from "@/modules/events/service";
 import { scheduleWindow } from "@/modules/events/schedule-window";
@@ -170,14 +170,14 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
                   {guardians.links.length === 0 && guardians.pendingInvites.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No parents linked yet.</p>
+                    <p className="text-sm text-muted-foreground">No players linked yet.</p>
                   ) : (
                     <ul className="flex flex-col gap-2">
                       {guardians.links.map((l) => (
                         <li key={l.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3">
                           <div className="min-w-0">
                             <p className="truncate font-medium text-foreground">
-                              {l.parent.firstName} {l.parent.lastName}
+                              {l.playerAccount.firstName} {l.playerAccount.lastName}
                             </p>
                             <p className="truncate text-xs text-muted-foreground">
                               <span className="uppercase tracking-wide">{relLabel(l.relationshipType)}</span>
@@ -201,7 +201,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ p
                           <span className="min-w-0 truncate text-sm text-foreground">{inv.email}</span>
                           <div className="flex shrink-0 items-center gap-2">
                             {canEdit ? (
-                              <CopyInviteLinkButton invitationId={inv.id} action={copyParentInviteLinkAction} />
+                              <CopyInviteLinkButton invitationId={inv.id} action={copyPlayerAccountInviteLinkAction} />
                             ) : null}
                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700">
                               Pending

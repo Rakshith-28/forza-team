@@ -1,6 +1,6 @@
 "use client";
 
-import { useAppearance } from "@/components/app/parent/theme-provider";
+import { useAppearance } from "@/components/app/player/theme-provider";
 import { APPEARANCE_BLURB, APPEARANCE_LABELS, APPEARANCE_THEMES, type AppearanceTheme } from "@/lib/appearance";
 
 /**

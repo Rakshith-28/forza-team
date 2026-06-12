@@ -11,7 +11,7 @@ export default async function TeamChatPage({ params }: { params: Promise<{ teamI
   const { teamId } = await params;
   const ctx = await requireAuthContext();
 
-  // getTeam asserts teams.view scope (coach=assigned, parent=child team, admin=club).
+  // getTeam asserts teams.view scope (coach=assigned, player=child team, admin=club).
   const team = await getTeam(ctx, teamId);
   if (!team) notFound();
 

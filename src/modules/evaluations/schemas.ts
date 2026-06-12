@@ -128,6 +128,6 @@ export const savePlayerEvaluationSchema = z.object({
   scores: z.array(scoreEntrySchema).min(1, "At least one criterion score is required"),
   summaryComment: optionalText(4000),
   coachOnlyNotes: optionalText(4000),
-  parentVisibleNotes: optionalText(4000),
+  playerVisibleNotes: optionalText(4000),
 });
 export type SavePlayerEvaluationInput = z.infer<typeof savePlayerEvaluationSchema>;

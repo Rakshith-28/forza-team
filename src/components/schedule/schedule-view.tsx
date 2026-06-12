@@ -12,7 +12,7 @@ import { ScheduleCalendar } from "./schedule-calendar";
 /**
  * The shared, surface-agnostic schedule UI: month grid (left) + day rail
  * (right), with a quick-look detail drawer. Identical structure on every
- * surface — Console renders it clean; inside the parent/player portal it
+ * surface — Console renders it clean; inside the player portal it
  * inherits Vibrant/Classic purely via `data-theme` tokens (no per-theme code).
  *
  * Events for (at least) the visible month are passed in once by the host page
@@ -28,7 +28,7 @@ export interface ScheduleViewProps {
   /** Initial selected day `YYYY-MM-DD` (defaults to today). */
   initialSelectedDate?: string;
   seasonLabel?: string | null;
-  /** Parent variant: per-card RSVP controls (own children only). */
+  /** Player variant: per-card RSVP controls (own children only). */
   renderRsvp?: (event: ScheduleEvent) => React.ReactNode;
   emptyLabel?: string;
 }

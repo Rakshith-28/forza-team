@@ -22,7 +22,7 @@ Conventional layout inside a module (added as each phase needs it):
 | ------------- | ------------------------------------------------- | ----- |
 | `identity`    | users, roles, sessions (Better Auth glue)         | 1     |
 | `clubs`       | clubs, seasons, teams, coach assignments          | 2     |
-| `roster`      | players, parents, parent↔child linkage            | 3     |
+| `roster`      | players, player accounts, account↔child linkage   | 3     |
 | `comms`       | announcements, chat, documents                    | 4     |
 | `schedule`    | events, RSVP, attendance                          | 5     |
 | `reporting`   | per-role dashboards                               | 6     |
@@ -35,5 +35,5 @@ Conventional layout inside a module (added as each phase needs it):
 - **Layered RBAC.** Services assert scope (`assertClubScope` /
   `assertTeamScope` / `assertChildScope`) — they never trust the UI or
   middleware alone.
-- **Parent-safe projections.** Queries that can reach a `PARENT` strip other
-  families' PII in the data layer, not the view.
+- **Player-safe projections.** Queries that can reach a `PLAYER` account strip
+  other families' PII in the data layer, not the view.

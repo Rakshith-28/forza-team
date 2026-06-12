@@ -36,7 +36,7 @@ export default async function PlayersPage() {
     jerseyNumber: p.jerseyNumber,
     primaryPosition: p.primaryPosition,
     teamNames: p.teamMemberships.map((m) => m.team.name),
-    parentCount: p._count.parentLinks,
+    playerCount: p._count.accountLinks,
     status: p.status,
     dateOfBirth: p.dateOfBirth ? p.dateOfBirth.toISOString() : null,
   }));

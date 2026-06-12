@@ -7,7 +7,7 @@ import { INTEGRATION, uid } from "./helpers";
 
 /**
  * accept → link DB write (applyInvitationGrants) against an isolated DB. Asserts
- * the player_parent_link and team_coaches rows are created with the carried
+ * the player_account_link and team_coaches rows are created with the carried
  * fields, and that a link to a MISSING player is skipped gracefully (no orphan).
  * The pure planning logic is covered in tests/identity/invitation-grants.test.ts.
  */
@@ -15,8 +15,8 @@ const ids = {
   club: uid(),
   team: uid(),
   player: uid(),
-  parentUser: uid(),
-  parent: uid(),
+  playerUser: uid(),
+  playerAccount: uid(),
   coachUser: uid(),
 };
 
@@ -27,42 +27,42 @@ run("accept → grant application", () => {
     await prisma.club.create({ data: { id: ids.club, name: "ITAccept", shortCode: `ITAC-${ids.club.slice(0, 8)}` } });
     await prisma.team.create({ data: { id: ids.team, clubId: ids.club, name: "T", teamCode: `T-${ids.team.slice(0, 6)}` } });
     await prisma.player.create({ data: { id: ids.player, clubId: ids.club, firstName: "Kid", lastName: "X" } });
-    // A parent profile (as acceptInvitation would have created post-signup).
-    await prisma.user.create({ data: { id: ids.parentUser, email: `accept-parent-${ids.parentUser}@it.test`, firstName: "P", lastName: "A" } });
-    await prisma.parent.create({
-      data: { id: ids.parent, clubId: ids.club, userId: ids.parentUser, firstName: "P", lastName: "A", email: `accept-parent-${ids.parentUser}@it.test` },
+    // A player-account profile (as acceptInvitation would have created post-signup).
+    await prisma.user.create({ data: { id: ids.playerUser, email: `accept-player-${ids.playerUser}@it.test`, firstName: "P", lastName: "A" } });
+    await prisma.playerAccount.create({
+      data: { id: ids.playerAccount, clubId: ids.club, userId: ids.playerUser, firstName: "P", lastName: "A", email: `accept-player-${ids.playerUser}@it.test` },
     });
     await prisma.user.create({ data: { id: ids.coachUser, email: `accept-coach-${ids.coachUser}@it.test`, firstName: "C", lastName: "A" } });
   });
 
   afterAll(async () => {
-    await prisma.playerParentLink.deleteMany({ where: { clubId: ids.club } });
+    await prisma.playerAccountLink.deleteMany({ where: { clubId: ids.club } });
     await prisma.teamCoach.deleteMany({ where: { clubId: ids.club } });
-    await prisma.parent.deleteMany({ where: { clubId: ids.club } });
+    await prisma.playerAccount.deleteMany({ where: { clubId: ids.club } });
     await prisma.player.deleteMany({ where: { clubId: ids.club } });
     await prisma.team.deleteMany({ where: { clubId: ids.club } });
-    await prisma.user.deleteMany({ where: { id: { in: [ids.parentUser, ids.coachUser] } } });
+    await prisma.user.deleteMany({ where: { id: { in: [ids.playerUser, ids.coachUser] } } });
     await prisma.club.deleteMany({ where: { id: ids.club } });
     await prisma.$disconnect();
   });
 
   function inv(over: Partial<InvitationForGrants>): InvitationForGrants {
-    return { roleCode: "PARENT", clubId: ids.club, teamId: null, teamRoleType: null, linkMetadata: null, createdBy: null, ...over };
+    return { roleCode: "PLAYER", clubId: ids.club, teamId: null, teamRoleType: null, linkMetadata: null, createdBy: null, ...over };
   }
 
-  it("creates a player_parent_link with the carried metadata", async () => {
+  it("creates a player_account_link with the carried metadata", async () => {
     const result = await prisma.$transaction((tx) =>
       applyInvitationGrants(tx, {
         invitation: inv({
-          roleCode: "PARENT",
+          roleCode: "PLAYER",
           linkMetadata: { playerId: ids.player, relationshipType: "MOTHER", isPrimaryGuardian: true, canPickup: true, canPay: false },
         }),
-        userId: ids.parentUser,
-        parentId: ids.parent,
+        userId: ids.playerUser,
+        playerAccountId: ids.playerAccount,
       }),
     );
-    expect(result.parentLink).toBe(true);
-    const link = await prisma.playerParentLink.findFirst({ where: { playerId: ids.player, parentId: ids.parent } });
+    expect(result.playerLink).toBe(true);
+    const link = await prisma.playerAccountLink.findFirst({ where: { playerId: ids.player, playerAccountId: ids.playerAccount } });
     expect(link?.relationshipType).toBe("MOTHER");
     expect(link?.isPrimaryGuardian).toBe(true);
     expect(link?.canPickup).toBe(true);
@@ -84,13 +84,13 @@ run("accept → grant application", () => {
   it("re-applying an accepted invite's grants is idempotent (no duplicate link / team_coach)", async () => {
     // Mirrors a re-accept: acceptInvitation gates a used token via invitationState,
     // and the grant writes are upserts — applying twice must not duplicate rows.
-    const parentInv = inv({
-      roleCode: "PARENT",
+    const playerInv = inv({
+      roleCode: "PLAYER",
       linkMetadata: { playerId: ids.player, relationshipType: "MOTHER", isPrimaryGuardian: false, canPickup: true, canPay: true },
     });
-    await prisma.$transaction((tx) => applyInvitationGrants(tx, { invitation: parentInv, userId: ids.parentUser, parentId: ids.parent }));
-    await prisma.$transaction((tx) => applyInvitationGrants(tx, { invitation: parentInv, userId: ids.parentUser, parentId: ids.parent }));
-    const links = await prisma.playerParentLink.findMany({ where: { playerId: ids.player, parentId: ids.parent } });
+    await prisma.$transaction((tx) => applyInvitationGrants(tx, { invitation: playerInv, userId: ids.playerUser, playerAccountId: ids.playerAccount }));
+    await prisma.$transaction((tx) => applyInvitationGrants(tx, { invitation: playerInv, userId: ids.playerUser, playerAccountId: ids.playerAccount }));
+    const links = await prisma.playerAccountLink.findMany({ where: { playerId: ids.player, playerAccountId: ids.playerAccount } });
     expect(links).toHaveLength(1);
 
     const coachInv = inv({ roleCode: "COACH", teamId: ids.team, teamRoleType: "ASSISTANT_COACH" });
@@ -101,16 +101,16 @@ run("accept → grant application", () => {
   });
 
   it("skips a link to a missing player gracefully (no orphan/partial write)", async () => {
-    const before = await prisma.playerParentLink.count({ where: { parentId: ids.parent } });
+    const before = await prisma.playerAccountLink.count({ where: { playerAccountId: ids.playerAccount } });
     const result = await prisma.$transaction((tx) =>
       applyInvitationGrants(tx, {
-        invitation: inv({ roleCode: "PARENT", linkMetadata: { playerId: uid(), relationshipType: "MOTHER" } }),
-        userId: ids.parentUser,
-        parentId: ids.parent,
+        invitation: inv({ roleCode: "PLAYER", linkMetadata: { playerId: uid(), relationshipType: "MOTHER" } }),
+        userId: ids.playerUser,
+        playerAccountId: ids.playerAccount,
       }),
     );
-    expect(result.parentLink).toBe(false);
-    const after = await prisma.playerParentLink.count({ where: { parentId: ids.parent } });
+    expect(result.playerLink).toBe(false);
+    const after = await prisma.playerAccountLink.count({ where: { playerAccountId: ids.playerAccount } });
     expect(after).toBe(before); // no new link created
   });
 });

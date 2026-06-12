@@ -7,12 +7,12 @@ import {
   NAV_BUTTON_ACTIVE,
   NAV_BUTTON_BASE,
   NAV_BUTTON_INACTIVE,
-  PARENT_NAV_TABS,
+  PLAYER_NAV_TABS,
   isNavItemActive,
 } from "./nav-items";
 
 /**
- * Floating bottom tab bar for the player/parent app (Home / Squad / Play / Chat
+ * Floating bottom tab bar for the player app (Home / Squad / Play / Chat
  * / Me). Mobile-first; the active tab is derived from the current path. Styling
  * (border width, shadow) comes from the active theme via `.app-tabbar`. Hidden
  * at `lg` and above, where the side rails take over (see `side-rails.tsx`).
@@ -26,7 +26,7 @@ export function BottomTabBar() {
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
     >
       <ul className="app-tabbar pointer-events-auto flex items-center gap-1 px-2 py-1.5">
-        {PARENT_NAV_TABS.map((t) => {
+        {PLAYER_NAV_TABS.map((t) => {
           const active = isNavItemActive(pathname, t.href);
           const Icon = t.icon;
           return (

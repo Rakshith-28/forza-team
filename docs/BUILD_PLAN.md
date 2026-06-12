@@ -6,7 +6,7 @@ for building it from scratch. It is written to be handed directly to Claude Code
 as the source of truth for the build.
 
 > **Scope reminder.** MVP covers: auth + RBAC, club/season/team management,
-> players & parents, rosters, announcements + messaging, events with
+> players, rosters, announcements + messaging, events with
 > RSVP/attendance, dashboards, basic evaluations, and basic file storage.
 > Deferred to Phase 2+: payments, waivers, advanced evaluations, AI features,
 > push/SMS, native mobile apps, enterprise admin.
@@ -47,7 +47,7 @@ Both Prisma 7 and Drizzle are production-grade in 2026. The call here is
   Rust engine, shrank the bundle ~90%, and now performs comparably to Drizzle for
   typical web app workloads on serverless. The cold-start gap is milliseconds.
 - The schema is the deciding factor: **51 tables, heavy relations, audit columns,
-  parent/child linkage.** Prisma's single-file `schema.prisma` as a source of
+  player account/profile linkage.** Prisma's single-file `schema.prisma` as a source of
   truth, integrated `migrate + generate`, and **Prisma Studio** for inspecting
   data pay off repeatedly across a 7-phase build.
 
@@ -89,7 +89,7 @@ extract a service later if scale ever demands it.
 
 ### Authorization: layered, defense-in-depth
 
-Four roles — `MASTER_ADMIN`, `CLUB_ADMIN`, `COACH`, `PARENT` — with scopes
+Four roles — `MASTER_ADMIN`, `CLUB_ADMIN`, `COACH`, `PLAYER` — with scopes
 `SYSTEM` / `CLUB` / `TEAM` / `CHILD`.
 
 1. **Middleware gate** — verifies a valid session exists; redirects anonymous users.
@@ -103,11 +103,11 @@ Four roles — `MASTER_ADMIN`, `CLUB_ADMIN`, `COACH`, `PARENT` — with scopes
 Because the platform holds data on minors, these are **architectural
 requirements, not features**:
 
-- **Parent-safe projections.** A `PARENT` only ever sees their own linked
-  children and team-public information. Roster/contact queries for parents run
-  through dedicated projections that strip other families' PII — enforced in the
-  data layer.
-- **No open contact exposure.** Coaches/parents communicate through the platform;
+- **Player-safe projections.** A `PLAYER` only ever sees their own linked
+  player profiles and team-public information. Roster/contact queries for player
+  accounts run through dedicated projections that strip other families' PII —
+  enforced in the data layer.
+- **No open contact exposure.** Coaches/players communicate through the platform;
   raw phone/email of other members is never returned to non-privileged roles.
 - **Audit trail** on sensitive actions (child linkage, role grants, data exports).
 - **Data minimization & retention** policy from day one; explicit consent records.
@@ -124,7 +124,7 @@ forza-team/
 │   ├── modules/                   # domain modules (the real boundaries)
 │   │   ├── identity/              # users, roles, sessions (Better Auth glue)
 │   │   ├── clubs/                 # clubs, seasons, teams, coach assignments
-│   │   ├── roster/                # players, parents, child linkage
+│   │   ├── roster/                # players, player accounts, profile linkage
 │   │   ├── comms/                 # announcements, chat, documents
 │   │   ├── schedule/              # events, RSVP, attendance
 │   │   ├── evaluations/           # player evals, development tracking
@@ -153,7 +153,7 @@ specs ready before engineering starts it.
   roles), typography scale, spacing, radii, shadows, motion.
 - **Light/dark** support decided up front.
 - **Accessibility baseline**: WCAG 2.2 AA targets, focus states, contrast,
-  keyboard nav. Non-negotiable on a platform parents and kids use.
+  keyboard nav. Non-negotiable on a platform players and families use.
 
 ### Stage B — Component system
 - Install shadcn/ui primitives; theme them with the tokens.
@@ -164,7 +164,7 @@ specs ready before engineering starts it.
 ### Stage C — Information architecture & flows
 - Sitemap per role (the four roles see different navigation).
 - Key user flows mapped as diagrams: **onboarding/invite acceptance**, **create
-  club→season→team**, **link parent to child**, **post announcement**, **create
+  club→season→team**, **link player account to profile**, **post announcement**, **create
   event → RSVP → take attendance**, **record evaluation**.
 - Define the **role-aware dashboard** for each of the four roles — this is the
   landing surface and sets the tone.
@@ -172,7 +172,7 @@ specs ready before engineering starts it.
 ### Stage D — Page specs (per feature, just-in-time)
 For each feature phase, produce a one-page spec before building: states (loading,
 empty, error, success), permissions per role, validation rules, and responsive
-behavior. **Mobile-first** — parents and coaches live on phones.
+behavior. **Mobile-first** — players and coaches live on phones.
 
 ### Stage E — Polish & QA
 - Motion/transitions (lean on React 19 View Transitions).
@@ -207,20 +207,20 @@ don't start a phase until the prior one is green in CI.
 - Tenant scoping verified end-to-end.
 - **Exit:** an admin can build out a club's structure for a season.
 
-### Phase 3 — Players & parents
-- Player records, parent accounts, **parent↔child linkage**.
-- Parent-safe roster projections (the child-safety layer from §2).
-- **Exit:** parents see only their children + team-public info; PII isolation holds.
+### Phase 3 — Players & player accounts
+- Player records, player accounts, **player account↔profile linkage**.
+- Player-safe roster projections (the child-safety layer from §2).
+- **Exit:** player accounts see only their own profiles + team-public info; PII isolation holds.
 
 ### Phase 4 — Communications
 - Announcements (team/club scoped), basic messaging/chat, document uploads.
 - Realtime transport decided here (default: polling/SSE; managed push only if needed).
-- **Exit:** a coach can announce to a team; parents receive it; files attach.
+- **Exit:** a coach can announce to a team; players receive it; files attach.
 
 ### Phase 5 — Schedule
 - Events, RSVP, attendance tracking.
 - Calendar views; reminders via email (Resend).
-- **Exit:** create event → parents RSVP → coach records attendance.
+- **Exit:** create event → players RSVP → coach records attendance.
 
 ### Phase 6 — Dashboards & reporting
 - Per-role dashboards filled with real data (attendance rates, upcoming events,
@@ -239,7 +239,7 @@ don't start a phase until the prior one is green in CI.
 
 ## 5. Cross-cutting practices
 
-- **Testing.** Vitest for unit/service tests (especially RBAC and parent-safety
+- **Testing.** Vitest for unit/service tests (especially RBAC and player-safety
   scoping — these get the heaviest coverage). Playwright for critical E2E flows
   (auth, invite, RSVP). Aim to test authorization boundaries as a priority.
 - **Migrations.** Prisma Migrate (`migrate dev` locally, `migrate deploy` in CI);

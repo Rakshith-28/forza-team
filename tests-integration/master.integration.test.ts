@@ -38,7 +38,7 @@ const ids = {
   team1: uid(),
   team2: uid(),
   coachUser: uid(),
-  parentUser: uid(),
+  playerUser: uid(),
   adminUser: uid(),
   player1: uid(),
   player2: uid(),
@@ -51,9 +51,9 @@ const run = INTEGRATION ? describe : describe.skip;
 
 run("master admin integration", () => {
   beforeAll(async () => {
-    const [coachRole, parentRole] = await Promise.all([
+    const [coachRole, playerRole] = await Promise.all([
       prisma.role.findUnique({ where: { code: "COACH" }, select: { id: true } }),
-      prisma.role.findUnique({ where: { code: "PARENT" }, select: { id: true } }),
+      prisma.role.findUnique({ where: { code: "PLAYER" }, select: { id: true } }),
     ]);
 
     await prisma.club.create({ data: { id: ids.club, name: ids.name, shortCode: ids.shortCode, status: "ACTIVE", city: "Austin", state: "TX" } });
@@ -73,13 +73,13 @@ run("master admin integration", () => {
     await prisma.user.createMany({
       data: [
         { id: ids.coachUser, email: `coach-${ids.coachUser}@it.test`, firstName: "Cory", lastName: "Coach" },
-        { id: ids.parentUser, email: `parent-${ids.parentUser}@it.test`, firstName: "Pat", lastName: "Parent" },
+        { id: ids.playerUser, email: `player-${ids.playerUser}@it.test`, firstName: "Pat", lastName: "Player" },
       ],
     });
     await prisma.userRoleAssignment.createMany({
       data: [
         { userId: ids.coachUser, roleId: coachRole!.id, clubId: ids.club, status: "ACTIVE" },
-        { userId: ids.parentUser, roleId: parentRole!.id, clubId: ids.club, status: "ACTIVE" },
+        { userId: ids.playerUser, roleId: playerRole!.id, clubId: ids.club, status: "ACTIVE" },
       ],
     });
     await prisma.teamCoach.create({
@@ -100,7 +100,7 @@ run("master admin integration", () => {
     await prisma.userRoleAssignment.deleteMany({ where: { clubId: ids.club } });
     await prisma.player.deleteMany({ where: { clubId: ids.club } });
     await prisma.team.deleteMany({ where: { clubId: ids.club } });
-    await prisma.user.deleteMany({ where: { id: { in: [ids.coachUser, ids.parentUser] } } });
+    await prisma.user.deleteMany({ where: { id: { in: [ids.coachUser, ids.playerUser] } } });
     await prisma.clubSetting.deleteMany({ where: { clubId: ids.club } });
     await prisma.club.deleteMany({ where: { id: ids.club } });
     await prisma.$disconnect();
@@ -113,7 +113,7 @@ run("master admin integration", () => {
     expect(club).toBeTruthy();
     expect(club!.teamCount).toBe(2);
     expect(club!.playerCount).toBe(2); // soft-deleted player excluded
-    expect(club!.userCount).toBe(2); // coach + parent (distinct)
+    expect(club!.userCount).toBe(2); // coach + player (distinct)
 
     // Status filter for SUSPENDED must not include our ACTIVE club.
     const suspended = await getMasterClubs(ctx, { search: ids.shortCode, status: "SUSPENDED" });
@@ -126,7 +126,7 @@ run("master admin integration", () => {
     expect(detail!.metrics.teams).toBe(2);
     expect(detail!.metrics.players).toBe(2);
     expect(detail!.metrics.coaches).toBe(1);
-    expect(detail!.metrics.parents).toBe(1);
+    expect(detail!.metrics.playerAccounts).toBe(1);
     const eagles = detail!.teams.find((t) => t.id === ids.team1);
     expect(eagles?.headCoachName).toContain("Cory");
     expect(eagles?.playerCount).toBe(1);
@@ -149,7 +149,7 @@ run("master admin integration", () => {
     const ctx = masterCtx();
     const coaches = await getMasterUsers(ctx, { role: "COACH", clubId: ids.club });
     expect(coaches.rows.some((u) => u.userId === ids.coachUser)).toBe(true);
-    expect(coaches.rows.some((u) => u.userId === ids.parentUser)).toBe(false);
+    expect(coaches.rows.some((u) => u.userId === ids.playerUser)).toBe(false);
   });
 
   it("getMasterAuditLogs returns club-scoped rows with names resolved", async () => {

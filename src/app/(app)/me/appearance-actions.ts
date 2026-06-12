@@ -5,7 +5,7 @@ import { isAppearanceTheme, type AppearanceTheme } from "@/lib/appearance";
 import { setAppearanceTheme } from "@/modules/identity/appearance";
 
 /**
- * Write-through for the player/parent appearance switcher. The client applies
+ * Write-through for the player appearance switcher. The client applies
  * the theme instantly (optimistic) and calls this to persist; we re-validate the
  * value server-side. Returns the saved theme (or throws on an invalid value).
  */

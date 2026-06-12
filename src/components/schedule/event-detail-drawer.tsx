@@ -16,7 +16,7 @@ import { formatEventDay, formatEventTime } from "@/modules/events/format";
 /**
  * Quick-look event detail in the shared right-side drawer (Radix Dialog —
  * focus trap, ESC, ARIA). Token-driven, so it inherits Vibrant/Classic on the
- * parent surface. Links out to the full detail page for staff actions
+ * player surface. Links out to the full detail page for staff actions
  * (RSVP summary, attendance, edit/cancel).
  */
 export function EventDetailDrawer({

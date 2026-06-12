@@ -29,10 +29,10 @@ export default async function SettingsPage() {
         <CardContent>
           <ClubSettingsForm
             settings={{
-              showPlayerPhotosToParents: settings.showPlayerPhotosToParents,
-              allowParentChildEvaluationView: settings.allowParentChildEvaluationView,
+              showPlayerPhotosToPlayers: settings.showPlayerPhotosToPlayers,
+              allowPlayerEvaluationView: settings.allowPlayerEvaluationView,
               attendanceTrackingEnabled: settings.attendanceTrackingEnabled,
-              allowCoachInviteParents: settings.allowCoachInviteParents,
+              allowCoachInvitePlayers: settings.allowCoachInvitePlayers,
             }}
           />
         </CardContent>
