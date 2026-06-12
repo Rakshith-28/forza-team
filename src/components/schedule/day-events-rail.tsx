@@ -20,8 +20,8 @@ function dayLabel(key: string | null): string {
 
 /**
  * The right-side rail listing the selected day's events as cards. `renderExtra`
- * injects per-card controls (the parent variant passes the per-child RSVP
- * selector). Token-driven; inherits Vibrant/Classic on the parent surface.
+ * injects per-card controls (the player variant passes the per-child RSVP
+ * selector). Token-driven; inherits Vibrant/Classic on the player surface.
  */
 export function DayEventsRail({
   selectedDate,

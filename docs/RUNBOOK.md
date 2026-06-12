@@ -60,16 +60,16 @@ server console** (look for the `──── EMAIL (dev fallback) ────` 
 - `npm run db:deploy` — apply committed migrations (prod-safe; uses `DIRECT_URL`).
 - `npm run db:migrate -- --name <x>` — create a new dev migration.
 - `npm run db:seed` — idempotent demo seed (roles + `Demo FC`: settings, season,
-  2 teams, a coach, 6 players, 2 parents linked to children, 3 events with an
+  2 teams, a coach, 6 players, 2 player accounts linked to profiles, 3 events with an
   RSVP + attendance, a published announcement, an evaluation cycle with sample
   scores). Re-running is safe (the dataset is inserted only when the club has no
   players yet). Prints a fresh `CLUB_ADMIN` accept link.
 
-To exercise Coach / Parent logins, sign in as Club Manager and **invite** a coach
-from the Coaches page, then invite a parent from a **player's Guardians section**
-(parent invites are always child-linked — there is no standalone parent invite).
-A coach can likewise invite a parent for an assigned-team player when the club's
-*Allow coaches to invite parents* setting is on. With the console email provider
+To exercise Coach / Player logins, sign in as Club Manager and **invite** a coach
+from the Coaches page, then invite a player account from a **player's Guardians section**
+(player-account invites are always profile-linked — there is no standalone invite).
+A coach can likewise invite a player account for an assigned-team player when the club's
+*Allow coaches to invite players* setting is on. With the console email provider
 the accept links appear in the server logs.
 
 ---
@@ -93,7 +93,7 @@ generic message + a digest ref; API routes return generic status text.
 ## 5. Tests
 
 - `npm test` — guard-level unit + RBAC regression (no DB needed). Includes the
-  RBAC/privacy matrix (`tests/rbac/matrix.test.ts`), parent-safe projection, and
+  RBAC/privacy matrix (`tests/rbac/matrix.test.ts`), player-safe projection, and
   the decoupled accept→link grant logic (`tests/identity/invitation-grants.test.ts`).
 - `npm run test:integration` — DB-backed integration tests. **Gated + guarded**:
   skips unless `TEST_DATABASE_URL` is set, and **refuses to run** if that URL
@@ -105,9 +105,9 @@ generic message + a digest ref; API routes return generic status text.
   docker run -e POSTGRES_PASSWORD=pw -p 5433:5432 -d postgres:16
   export TEST_DATABASE_URL=postgresql://postgres:pw@localhost:5433/postgres
   npx prisma migrate deploy            # apply schema to the test DB
-  npm run test:integration             # RSVP/attendance/eval upserts, parent
-                                       # multi-child aggregation + club scoping,
-                                       # parent-safe roster, eval gating
+  npm run test:integration             # RSVP/attendance/eval upserts, player
+                                       # multi-profile aggregation + club scoping,
+                                       # player-safe roster, eval gating
   ```
 
 Always run `npm run typecheck && npm run lint && npm test && npm run build`
@@ -127,41 +127,42 @@ Seed first (`npm run db:seed`), accept the Club Manager invite, then:
 ### Club Manager (`club-admin@demo.test`)
 - [ ] **(2 Clubs/Seasons/Teams)** Dashboard shows teams/players/seasons; create a
       team & season.
-- [ ] **(3 Players & Parents)** Players list populated; open a player (full
-      detail incl. medical/emergency) and invite a parent from its **Guardians**
-      section (child-linked; accept link appears in console). The Parents page is
+- [ ] **(3 Players & player accounts)** Players list populated; open a player (full
+      detail incl. medical/emergency) and invite a player account from its **Guardians**
+      section (profile-linked; accept link appears in console). If the player doesn't
+      have their own email, use their parent's email. The Player Accounts page is
       view + link only — it has no standalone invite.
 - [ ] **(4 Announcements/Files)** Publish a club announcement; upload a club &
       team document on `/documents`; they download via the proxy.
 - [ ] **(5 Schedule)** See events; create one; record attendance.
 - [ ] **(6 Dashboards)** "Needs attention" + upcoming panels render.
 - [ ] **(7 Evaluations)** Configure a template/cycle; an evaluation summary shows.
-- [ ] **(Settings)** Toggle **Share evaluations with parents** on `/settings`; the
-      parent's evaluation visibility flips live (criterion below).
+- [ ] **(Settings)** Toggle **Share evaluations with players** on `/settings`; the
+      player account's evaluation visibility flips live (criterion below).
 
 ### Coach (`coach@demo.test`, via UI invite)
 - [ ] **(RBAC scope)** Sees only assigned teams' players/events; cannot reach
       another team. Dashboard shows attendance-needed + evaluations-to-complete.
-- [ ] **(3 Invite parent)** With *Allow coaches to invite parents* on, open an
-      assigned-team player and invite a parent from its Guardians section; the
+- [ ] **(3 Invite player account)** With *Allow coaches to invite players* on, open an
+      assigned-team player and invite a player account from its Guardians section; the
       invite is rejected for a player outside the coach's teams.
 - [ ] **(4 Chat)** Open a team chat thread; post a message (5s polling updates).
 - [ ] **(5 Attendance)** Take attendance via quick-entry for an assigned team.
 - [ ] **(7 Evaluations)** Evaluate an assigned-team player (scores + notes).
 
-### Parent (`parent1@demo.test`, via UI invite — multi-child)
-- [ ] **(3 Parent-safe)** "My Kids" shows both linked children; the team roster
+### Player (`player1@demo.test`, via UI invite — multi-profile)
+- [ ] **(3 Player-safe)** "My Players" shows both linked profiles; the team roster
       view hides other families' PII (and photos when the setting is off).
-- [ ] **(5 RSVP)** Aggregated schedule across both children; submit a per-child
+- [ ] **(5 RSVP)** Aggregated schedule across both profiles; submit a per-profile
       RSVP; "RSVP needed" clears.
-- [ ] **(7 Eval gating)** Child **Evaluations** link appears only after the admin
-      enables sharing; shows summary + parent-visible notes, **never** coach-only
+- [ ] **(7 Eval gating)** Profile **Evaluations** link appears only after the admin
+      enables sharing; shows summary + player-visible notes, **never** coach-only
       notes.
 - [ ] **(4 Announcements)** Sees relevant announcements; never `COACHES_ONLY` or
       drafts.
 
 ### Child-safety / tenant isolation (cross-cutting)
-- [ ] A parent cannot edit another child or see another club's data.
+- [ ] A player account cannot edit another profile or see another club's data.
 - [ ] File reads go through `/api/files/[id]` (no public URLs); an out-of-scope
       file returns 403.
 
@@ -195,5 +196,5 @@ After the first deploy to a fresh environment, confirm:
 - [ ] **File upload works** — `STORAGE_DRIVER=blob` + `BLOB_READ_WRITE_TOKEN`; a player-photo upload round-trips and renders via the permission-checked proxy `/api/files/[id]` (no public URLs).
 - [ ] **No secrets in the client bundle** — `grep` the built client chunks for `AUTH_SECRET` / `BLOB_READ_WRITE_TOKEN` / `RESEND_API_KEY` → no matches (env is server-only; never `NEXT_PUBLIC_*`).
 - [ ] **Health check** — `GET /api/health` returns OK.
-- [ ] **No client console errors** on the dashboards (admin + parent).
+- [ ] **No client console errors** on the dashboards (admin + player).
 - [ ] **Smoke the cascade** — run the §6 per-role QA checklist once.

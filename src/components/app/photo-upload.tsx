@@ -9,8 +9,8 @@ import { INITIAL_STATE } from "@/modules/files/action-state";
 
 /**
  * Player-photo uploader. Used by the admin/coach player detail page and the
- * parent child-profile page; scope is enforced in the files service
- * (parent → own child only via the Phase 3 whitelist permission).
+ * player child-profile page; scope is enforced in the files service
+ * (player → own child only via the Phase 3 whitelist permission).
  */
 export function PhotoUpload({ playerId }: { playerId: string }) {
   const [state, action, pending] = useActionState(uploadPlayerPhotoAction, INITIAL_STATE);

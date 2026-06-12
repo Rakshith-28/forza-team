@@ -8,8 +8,8 @@ import {
 } from "@/lib/appearance";
 
 /**
- * Player/parent appearance theme constants. The Console has no theme; only the
- * two player/parent themes exist, and new users default to Classic.
+ * Player appearance theme constants. The Console has no theme; only the
+ * two player themes exist, and new users default to Classic.
  */
 describe("appearance themes", () => {
   it("offers exactly Vibrant and Classic", () => {

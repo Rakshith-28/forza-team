@@ -9,7 +9,7 @@ import { RSVP_LABELS, RSVP_STATUSES } from "@/modules/events/schemas";
 
 /**
  * Per-child RSVP selector. Auto-submits on change (mobile-friendly). One per
- * (event, child); the service enforces parent → own-child-only.
+ * (event, child); the service enforces player → own-child-only.
  */
 export function RsvpControl({
   eventId,

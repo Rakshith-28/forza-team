@@ -5,7 +5,7 @@ import { ForbiddenError } from "@/lib/rbac";
 import { ConflictError, createEvent, listScheduleEvents } from "@/modules/events/service";
 import { createEventSchema } from "@/modules/events/schemas";
 
-import { INTEGRATION, adminCtx, coachCtx, parentCtx, uid } from "./helpers";
+import { INTEGRATION, adminCtx, coachCtx, playerCtx, uid } from "./helpers";
 
 /**
  * DB-backed coverage of the audience model (audienceScope + event_teams),
@@ -85,17 +85,17 @@ run("schedule audience model", () => {
     expect(await titles(coachA)).not.toContain("B Practice");
   });
 
-  it("Parent sees only linked children's teams' events + club-wide", async () => {
-    const parentA = parentCtx(ids.club, [uid()], [ids.teamA]);
-    expect(await titles(parentA)).toEqual(["A Practice", "AB Tournament", "Club Picnic"]);
-    expect(await titles(parentA)).not.toContain("B Practice");
+  it("Player sees only linked children's teams' events + club-wide", async () => {
+    const playerA = playerCtx(ids.club, [uid()], [ids.teamA]);
+    expect(await titles(playerA)).toEqual(["A Practice", "AB Tournament", "Club Picnic"]);
+    expect(await titles(playerA)).not.toContain("B Practice");
   });
 
-  it("a multi-team event is visible to coaches/parents of ALL targeted teams and none outside", async () => {
+  it("a multi-team event is visible to coaches/players of ALL targeted teams and none outside", async () => {
     const coachB = coachCtx(ids.club, [ids.teamB], []);
-    const parentB = parentCtx(ids.club, [uid()], [ids.teamB]);
+    const playerB = playerCtx(ids.club, [uid()], [ids.teamB]);
     expect(await titles(coachB)).toContain("AB Tournament");
-    expect(await titles(parentB)).toContain("AB Tournament");
+    expect(await titles(playerB)).toContain("AB Tournament");
     // An actor on neither team sees only the club-wide event.
     const coachOutsider = coachCtx(ids.club, [uid()], []);
     expect(await titles(coachOutsider)).toEqual(["Club Picnic"]);

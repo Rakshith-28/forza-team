@@ -9,14 +9,14 @@ import { z } from "zod";
 
 // --- Announcements ---------------------------------------------------------
 // CUSTOM_SELECTION is deliberately NOT supported in this phase (MVP scope).
-export const ANNOUNCEMENT_AUDIENCES = ["CLUB_ALL", "TEAM_ONLY", "COACHES_ONLY", "PARENTS_ONLY"] as const;
+export const ANNOUNCEMENT_AUDIENCES = ["CLUB_ALL", "TEAM_ONLY", "COACHES_ONLY", "PLAYERS_ONLY"] as const;
 export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
 
 export const ANNOUNCEMENT_AUDIENCE_LABELS: Record<AnnouncementAudience, string> = {
   CLUB_ALL: "Everyone in the club",
   TEAM_ONLY: "A specific team",
   COACHES_ONLY: "Coaches only",
-  PARENTS_ONLY: "Parents only",
+  PLAYERS_ONLY: "Players only",
 };
 
 export const ANNOUNCEMENT_STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;

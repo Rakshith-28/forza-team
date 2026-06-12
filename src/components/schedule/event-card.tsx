@@ -8,7 +8,7 @@ import { formatEventClock } from "@/modules/events/format";
  * A single event row in the day rail. Surface-agnostic and 100% token-driven:
  * the `.app-card` surface re-skins under Vibrant/Classic, and the event-type
  * accent (left edge + badge) comes from the `--event-*` tokens. Optional
- * `children` host per-card controls (e.g. the parent RSVP selector).
+ * `children` host per-card controls (e.g. the player RSVP selector).
  */
 export function EventCard({
   event,

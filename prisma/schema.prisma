@@ -51,7 +51,7 @@ model User {
   isEmailVerified Boolean   @default(false) @map("is_email_verified")
   lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
   status          String    @default("ACTIVE") @db.VarChar(50)
-  // Player/parent app appearance preference ("vibrant" | "classic"). Console
+  // Player app appearance preference ("vibrant" | "classic"). Console
   // roles ignore it. New users default to Classic.
   appearanceTheme String    @default("classic") @map("appearance_theme") @db.VarChar(20)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -59,7 +59,7 @@ model User {
 
   roleAssignments        UserRoleAssignment[]
   teamCoachRoles         TeamCoach[]
-  parentProfiles         Parent[]
+  playerAccounts         PlayerAccount[]
   chatMemberships        ChatMember[]
   messagesSent           Message[]
   notifications          Notification[]
@@ -174,7 +174,7 @@ model Invitation {
   teamId           String?   @map("team_id") @db.Uuid
   // Optional initial team_coaches role_type for a COACH invite (applied on accept).
   teamRoleType     String?   @map("team_role_type") @db.VarChar(50)
-  // Optional parent↔player link metadata for a PARENT invite carrying a child
+  // Optional account↔player link metadata for a PLAYER invite carrying a child
   // link ({ playerId, relationshipType, isPrimaryGuardian, canPickup, canPay });
   // the link is created from this on acceptance (mirrors team_role_type).
   linkMetadata     Json?     @map("link_metadata")
@@ -244,8 +244,8 @@ model Club {
   teamCoaches             TeamCoach[]
   players                 Player[]
   playerTeamMemberships   PlayerTeamMembership[]
-  parents                 Parent[]
-  playerParentLinks       PlayerParentLink[]
+  playerAccounts          PlayerAccount[]
+  playerAccountLinks      PlayerAccountLink[]
   files                   File[]
   announcements           Announcement[]
   chats                   Chat[]
@@ -281,10 +281,10 @@ model Club {
 model ClubSetting {
   id                             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clubId                         String   @unique @map("club_id") @db.Uuid
-  allowParentToParentChat        Boolean  @default(false) @map("allow_parent_to_parent_chat")
-  allowParentChildEvaluationView Boolean  @default(false) @map("allow_parent_child_evaluation_view")
-  showPlayerPhotosToParents      Boolean  @default(true) @map("show_player_photos_to_parents")
-  allowCoachInviteParents        Boolean  @default(true) @map("allow_coach_invite_parents")
+  allowPlayerToPlayerChat        Boolean  @default(false) @map("allow_player_to_player_chat")
+  allowPlayerEvaluationView      Boolean  @default(false) @map("allow_player_evaluation_view")
+  showPlayerPhotosToPlayers      Boolean  @default(true) @map("show_player_photos_to_players")
+  allowCoachInvitePlayers        Boolean  @default(true) @map("allow_coach_invite_players")
   enableAiFeatures               Boolean  @default(true) @map("enable_ai_features")
   enableSmsNotifications         Boolean  @default(false) @map("enable_sms_notifications")
   defaultCurrency                String   @default("USD") @map("default_currency") @db.VarChar(10)
@@ -384,7 +384,7 @@ model TeamCoach {
 }
 
 // =============================================================================
-// MODULE: roster — players, memberships, parents, linkage               §7.11–7.14
+// MODULE: roster — players, memberships, accounts, linkage              §7.11–7.14
 // =============================================================================
 
 model Player {
@@ -412,7 +412,7 @@ model Player {
 
   club                    Club                     @relation(fields: [clubId], references: [id])
   teamMemberships         PlayerTeamMembership[]
-  parentLinks             PlayerParentLink[]
+  accountLinks            PlayerAccountLink[]
   eventRsvps              EventRsvp[]
   attendanceRecords       AttendanceRecord[]
   registrationSubmissions RegistrationSubmission[]
@@ -454,7 +454,7 @@ model PlayerTeamMembership {
   @@map("player_team_memberships")
 }
 
-model Parent {
+model PlayerAccount {
   id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clubId                 String   @map("club_id") @db.Uuid
   userId                 String   @map("user_id") @db.Uuid
@@ -475,24 +475,24 @@ model Parent {
   updatedAt              DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy              String?  @map("updated_by") @db.Uuid
 
-  club                    Club               @relation(fields: [clubId], references: [id])
-  user                    User               @relation(fields: [userId], references: [id])
-  playerLinks             PlayerParentLink[]
+  club                    Club                @relation(fields: [clubId], references: [id])
+  user                    User                @relation(fields: [userId], references: [id])
+  playerLinks             PlayerAccountLink[]
   familyAccountsAsPrimary FamilyAccount[]
   invoices                Invoice[]
 
-  @@unique([clubId, userId], name: "uq_parents_club_user")
+  @@unique([clubId, userId], name: "uq_player_accounts_club_user")
   @@index([clubId])
   @@index([userId])
   @@index([email])
-  @@map("parents")
+  @@map("player_accounts")
 }
 
-model PlayerParentLink {
+model PlayerAccountLink {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clubId            String   @map("club_id") @db.Uuid
   playerId          String   @map("player_id") @db.Uuid
-  parentId          String   @map("parent_id") @db.Uuid
+  playerAccountId   String   @map("player_account_id") @db.Uuid
   relationshipType  String   @map("relationship_type") @db.VarChar(50)
   isPrimaryGuardian Boolean  @default(false) @map("is_primary_guardian")
   canPickup         Boolean  @default(false) @map("can_pickup")
@@ -501,15 +501,15 @@ model PlayerParentLink {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy         String?  @map("created_by") @db.Uuid
 
-  club   Club   @relation(fields: [clubId], references: [id])
-  player Player @relation(fields: [playerId], references: [id])
-  parent Parent @relation(fields: [parentId], references: [id])
+  club          Club          @relation(fields: [clubId], references: [id])
+  player        Player        @relation(fields: [playerId], references: [id])
+  playerAccount PlayerAccount @relation(fields: [playerAccountId], references: [id])
 
-  @@unique([playerId, parentId], name: "uq_player_parent_link")
+  @@unique([playerId, playerAccountId], name: "uq_player_account_link")
   @@index([clubId])
   @@index([playerId])
-  @@index([parentId])
-  @@map("player_parent_links")
+  @@index([playerAccountId])
+  @@map("player_account_links")
 }
 
 // =============================================================================
@@ -783,8 +783,8 @@ model AttendanceRecord {
   @@map("attendance_records")
 }
 
-// A private, player-level note a coach writes. Coach-only until `parentVisible`
-// is turned on, at which point the player's linked parents are notified via the
+// A private, player-level note a coach writes. Coach-only until `playerVisible`
+// is turned on, at which point the player's linked accounts are notified via the
 // bell (Notification rows, type COACH_REMARK) — never via club announcements.
 model PlayerRemark {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -792,7 +792,7 @@ model PlayerRemark {
   playerId      String    @map("player_id") @db.Uuid
   authorUserId  String    @map("author_user_id") @db.Uuid
   body          String
-  parentVisible Boolean   @default(false) @map("parent_visible")
+  playerVisible Boolean   @default(false) @map("player_visible")
   sharedAt      DateTime? @map("shared_at") @db.Timestamptz(6)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy     String?   @map("created_by") @db.Uuid
@@ -907,15 +907,15 @@ model FamilyAccount {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clubId          String   @map("club_id") @db.Uuid
   accountName     String   @map("account_name") @db.VarChar(200)
-  primaryParentId String?  @map("primary_parent_id") @db.Uuid
+  primaryPlayerAccountId String?  @map("primary_player_account_id") @db.Uuid
   status          String   @default("ACTIVE") @db.VarChar(50)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy       String?  @map("created_by") @db.Uuid
   updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy       String?  @map("updated_by") @db.Uuid
 
-  club          Club      @relation(fields: [clubId], references: [id])
-  primaryParent Parent?   @relation(fields: [primaryParentId], references: [id])
+  club          Club           @relation(fields: [clubId], references: [id])
+  primaryPlayerAccount PlayerAccount? @relation(fields: [primaryPlayerAccountId], references: [id])
   invoices      Invoice[]
 
   @@map("family_accounts")
@@ -944,7 +944,7 @@ model Invoice {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clubId          String    @map("club_id") @db.Uuid
   familyAccountId String?   @map("family_account_id") @db.Uuid
-  parentId        String?   @map("parent_id") @db.Uuid
+  playerAccountId String?   @map("player_account_id") @db.Uuid
   playerId        String?   @map("player_id") @db.Uuid
   invoiceNumber   String    @map("invoice_number") @db.VarChar(50)
   currency        String    @default("USD") @db.VarChar(10)
@@ -963,7 +963,7 @@ model Invoice {
 
   club          Club           @relation(fields: [clubId], references: [id])
   familyAccount FamilyAccount? @relation(fields: [familyAccountId], references: [id])
-  parent        Parent?        @relation(fields: [parentId], references: [id])
+  playerAccount PlayerAccount? @relation(fields: [playerAccountId], references: [id])
   player        Player?        @relation(fields: [playerId], references: [id])
   items         InvoiceItem[]
   payments      Payment[]
@@ -971,7 +971,7 @@ model Invoice {
 
   @@unique([clubId, invoiceNumber], name: "uq_invoices_club_invoice_number")
   @@index([clubId])
-  @@index([parentId])
+  @@index([playerAccountId])
   @@index([familyAccountId])
   @@index([playerId])
   @@index([status])
@@ -1247,7 +1247,7 @@ model PlayerEvaluation {
   bucketLabel        String?  @map("bucket_label") @db.VarChar(50)
   summaryComment     String?  @map("summary_comment")
   coachOnlyNotes     String?  @map("coach_only_notes")
-  parentVisibleNotes String?  @map("parent_visible_notes")
+  playerVisibleNotes String?  @map("player_visible_notes")
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy          String?  @map("created_by") @db.Uuid
   updatedAt          DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -1427,7 +1427,7 @@ model PlatformAnnouncement {
   body          String
   severity      String    @default("INFO") @db.VarChar(20) // INFO | WARNING | CRITICAL
   audienceScope String    @default("ALL_CLUBS") @map("audience_scope") @db.VarChar(30) // ALL_CLUBS | SPECIFIC_CLUBS
-  audienceRoles String[]  @map("audience_roles") // role codes: CLUB_ADMIN | COACH | PARENT
+  audienceRoles String[]  @map("audience_roles") // role codes: CLUB_ADMIN | COACH | PLAYER
   status        String    @default("DRAFT") @db.VarChar(20) // DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
   pinned        Boolean   @default(false)
   publishedAt   DateTime? @map("published_at") @db.Timestamptz(6)

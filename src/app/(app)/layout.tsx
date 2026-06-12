@@ -5,7 +5,7 @@ import { AnnouncementsBell } from "@/components/app/announcements-bell";
 import { ConsoleMobileNav } from "@/components/app/console-mobile-nav";
 import { ConsoleSidebar } from "@/components/app/console-sidebar";
 import { DashboardIdentityRow } from "@/components/app/dashboard-identity-row";
-import { ParentAppShell } from "@/components/app/parent/parent-app-shell";
+import { PlayerAppShell } from "@/components/app/player/player-app-shell";
 import { PlatformBanner } from "@/components/app/platform-banner";
 import { SelectRoleGate } from "@/components/app/select-role-gate";
 import { loadIdentitySwitcher, requireUserAndContext } from "@/lib/auth-guards";
@@ -34,7 +34,7 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Seasons", href: "/seasons" },
     { label: "Teams", href: "/teams" },
     { label: "Players", href: "/players" },
-    { label: "Parents", href: "/parents" },
+    { label: "Player Accounts", href: "/player-accounts" },
     { label: "Coaches", href: "/coaches" },
     { label: "Schedule", href: "/schedule" },
     { label: "Attendance", href: "/attendance" },
@@ -59,9 +59,9 @@ const NAV: Record<Role, { label: string; href?: string }[]> = {
     { label: "Evaluations", href: "/evaluations" },
     { label: "Development", href: "/development" },
   ],
-  PARENT: [
-    { label: "My Kids", href: "/dashboard/parent" },
-    { label: "Child Profiles", href: "/dashboard/parent" },
+  PLAYER: [
+    { label: "My Kids", href: "/dashboard/player" },
+    { label: "Child Profiles", href: "/dashboard/player" },
     { label: "Announcements", href: "/announcements" },
     { label: "Team Chat", href: "/chat" },
     { label: "Documents", href: "/documents" },
@@ -93,14 +93,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const showRolePicker = !identitySwitcher.hasChosen && identitySwitcher.identities.length >= 2;
   const roleGate = showRolePicker ? <SelectRoleGate identities={identitySwitcher.identities} /> : null;
 
-  // Player/parent surface: the themed mobile app shell (Vibrant/Classic).
+  // Player surface: the themed mobile app shell (Vibrant/Classic).
   // The Console (admin/coach) keeps its fixed look below — never themed.
-  if (ctx.role === "PARENT") {
+  if (ctx.role === "PLAYER") {
     const theme = await getAppearanceTheme(session.user.id);
     const initial = (session.user.name?.trim()?.[0] ?? session.user.email[0] ?? "U").toUpperCase();
     return (
       <>
-        <ParentAppShell
+        <PlayerAppShell
           theme={theme}
           initial={initial}
           name={displayName}
@@ -111,7 +111,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         >
           <PlatformBanner items={banners} />
           {children}
-        </ParentAppShell>
+        </PlayerAppShell>
         {roleGate}
       </>
     );

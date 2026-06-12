@@ -34,7 +34,7 @@ export function AccountMenu({
   email: string;
   initial: string;
   roleLabel: string;
-  /** Personal profile/settings destination (parents use /me, console roles use /account). */
+  /** Personal profile/settings destination (players use /me, console roles use /account). */
   profileHref?: string;
   /** Every identity the user holds; ≥2 enables the inline role switcher. */
   identities?: Identity[];

@@ -37,7 +37,7 @@ try {
   console.log(`@demo.test users (${demoUsers.rows.length}): ${demoUsers.rows.map((r) => r.email).join(", ") || "none"}\n`);
 
   const C = `'${clubId}'`;
-  // "table + WHERE" fragments, ordered children → parents. $C is the Demo club id.
+  // "table + WHERE" fragments, ordered dependents → referenced rows. $C is the Demo club id.
   const steps = [
     // chat
     `message_attachments WHERE message_id IN (SELECT id FROM messages WHERE chat_id IN (SELECT id FROM chats WHERE club_id = ${C}))`,
@@ -77,10 +77,10 @@ try {
     `waivers WHERE club_id = ${C}`,
     `family_accounts WHERE club_id = ${C}`,
     // roster
-    `player_parent_links WHERE club_id = ${C}`,
+    `player_account_links WHERE club_id = ${C}`,
     `player_team_memberships WHERE club_id = ${C}`,
     `files WHERE club_id = ${C}`,
-    `parents WHERE club_id = ${C}`,
+    `player_accounts WHERE club_id = ${C}`,
     `players WHERE club_id = ${C}`,
     `team_coaches WHERE club_id = ${C}`,
     // access + structure
@@ -99,7 +99,7 @@ try {
     `sessions WHERE user_id IN ${DEMO_USERS}`,
     `accounts WHERE user_id IN ${DEMO_USERS}`,
     `user_role_assignments WHERE user_id IN ${DEMO_USERS}`,
-    `parents WHERE user_id IN ${DEMO_USERS}`,
+    `player_accounts WHERE user_id IN ${DEMO_USERS}`,
     `team_coaches WHERE user_id IN ${DEMO_USERS}`,
     `users WHERE email LIKE '%@demo.test'`,
   ];

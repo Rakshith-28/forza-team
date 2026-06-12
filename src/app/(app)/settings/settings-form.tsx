@@ -8,22 +8,22 @@ import { updateClubSettingsAction } from "@/modules/clubs/actions";
 import { INITIAL_STATE } from "@/modules/clubs/action-state";
 
 export interface ClubSettingsData {
-  showPlayerPhotosToParents: boolean;
-  allowParentChildEvaluationView: boolean;
+  showPlayerPhotosToPlayers: boolean;
+  allowPlayerEvaluationView: boolean;
   attendanceTrackingEnabled: boolean;
-  allowCoachInviteParents: boolean;
+  allowCoachInvitePlayers: boolean;
 }
 
 const TOGGLES: { name: keyof ClubSettingsData; label: string; help: string }[] = [
   {
-    name: "showPlayerPhotosToParents",
-    label: "Show player photos to parents",
-    help: "When on, parents see teammate photos in the safe roster view.",
+    name: "showPlayerPhotosToPlayers",
+    label: "Show player photos to players",
+    help: "When on, players see teammate photos in the safe roster view.",
   },
   {
-    name: "allowParentChildEvaluationView",
-    label: "Share evaluations with parents",
-    help: "When on, parents can see their own child's evaluation summary (never coach-only notes).",
+    name: "allowPlayerEvaluationView",
+    label: "Share evaluations with players",
+    help: "When on, players can see their own child's evaluation summary (never coach-only notes).",
   },
   {
     name: "attendanceTrackingEnabled",
@@ -31,9 +31,9 @@ const TOGGLES: { name: keyof ClubSettingsData; label: string; help: string }[] =
     help: "Enables recording attendance for events.",
   },
   {
-    name: "allowCoachInviteParents",
-    label: "Coaches can invite & link parents",
-    help: "When on, coaches can add players and invite/link their parents for assigned teams. Club Managers always can.",
+    name: "allowCoachInvitePlayers",
+    label: "Coaches can invite & link players",
+    help: "When on, coaches can add players and invite/link their players for assigned teams. Club Managers always can.",
   },
 ];
 

@@ -5,19 +5,19 @@ import { ForbiddenError } from "@/lib/rbac";
 import { createPlayer } from "@/modules/roster/service";
 import {
   ConflictError,
-  inviteParentForPlayer,
-  linkParentToPlayer,
+  invitePlayerAccountForPlayer,
+  linkPlayerAccountToPlayer,
   listPlayerGuardians,
-  unlinkParentFromPlayer,
+  unlinkPlayerAccountFromPlayer,
 } from "@/modules/roster/service";
 
 import { INTEGRATION, adminCtx, coachCtx, uid } from "./helpers";
 
 /**
- * Coach-side player & parent onboarding against an isolated DB (gated on
- * TEST_DATABASE_URL): coach add-player scope, invite-parent (carry-through +
+ * Coach-side player & player-account onboarding against an isolated DB (gated on
+ * TEST_DATABASE_URL): coach add-player scope, invite-player (carry-through +
  * dedupe), link-existing (+ duplicate), off-team denial, and the
- * allow_coach_invite_parents settings gate.
+ * allow_coach_invite_players settings gate.
  */
 
 const ids = {
@@ -25,8 +25,8 @@ const ids = {
   teamAssigned: uid(),
   teamOther: uid(),
   player: uid(), // on the coach's assigned team
-  parentUser: uid(),
-  parent: uid(),
+  playerUser: uid(),
+  playerAccount: uid(),
 };
 
 const run = INTEGRATION ? describe : describe.skip;
@@ -34,7 +34,7 @@ const run = INTEGRATION ? describe : describe.skip;
 run("coach onboarding integration", () => {
   beforeAll(async () => {
     await prisma.club.create({ data: { id: ids.club, name: "ITCoachOnb", shortCode: `ITCO-${ids.club.slice(0, 8)}` } });
-    await prisma.clubSetting.create({ data: { clubId: ids.club, allowCoachInviteParents: true } });
+    await prisma.clubSetting.create({ data: { clubId: ids.club, allowCoachInvitePlayers: true } });
     await prisma.team.createMany({
       data: [
         { id: ids.teamAssigned, clubId: ids.club, name: "Assigned", teamCode: `AS-${ids.teamAssigned.slice(0, 6)}` },
@@ -45,24 +45,24 @@ run("coach onboarding integration", () => {
     await prisma.playerTeamMembership.create({
       data: { clubId: ids.club, playerId: ids.player, teamId: ids.teamAssigned, status: "ACTIVE" },
     });
-    // An existing club parent (for link-existing + dedupe).
-    await prisma.user.create({ data: { id: ids.parentUser, email: `existing-parent-${ids.parentUser}@it.test`, firstName: "Pre", lastName: "Existing" } });
-    const parentRole = await prisma.role.findUnique({ where: { code: "PARENT" }, select: { id: true } });
+    // An existing club player account (for link-existing + dedupe).
+    await prisma.user.create({ data: { id: ids.playerUser, email: `existing-player-${ids.playerUser}@it.test`, firstName: "Pre", lastName: "Existing" } });
+    const playerRole = await prisma.role.findUnique({ where: { code: "PLAYER" }, select: { id: true } });
     await prisma.userRoleAssignment.create({
-      data: { userId: ids.parentUser, roleId: parentRole!.id, clubId: ids.club, status: "ACTIVE" },
+      data: { userId: ids.playerUser, roleId: playerRole!.id, clubId: ids.club, status: "ACTIVE" },
     });
-    await prisma.parent.create({
-      data: { id: ids.parent, clubId: ids.club, userId: ids.parentUser, firstName: "Pre", lastName: "Existing", email: `existing-parent-${ids.parentUser}@it.test` },
+    await prisma.playerAccount.create({
+      data: { id: ids.playerAccount, clubId: ids.club, userId: ids.playerUser, firstName: "Pre", lastName: "Existing", email: `existing-player-${ids.playerUser}@it.test` },
     });
   });
 
   afterAll(async () => {
-    await prisma.playerParentLink.deleteMany({ where: { clubId: ids.club } });
+    await prisma.playerAccountLink.deleteMany({ where: { clubId: ids.club } });
     await prisma.invitation.deleteMany({ where: { clubId: ids.club } });
     await prisma.playerTeamMembership.deleteMany({ where: { clubId: ids.club } });
-    await prisma.parent.deleteMany({ where: { clubId: ids.club } });
+    await prisma.playerAccount.deleteMany({ where: { clubId: ids.club } });
     await prisma.userRoleAssignment.deleteMany({ where: { clubId: ids.club } });
-    await prisma.user.deleteMany({ where: { id: ids.parentUser } });
+    await prisma.user.deleteMany({ where: { id: ids.playerUser } });
     await prisma.player.deleteMany({ where: { clubId: ids.club } });
     await prisma.team.deleteMany({ where: { clubId: ids.club } });
     await prisma.clubSetting.deleteMany({ where: { clubId: ids.club } });
@@ -90,17 +90,17 @@ run("coach onboarding integration", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  it("coach invites a parent for an assigned-team player (carries link metadata)", async () => {
+  it("coach invites a player account for an assigned-team player (carries link metadata)", async () => {
     const ctx = coachOnAssigned();
-    const inv = await inviteParentForPlayer(ctx, {
-      email: "fresh-parent@it.test",
+    const inv = await invitePlayerAccountForPlayer(ctx, {
+      email: "fresh-player@it.test",
       playerId: ids.player,
       relationshipType: "MOTHER",
       canPickup: true,
       canPay: true,
     });
     const row = await prisma.invitation.findFirst({ where: { id: inv.id } });
-    expect(row?.roleCode).toBe("PARENT");
+    expect(row?.roleCode).toBe("PLAYER");
     expect(row?.status).toBe("PENDING");
     const meta = row?.linkMetadata as { playerId: string; relationshipType: string; canPickup: boolean } | null;
     expect(meta?.playerId).toBe(ids.player);
@@ -108,53 +108,53 @@ run("coach onboarding integration", () => {
     expect(meta?.canPickup).toBe(true);
     // The pending invite shows on the player's guardians list.
     const guardians = await listPlayerGuardians(ctx, ids.player);
-    expect(guardians.pendingInvites.some((p) => p.email === "fresh-parent@it.test")).toBe(true);
+    expect(guardians.pendingInvites.some((p) => p.email === "fresh-player@it.test")).toBe(true);
   });
 
   it("dedupes inviting an existing club member", async () => {
     const ctx = coachOnAssigned();
-    const existing = await prisma.user.findUnique({ where: { id: ids.parentUser }, select: { email: true } });
+    const existing = await prisma.user.findUnique({ where: { id: ids.playerUser }, select: { email: true } });
     await expect(
-      inviteParentForPlayer(ctx, { email: existing!.email, playerId: ids.player, relationshipType: "FATHER" }),
+      invitePlayerAccountForPlayer(ctx, { email: existing!.email, playerId: ids.player, relationshipType: "FATHER" }),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
-  it("coach links an existing parent; duplicate link is a friendly conflict", async () => {
+  it("coach links an existing player account; duplicate link is a friendly conflict", async () => {
     const ctx = coachOnAssigned();
-    await linkParentToPlayer(ctx, { playerId: ids.player, parentId: ids.parent, relationshipType: "FATHER" });
-    const links = await prisma.playerParentLink.findMany({ where: { playerId: ids.player, parentId: ids.parent } });
+    await linkPlayerAccountToPlayer(ctx, { playerId: ids.player, playerAccountId: ids.playerAccount, relationshipType: "FATHER" });
+    const links = await prisma.playerAccountLink.findMany({ where: { playerId: ids.player, playerAccountId: ids.playerAccount } });
     expect(links).toHaveLength(1);
     await expect(
-      linkParentToPlayer(ctx, { playerId: ids.player, parentId: ids.parent, relationshipType: "FATHER" }),
+      linkPlayerAccountToPlayer(ctx, { playerId: ids.player, playerAccountId: ids.playerAccount, relationshipType: "FATHER" }),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
   it("coach cannot manage guardians for a player off their teams", async () => {
     const offTeamCoach = coachCtx(ids.club, [ids.teamOther], []); // not assigned to the player's team
     await expect(
-      inviteParentForPlayer(offTeamCoach, { email: "x@it.test", playerId: ids.player, relationshipType: "MOTHER" }),
+      invitePlayerAccountForPlayer(offTeamCoach, { email: "x@it.test", playerId: ids.player, relationshipType: "MOTHER" }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  it("settings gate: allow_coach_invite_parents=false blocks coaches, not admins", async () => {
-    await prisma.clubSetting.update({ where: { clubId: ids.club }, data: { allowCoachInviteParents: false } });
+  it("settings gate: allow_coach_invite_players=false blocks coaches, not admins", async () => {
+    await prisma.clubSetting.update({ where: { clubId: ids.club }, data: { allowCoachInvitePlayers: false } });
     const ctx = coachOnAssigned();
     await expect(
-      inviteParentForPlayer(ctx, { email: "blocked@it.test", playerId: ids.player, relationshipType: "MOTHER" }),
+      invitePlayerAccountForPlayer(ctx, { email: "blocked@it.test", playerId: ids.player, relationshipType: "MOTHER" }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     // Admin still works.
     const admin = adminCtx(ids.club);
-    const inv = await inviteParentForPlayer(admin, { email: "admin-invite@it.test", playerId: ids.player, relationshipType: "MOTHER" });
+    const inv = await invitePlayerAccountForPlayer(admin, { email: "admin-invite@it.test", playerId: ids.player, relationshipType: "MOTHER" });
     expect(inv.id).toBeTruthy();
-    await prisma.clubSetting.update({ where: { clubId: ids.club }, data: { allowCoachInviteParents: true } });
+    await prisma.clubSetting.update({ where: { clubId: ids.club }, data: { allowCoachInvitePlayers: true } });
   });
 
-  it("removes a guardian link (INACTIVE), keeping the parent", async () => {
+  it("removes a guardian link (INACTIVE), keeping the player account", async () => {
     const ctx = coachOnAssigned();
-    const link = await prisma.playerParentLink.findFirst({ where: { playerId: ids.player, parentId: ids.parent } });
-    await unlinkParentFromPlayer(ctx, link!.id);
-    const after = await prisma.playerParentLink.findUnique({ where: { id: link!.id } });
+    const link = await prisma.playerAccountLink.findFirst({ where: { playerId: ids.player, playerAccountId: ids.playerAccount } });
+    await unlinkPlayerAccountFromPlayer(ctx, link!.id);
+    const after = await prisma.playerAccountLink.findUnique({ where: { id: link!.id } });
     expect(after?.status).toBe("INACTIVE");
-    expect(await prisma.parent.findUnique({ where: { id: ids.parent } })).toBeTruthy();
+    expect(await prisma.playerAccount.findUnique({ where: { id: ids.playerAccount } })).toBeTruthy();
   });
 });

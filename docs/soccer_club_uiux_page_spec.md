@@ -19,9 +19,9 @@ The goal is to provide enough detail for implementation of the web application a
 ## 2. Design Principles
 1. **Role-first UX**: every page should adapt to the user’s role and scope.
 2. **Multi-tenant clarity**: club context must always be obvious.
-3. **Parent simplicity**: parents should quickly see child-specific information with minimal friction.
+3. **Player simplicity**: a player account should quickly see profile-specific information with minimal friction.
 4. **Coach efficiency**: common coach actions should take as few clicks as possible.
-5. **Privacy by design**: parent-safe roster views must never expose restricted data.
+5. **Privacy by design**: player-safe roster views must never expose restricted data.
 6. **Mobile-friendly workflows**: all critical actions should work cleanly on smaller screens.
 7. **Modular growth**: new features should fit into predictable navigation and layout patterns.
 8. **Actionable dashboards**: summarize what needs attention, not just counts.
@@ -52,19 +52,19 @@ All authenticated areas should use a common shell with:
 - My Profile
 - Notification Preferences
 - Switch Role (future-ready)
-- Switch Child Context (for parents)
+- Switch Player Profile Context (for player accounts)
 - Sign Out
 
 ---
 
 ## 3.2 Global Context Switching
-### Parent Context Switching
-A parent with multiple linked children must have a **child switcher** visible in the parent dashboard and on any child-specific page.
+### Player Profile Context Switching
+A player account with multiple linked profiles must have a **profile switcher** visible in the player dashboard and on any profile-specific page.
 
 Recommended behavior:
 - dropdown at top of page
-- “All Children” summary option on dashboard only
-- selected child persists during session until changed
+- “All Players” summary option on dashboard only
+- selected profile persists during session until changed
 
 ### Club Context
 For Master Admin or future multi-club users:
@@ -112,7 +112,7 @@ Recommended visual system:
 - Dashboard
 - Teams
 - Players
-- Parents
+- Player Accounts
 - Coaches
 - Schedule
 - Attendance
@@ -142,8 +142,8 @@ Recommended visual system:
 
 ---
 
-## 4.4 Parent Navigation
-- My Kids
+## 4.4 Player Navigation
+- My Players
 - Schedule
 - Team Roster
 - Chat
@@ -206,7 +206,7 @@ Allow all users to sign in.
 
 ## 5.4 Invitation Acceptance Page
 ### Purpose
-Allow invited club admins, coaches, and parents to activate account.
+Allow invited club admins, coaches, and player accounts to activate account.
 
 ### Fields
 - first name
@@ -355,7 +355,7 @@ Surface daily operational needs for a club admin.
 - Teams
 - Players
 - Coaches
-- Parents
+- Player Accounts
 - Upcoming Events
 - Incomplete Registrations
 - Open Invoices
@@ -457,7 +457,7 @@ Search and manage all club players.
 - Jersey Number
 - Position
 - Status
-- Parent Count
+- Player Account Count
 - Actions
 
 ### Actions
@@ -498,17 +498,17 @@ Search and manage all club players.
 - photo
 
 ### Guardians Tab
-- linked parents list
+- linked player accounts list
 - relationship type
 - permissions (`can_pickup`, `can_pay`)
-- add/remove parent
+- add/remove player account
 
 ### Evaluations Tab
 - evaluation timeline
 - latest overall score
 - bucket label
 - criterion breakdown
-- parent-visible summary vs coach-only notes split
+- player-visible summary vs coach-only notes split
 
 ### Development Tab
 - goals list
@@ -518,42 +518,42 @@ Search and manage all club players.
 
 ---
 
-## 7.6 Parents Page
+## 7.6 Player Accounts Page
 ### Purpose
-Manage parent/guardian records.
+Manage player-account records.
 
 ### Filters
 - search
 - status
-- linked child/team
+- linked profile/team
 
 ### Table Columns
-- Parent Name
+- Account Name
 - Email
 - Phone
-- Children Count
-- Primary Child Team(s)
+- Linked Players Count
+- Primary Player Team(s)
 - Status
 - Actions
 
 ### Actions
-- Add Parent
-- Invite Parent
-- View Parent
-- Edit Parent
+- Add Player Account
+- Invite Player Account
+- View Player Account
+- Edit Player Account
 
 ---
 
-## 7.7 Parent Detail Page (Club Admin View)
+## 7.7 Player Account Detail Page (Club Admin View)
 ### Tabs
 - Profile
-- Linked Children
+- Linked Players
 - Invoices
 - Waivers
 - Activity
 
-### Linked Children Tab
-- child cards or table
+### Linked Players Tab
+- player profile cards or table
 - relationship type
 - primary guardian marker
 - manage links
@@ -687,7 +687,7 @@ Filters:
 
 Columns:
 - Player
-- Parent
+- Player Account
 - Program
 - Status
 - Submitted At
@@ -722,7 +722,7 @@ Manage invoices and payments.
 
 ### Invoices Table Columns
 - Invoice Number
-- Family / Parent
+- Family / Player Account
 - Player
 - Total
 - Paid
@@ -744,7 +744,7 @@ Sections:
 - line items
 - payment history
 - payment plan
-- related child / family
+- related player / family
 - activity log
 
 ---
@@ -774,7 +774,7 @@ Manage waiver templates and compliance.
 
 ### Columns
 - Player
-- Parent
+- Player Account
 - Waiver
 - Version
 - Accepted At
@@ -883,16 +883,16 @@ Provide AI-assisted admin tools.
 ### Tabs
 - Club Profile
 - Communication Settings
-- Parent Visibility
+- Player Visibility
 - AI Settings
 - Notification Defaults
 - Billing Settings
 - Evaluation Settings
 
 ### Key Controls
-- enable parent-to-parent chat
-- enable parent evaluation view
-- show photos to parents
+- enable player-to-player chat
+- enable player evaluation view
+- show photos to players
 - enable AI features
 - default notification toggles
 - default currency
@@ -947,14 +947,14 @@ Primary operational page for team player management.
 - Jersey Number
 - Position
 - Status
-- Parent Count
+- Player Account Count
 - Last Attendance / optional
 - Actions
 
 ### Actions
 - Add Player
 - Edit Player
-- Link Parent
+- Link Player Account
 - Open Profile Drawer
 - Export Roster (future)
 
@@ -1048,7 +1048,7 @@ Quick team attendance management and trend review.
 ### Thread Types
 - Team Chat
 - Announcement Replies (if enabled)
-- Direct Parent Messages (future/optional)
+- Direct Player Messages (future/optional)
 
 ### Message Composer
 - text input
@@ -1073,7 +1073,7 @@ Create team announcements only.
 - title
 - body
 - publish now / draft
-- notify parents toggle
+- notify players toggle
 - AI draft button
 
 ---
@@ -1110,7 +1110,7 @@ Manage evaluations for assigned teams.
 - calculated weighted total panel
 - summary comment
 - coach-only notes
-- parent-visible notes
+- player-visible notes
 - save draft / submit
 
 ### Scoring Grid
@@ -1190,7 +1190,7 @@ Track goals and progress for player development.
 - goal summary
 - progress timeline
 - related evaluation insights
-- parent-visible note preview
+- player-visible note preview
 
 ---
 
@@ -1230,14 +1230,14 @@ Team document hub.
 
 ---
 
-## 9. Parent Pages
+## 9. Player Pages
 
-## 9.1 My Kids Dashboard
+## 9.1 My Players Dashboard
 ### Purpose
-Central parent landing page.
+Central player landing page.
 
 ### Top Area
-- child switcher
+- profile switcher
 - summary cards:
   - upcoming events
   - unread messages
@@ -1245,7 +1245,7 @@ Central parent landing page.
   - pending waivers
 
 ### Main Sections
-- child cards with team badges
+- player profile cards with team badges
 - upcoming events timeline
 - latest announcements
 - invoice reminders
@@ -1258,13 +1258,13 @@ Central parent landing page.
 - Message Team
 - Pay Invoice
 - Sign Waiver
-- Update Child Profile
+- Update Player Profile
 
 ---
 
-## 9.2 Child Profile Page (Parent)
+## 9.2 Player Profile Page (Player)
 ### Purpose
-Update own child’s allowed information.
+Update own profile’s allowed information.
 
 ### Sections
 - basic info
@@ -1278,27 +1278,27 @@ Update own child’s allowed information.
 - Save Changes
 
 ### Important
-Only parent-approved editable fields should appear.
+Only club-approved editable fields should appear.
 
 ---
 
-## 9.3 Schedule Page (Parent)
+## 9.3 Schedule Page (Player)
 ### Purpose
-View all child events and RSVP.
+View all events for the player profile and RSVP.
 
 ### View Modes
 - agenda
 - month
-- list by child
+- list by profile
 
 ### Filters
-- child
+- profile
 - team
 - event type
 - date range
 
 ### Event Card Fields
-- child name
+- player name
 - team name
 - event title
 - date/time
@@ -1306,14 +1306,14 @@ View all child events and RSVP.
 - RSVP status badge
 
 ### Event Detail Actions
-- RSVP for this child
+- RSVP for this profile
 - add calendar (future)
 - open map
 - message coach/team
 
 ---
 
-## 9.4 RSVP Interaction (Parent)
+## 9.4 RSVP Interaction (Player)
 ### On event detail or inline card
 Show buttons:
 - Going
@@ -1329,12 +1329,12 @@ After submit:
 
 ---
 
-## 9.5 Team Roster Page (Parent)
+## 9.5 Team Roster Page (Player)
 ### Purpose
 View roster safely.
 
 ### Layout
-- team selector / child context
+- team selector / profile context
 - roster list or cards
 - search by name or jersey number
 
@@ -1345,20 +1345,20 @@ View roster safely.
 - position
 - optional photo
 
-### Own Child Card Behavior
-- show “Edit My Child” action
-- open child profile form
+### Own Profile Card Behavior
+- show “Edit My Profile” action
+- open player profile form
 
 ### Restricted Fields
 Never show:
 - medical notes
 - emergency contacts
 - private evaluations
-- parent contact info for others unless explicitly enabled
+- player-account contact info for others unless explicitly enabled
 
 ---
 
-## 9.6 Chat Page (Parent)
+## 9.6 Chat Page (Player)
 ### Layout
 - team thread list if multiple teams
 - selected conversation
@@ -1369,16 +1369,16 @@ Never show:
 - attach file/image if allowed
 
 ### Restrictions
-- parent-to-parent direct messaging only if club setting allows
+- player-to-player direct messaging only if club setting allows
 
 ---
 
-## 9.7 Announcements Page (Parent)
+## 9.7 Announcements Page (Player)
 ### Purpose
-View all relevant announcements across linked children.
+View all relevant announcements across linked player profiles.
 
 ### Filters
-- child
+- profile
 - team
 - unread/read
 - date range
@@ -1391,9 +1391,9 @@ View all relevant announcements across linked children.
 
 ---
 
-## 9.8 Registration Page (Parent)
+## 9.8 Registration Page (Player)
 ### Purpose
-Complete registration for linked children.
+Complete registration for linked player profiles.
 
 ### Tabs
 - Available Programs
@@ -1421,7 +1421,7 @@ Complete registration for linked children.
 
 ---
 
-## 9.9 Payments Page (Parent)
+## 9.9 Payments Page (Player)
 ### Purpose
 Manage family invoices and payment history.
 
@@ -1432,7 +1432,7 @@ Manage family invoices and payment history.
 
 ### Open Invoices Table / Cards
 - Invoice Number
-- Child
+- Player
 - Total
 - Paid
 - Due
@@ -1449,7 +1449,7 @@ Manage family invoices and payment history.
 
 ---
 
-## 9.10 Waivers Page (Parent)
+## 9.10 Waivers Page (Player)
 ### Purpose
 Review and sign waivers.
 
@@ -1459,7 +1459,7 @@ Review and sign waivers.
 
 ### Waiver Card Fields
 - waiver name
-- child
+- player
 - version
 - status
 - action: Review & Sign
@@ -1472,24 +1472,24 @@ Review and sign waivers.
 
 ---
 
-## 9.11 Development Page (Parent)
+## 9.11 Development Page (Player)
 ### Purpose
-View own child’s development summary if club enables it.
+View own profile’s development summary if club enables it.
 
 ### Sections
 - latest overall summary
 - strengths
 - focus areas
-- parent-visible goals
+- player-visible goals
 - progress timeline
 
 ### Restrictions
-- no comparison to other children by default
+- no comparison to other players by default
 - no teamwide ranking visibility by default
 
 ---
 
-## 9.12 Documents Page (Parent)
+## 9.12 Documents Page (Player)
 ### Purpose
 View relevant team/club documents.
 
@@ -1506,7 +1506,7 @@ View relevant team/club documents.
 ## 10.1 Confirmation Modal
 Use for:
 - archive player
-- remove parent link
+- remove player-account link
 - cancel event
 - delete draft
 - void invoice
@@ -1546,11 +1546,11 @@ Each major list page should have a consistent filter bar:
 
 ## 11.1 Mobile Navigation
 Recommended:
-- bottom nav for parent and coach primary actions
+- bottom nav for player and coach primary actions
 - drawer for secondary items
 
-### Parent Bottom Nav
-- My Kids
+### Player Bottom Nav
+- My Players
 - Schedule
 - Chat
 - Payments
@@ -1600,7 +1600,7 @@ For radar and reporting charts:
 - sufficient color contrast
 - icons paired with text labels for key actions
 - avoid relying only on color for status
-- use clear labels instead of jargon where parent-facing
+- use clear labels instead of jargon where player-facing
 - keep destructive actions distinct and confirmed
 
 ---
@@ -1620,9 +1620,9 @@ For radar and reporting charts:
 1. Auth pages
 2. Shared app shell and role-aware navigation
 3. Club Admin dashboard
-4. Teams / Players / Parents / Coaches pages
+4. Teams / Players / Player Accounts / Coaches pages
 5. Coach dashboard and roster
-6. Parent dashboard and schedule
+6. Player dashboard and schedule
 7. Announcements and chat
 8. Events / RSVP / attendance
 9. Registration / payments / waivers
@@ -1636,7 +1636,7 @@ For radar and reporting charts:
 Implement the UI as a role-aware, modular dashboard experience with a consistent app shell, safe data projections, and reusable interaction patterns.
 
 The most important UX priorities are:
-- parent child-switching simplicity
+- player profile-switching simplicity
 - coach roster and attendance speed
 - club admin operational visibility
 - privacy-safe roster behavior

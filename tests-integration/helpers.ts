@@ -79,10 +79,10 @@ export function coachCtx(
   };
 }
 
-export function parentCtx(clubId: string, playerIds: string[], teamIds: string[]): AuthContext {
+export function playerCtx(clubId: string, playerIds: string[], teamIds: string[]): AuthContext {
   return {
     userId: uid(),
-    role: "PARENT",
+    role: "PLAYER",
     activeClubId: clubId,
     coachTeamIds: [],
     coachTeamPlayerIds: [],

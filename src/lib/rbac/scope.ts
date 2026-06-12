@@ -27,9 +27,9 @@ export interface AuthContext {
   activeTeamId?: string | null;
   /** Players on this user's coached teams (COACH child scope). */
   coachTeamPlayerIds: string[];
-  /** Players linked to this user as a parent (PARENT child scope). */
+  /** Players linked to this user's account (PLAYER child scope). */
   linkedPlayerIds: string[];
-  /** Teams of this parent's linked children (PARENT team-context reads). */
+  /** Teams of this account's linked children (PLAYER team-context reads). */
   childTeamIds: string[];
 }
 
@@ -80,14 +80,14 @@ export function assertTeamScope(ctx: AuthContext, target: { clubId: string; team
 
 /**
  * Child boundary: club must match, and the player must be reachable —
- * a COACH via their coached teams, a PARENT via their linked children.
- * This is the core parent-safety guard.
+ * a COACH via their coached teams, a PLAYER via their linked children.
+ * This is the core player-safety guard.
  */
 export function assertChildScope(ctx: AuthContext, target: { clubId: string; playerId: string }): void {
   assertClubScope(ctx, target.clubId);
   if (isClubLevel(ctx)) return;
   if (ctx.role === "COACH" && ctx.coachTeamPlayerIds.includes(target.playerId)) return;
-  if (ctx.role === "PARENT" && ctx.linkedPlayerIds.includes(target.playerId)) return;
+  if (ctx.role === "PLAYER" && ctx.linkedPlayerIds.includes(target.playerId)) return;
   throw new ForbiddenError("Player is outside your scope");
 }
 

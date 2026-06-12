@@ -10,10 +10,10 @@ import type { CoachFilters, InviteCoachInput, CoachStatus } from "@/modules/coac
  * Coaches module service layer — AUTHORITATIVE for authorization, club scoping,
  * and audit for coach onboarding/listing (RBAC matrix §6.5). Assign/remove reuse
  * the Phase 2 clubs service; this module adds the club-wide coach LIST (active
- * users ∪ pending invites) and the INVITE flow (mirroring "Invite a parent").
+ * users ∪ pending invites) and the INVITE flow (mirroring "Invite a player account").
  *
  * Management is club-scoped: Master Admin (any club) + Club Admin (own club);
- * Coach/Parent have no access. Gated by `teams.manage` (the permission that
+ * Coach/Player have no access. Gated by `teams.manage` (the permission that
  * already governs coach assignment in Phase 2).
  */
 
@@ -121,7 +121,7 @@ export async function listCoaches(ctx: AuthContext, clubId: string, filters: Coa
 }
 
 /**
- * Invite a coach by email (mirrors inviteParentForPlayer). Optionally seeds an initial
+ * Invite a coach by email (mirrors invitePlayerAccountForPlayer). Optionally seeds an initial
  * team + role type, applied on acceptance. Refuses to duplicate an existing club
  * member — the caller should use "Assign to team" instead. Best-effort email
  * (the invitation record is committed regardless).

@@ -28,7 +28,7 @@ export default async function AdminDashboard() {
   const snapshot: { label: string; value: number; href?: string }[] = [
     { label: "Active clubs", value: summary.activeClubs },
     { label: "Coaches", value: summary.coaches, href: "/coaches" },
-    { label: "Parents", value: summary.parents },
+    { label: "Players", value: summary.playerAccounts },
     { label: "Users", value: summary.users, href: "/users" },
     { label: "Open invoices", value: summary.openInvoices },
     { label: "Overdue invoices", value: summary.overdueInvoices },

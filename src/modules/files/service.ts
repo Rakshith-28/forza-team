@@ -58,17 +58,17 @@ async function persist(
 // ===========================================================================
 
 /**
- * A player's photo is owned by the family: ONLY a PARENT setting THEIR own
- * linked child's photo may do so. Staff (coaches/admins) hold the broader
+ * A player's photo is owned by the family: ONLY a PLAYER account setting THEIR
+ * own linked child's photo may do so. Staff (coaches/admins) hold the broader
  * player-edit permissions, so we gate on role + own-child scope here — they can
  * view the photo on the roster but never set or replace it from the console.
  * Pure (no DB) so the authorization boundary is unit-testable directly.
  */
 export function canSetPlayerPhoto(ctx: AuthContext, clubId: string, playerId: string): boolean {
-  return ctx.role === "PARENT" && can(ctx, "players.edit_limited_own_child", { clubId, playerId });
+  return ctx.role === "PLAYER" && can(ctx, "players.edit_limited_own_child", { clubId, playerId });
 }
 
-/** Upload (or replace) a player's photo — parent-own-child only (see canSetPlayerPhoto). */
+/** Upload (or replace) a player's photo — player-account-own-child only (see canSetPlayerPhoto). */
 export async function uploadPlayerPhoto(ctx: AuthContext, playerId: string, input: UploadFileInput) {
   const player = await prisma.player.findFirst({
     where: { id: playerId, deletedAt: null },
@@ -138,7 +138,7 @@ export async function uploadTeamDocument(ctx: AuthContext, teamId: string, input
   return file;
 }
 
-/** Team documents for teams the caller can see (admin=club, coach=assigned, parent=child teams). */
+/** Team documents for teams the caller can see (admin=club, coach=assigned, player=child teams). */
 export async function listAccessibleTeamDocuments(ctx: AuthContext, clubId: string) {
   assertClubScope(ctx, clubId);
   const where: { clubId: string; purpose: "TEAM_DOCUMENT"; teamId?: { in: string[] } } = {
@@ -146,7 +146,7 @@ export async function listAccessibleTeamDocuments(ctx: AuthContext, clubId: stri
     purpose: "TEAM_DOCUMENT",
   };
   if (ctx.role === "COACH") where.teamId = { in: ctx.coachTeamIds };
-  else if (ctx.role === "PARENT") where.teamId = { in: ctx.childTeamIds };
+  else if (ctx.role === "PLAYER") where.teamId = { in: ctx.childTeamIds };
   // Master/Club admin: all team docs in the club.
 
   return prisma.file.findMany({
@@ -238,7 +238,7 @@ export async function getFileForDownload(ctx: AuthContext, fileId: string): Prom
   if (file.purpose === "CLUB_DOCUMENT") {
     assertCan(ctx, "documents.view", { clubId: file.clubId });
   } else if (file.purpose === "TEAM_DOCUMENT") {
-    // Viewing a team document follows team visibility (coach=assigned, parent=child team).
+    // Viewing a team document follows team visibility (coach=assigned, player=child team).
     if (!file.teamId) throw new ForbiddenError("File is outside your scope");
     assertCan(ctx, "teams.view", { clubId: file.clubId, teamId: file.teamId });
   } else if (file.purpose === "CHAT_ATTACHMENT") {
@@ -290,7 +290,7 @@ async function assertPlayerPhotoAccess(
     if (ctx.coachTeamPlayerIds.includes(playerId)) return;
     throw new ForbiddenError("Player is outside your scope");
   }
-  // PARENT — own child always; a teammate's photo only when the club allows it.
+  // PLAYER — own child always; a teammate's photo only when the club allows it.
   if (ctx.linkedPlayerIds.includes(playerId)) return;
   const onChildTeam = await prisma.playerTeamMembership.findFirst({
     where: { playerId, teamId: { in: ctx.childTeamIds }, status: "ACTIVE" },
@@ -299,9 +299,9 @@ async function assertPlayerPhotoAccess(
   if (onChildTeam) {
     const setting = await prisma.clubSetting.findUnique({
       where: { clubId },
-      select: { showPlayerPhotosToParents: true },
+      select: { showPlayerPhotosToPlayers: true },
     });
-    if (setting?.showPlayerPhotosToParents) return;
+    if (setting?.showPlayerPhotosToPlayers) return;
   }
   throw new ForbiddenError("Photo is outside your scope");
 }

@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { can, ForbiddenError, type AuthContext } from "@/lib/rbac";
 import { createTemplate, listCycles, listTemplates } from "@/modules/evaluations/service";
-import { parentEvaluationSummary, type PlayerEvaluationLike } from "@/modules/evaluations/projections";
+import { playerEvaluationSummary, type PlayerEvaluationLike } from "@/modules/evaluations/projections";
 import { unweightedOverall } from "@/modules/evaluations/schemas";
 
 /**
  * Phase 6 authorization + behavior for evaluations (RBAC matrix §6.18). Pure
- * scope rules, service guards that reject before DB access, the parent
+ * scope rules, service guards that reject before DB access, the player
  * serializer projection, and the unweighted scoring rule.
  */
 
@@ -29,16 +29,16 @@ function ctx(overrides: Partial<AuthContext>): AuthContext {
 
 const clubAdminA = ctx({ role: "CLUB_ADMIN", activeClubId: CLUB_A });
 const coachA = ctx({ role: "COACH", activeClubId: CLUB_A, coachTeamIds: ["t1"], coachTeamPlayerIds: ["p1"] });
-const parentA = ctx({ role: "PARENT", activeClubId: CLUB_A, linkedPlayerIds: ["kid-1"], childTeamIds: ["t2"] });
+const playerA = ctx({ role: "PLAYER", activeClubId: CLUB_A, linkedPlayerIds: ["kid-1"], childTeamIds: ["t2"] });
 
 // ---------------------------------------------------------------------------
-// 1 — Parent has no evaluation config / scoring access
+// 1 — Player has no evaluation config / scoring access
 // ---------------------------------------------------------------------------
-describe("parent evaluation permissions", () => {
+describe("player evaluation permissions", () => {
   it("cannot view config or manage/score", () => {
-    expect(can(parentA, "evaluations.view_config", { clubId: CLUB_A })).toBe(false);
-    expect(can(parentA, "evaluations.manage_templates", { clubId: CLUB_A })).toBe(false);
-    expect(can(parentA, "evaluations.score_players", { clubId: CLUB_A, teamId: "t2", playerId: "kid-1" })).toBe(false);
+    expect(can(playerA, "evaluations.view_config", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "evaluations.manage_templates", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "evaluations.score_players", { clubId: CLUB_A, teamId: "t2", playerId: "kid-1" })).toBe(false);
   });
 });
 
@@ -69,22 +69,22 @@ describe("coach config access", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5 — coach_only_notes never in the parent payload (serializer)
+// 5 — coach_only_notes never in the player payload (serializer)
 // ---------------------------------------------------------------------------
-describe("parent evaluation serializer", () => {
+describe("player evaluation serializer", () => {
   const full: PlayerEvaluationLike = {
     id: "e1",
     overallScore: 7.5,
     summaryComment: "Great term",
-    parentVisibleNotes: "Keep practicing passing",
+    playerVisibleNotes: "Keep practicing passing",
     coachOnlyNotes: "SECRET: trial for select squad",
     rankInScope: 3,
     bucketLabel: "TOP",
   };
-  const summary = parentEvaluationSummary(full);
+  const summary = playerEvaluationSummary(full);
 
-  it("exposes only summary, parent-visible notes, and overall score", () => {
-    expect(Object.keys(summary).sort()).toEqual(["id", "overallScore", "parentVisibleNotes", "summaryComment"].sort());
+  it("exposes only summary, player-visible notes, and overall score", () => {
+    expect(Object.keys(summary).sort()).toEqual(["id", "overallScore", "playerVisibleNotes", "summaryComment"].sort());
   });
   it("never leaks coach-only notes, rank, or bucket", () => {
     const serialized = JSON.stringify(summary);
@@ -98,12 +98,12 @@ describe("parent evaluation serializer", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6 — Parent cannot see another child's evaluation
+// 6 — Player cannot see another child's evaluation
 // ---------------------------------------------------------------------------
-describe("parent own-child evaluation scope", () => {
+describe("player own-child evaluation scope", () => {
   it("only own linked child", () => {
-    expect(can(parentA, "evaluations.view_own_child_summary", { clubId: CLUB_A, playerId: "kid-1" })).toBe(true);
-    expect(can(parentA, "evaluations.view_own_child_summary", { clubId: CLUB_A, playerId: "other-kid" })).toBe(false);
+    expect(can(playerA, "evaluations.view_own_child_summary", { clubId: CLUB_A, playerId: "kid-1" })).toBe(true);
+    expect(can(playerA, "evaluations.view_own_child_summary", { clubId: CLUB_A, playerId: "other-kid" })).toBe(false);
   });
 });
 
@@ -140,8 +140,8 @@ describe("dashboard scope", () => {
   it("evaluation/attendance dashboard counts are staff-scoped", () => {
     expect(can(coachA, "evaluations.view_team", { clubId: CLUB_A })).toBe(true);
     expect(can(clubAdminA, "evaluations.view_team", { clubId: CLUB_A })).toBe(true);
-    expect(can(parentA, "evaluations.view_team", { clubId: CLUB_A })).toBe(false);
-    expect(can(parentA, "attendance.view_team", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "evaluations.view_team", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "attendance.view_team", { clubId: CLUB_A })).toBe(false);
     // master/club summary is system/club scoped
     expect(can(clubAdminA, "clubs.view", { clubId: CLUB_A })).toBe(true);
     expect(can(clubAdminA, "clubs.view", { clubId: CLUB_B })).toBe(false);

@@ -27,7 +27,7 @@ function ident(over: Partial<Identity> & { role: Role; key: string }): Identity 
 }
 
 const coach = ident({ role: "COACH", key: identityKey({ role: "COACH", clubId: CLUB, teamId: TEAM }), teamId: TEAM, contextLabel: "U14 Boys" });
-const parent = ident({ role: "PARENT", key: identityKey({ role: "PARENT", clubId: CLUB, playerId: CHILD }), playerId: CHILD, contextLabel: "Sohaan" });
+const player = ident({ role: "PLAYER", key: identityKey({ role: "PLAYER", clubId: CLUB, playerId: CHILD }), playerId: CHILD, contextLabel: "Sohaan" });
 const clubAdmin = ident({ role: "CLUB_ADMIN", key: identityKey({ role: "CLUB_ADMIN", clubId: CLUB }), contextLabel: "Club One" });
 
 describe("identityKey + parseIdentityKey", () => {
@@ -35,8 +35,8 @@ describe("identityKey + parseIdentityKey", () => {
     expect(identityKey({ role: "COACH", clubId: CLUB, teamId: TEAM })).toBe("COACH|club-1|team-1|");
   });
 
-  it("formats a parent key with role|club||player", () => {
-    expect(identityKey({ role: "PARENT", clubId: CLUB, playerId: CHILD })).toBe("PARENT|club-1||player-1");
+  it("formats a player key with role|club||player", () => {
+    expect(identityKey({ role: "PLAYER", clubId: CLUB, playerId: CHILD })).toBe("PLAYER|club-1||player-1");
   });
 
   it("formats a system master key with no club/team/child", () => {
@@ -48,9 +48,9 @@ describe("identityKey + parseIdentityKey", () => {
     expect(parseIdentityKey(key)).toEqual({ role: "COACH", clubId: CLUB, teamId: TEAM, playerId: null });
   });
 
-  it("round-trips a parent key", () => {
-    const key = identityKey({ role: "PARENT", clubId: CLUB, playerId: CHILD });
-    expect(parseIdentityKey(key)).toEqual({ role: "PARENT", clubId: CLUB, teamId: null, playerId: CHILD });
+  it("round-trips a player key", () => {
+    const key = identityKey({ role: "PLAYER", clubId: CLUB, playerId: CHILD });
+    expect(parseIdentityKey(key)).toEqual({ role: "PLAYER", clubId: CLUB, teamId: null, playerId: CHILD });
   });
 
   it("maps a master key to a null club (system scope)", () => {
@@ -80,15 +80,15 @@ describe("pickDefaultIdentity", () => {
   });
 
   it("returns the first identity (the list is pre-sorted by privilege)", () => {
-    expect(pickDefaultIdentity([clubAdmin, coach, parent])).toBe(clubAdmin);
+    expect(pickDefaultIdentity([clubAdmin, coach, player])).toBe(clubAdmin);
   });
 });
 
 describe("resolveIdentity — safe fallback", () => {
-  const list = [clubAdmin, coach, parent];
+  const list = [clubAdmin, coach, player];
 
   it("returns the identity matching the cookie key", () => {
-    expect(resolveIdentity(list, parent.key)).toBe(parent);
+    expect(resolveIdentity(list, player.key)).toBe(player);
   });
 
   it("falls back to the default when the key is unknown (never selects an arbitrary entry)", () => {
@@ -102,6 +102,6 @@ describe("resolveIdentity — safe fallback", () => {
   });
 
   it("returns null when the user has no identities", () => {
-    expect(resolveIdentity([], parent.key)).toBeNull();
+    expect(resolveIdentity([], player.key)).toBeNull();
   });
 });

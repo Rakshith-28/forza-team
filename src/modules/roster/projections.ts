@@ -1,8 +1,8 @@
 /**
- * Parent-safe roster projection (RBAC matrix §6.8 / §7.1, BUILD_PLAN §2).
+ * Player-safe roster projection (RBAC matrix §6.8 / §7.1, BUILD_PLAN §2).
  *
- * When a PARENT views OTHER children on a linked child's team, they may only
- * ever see the safe fields below. Every restricted field (DOB, medical,
+ * When a player account views OTHER children on a linked child's team, they may
+ * only ever see the safe fields below. Every restricted field (DOB, medical,
  * emergency contacts, address, evaluations, internal notes, contact info, …)
  * is stripped HERE, in the data layer — never relying on the UI to hide it.
  */
@@ -24,23 +24,23 @@ export interface PlayerLike {
   emergencyContactPhone?: unknown;
 }
 
-/** The ONLY fields a parent may see for another family's child. */
+/** The ONLY fields a player account may see for another family's child. */
 export interface SafePlayer {
   id: string;
   displayName: string;
   preferredName: string | null;
   jerseyNumber: string | null;
   primaryPosition: string | null;
-  /** Present only when the club setting allows showing photos to parents. */
+  /** Present only when the club setting allows showing photos to players. */
   photoUrl: string | null;
 }
 
-export interface ParentSafeOptions {
-  /** ClubSetting.showPlayerPhotosToParents — default false (safest). */
+export interface PlayerSafeOptions {
+  /** ClubSetting.showPlayerPhotosToPlayers — default false (safest). */
   showPhotos?: boolean;
 }
 
-export function parentSafePlayer(player: PlayerLike, options: ParentSafeOptions = {}): SafePlayer {
+export function playerSafePlayer(player: PlayerLike, options: PlayerSafeOptions = {}): SafePlayer {
   return {
     id: player.id,
     displayName: player.preferredName ?? `${player.firstName} ${player.lastName}`,
@@ -51,15 +51,16 @@ export function parentSafePlayer(player: PlayerLike, options: ParentSafeOptions 
   };
 }
 
-export function parentSafeRoster(players: PlayerLike[], options: ParentSafeOptions = {}): SafePlayer[] {
-  return players.map((p) => parentSafePlayer(p, options));
+export function playerSafeRoster(players: PlayerLike[], options: PlayerSafeOptions = {}): SafePlayer[] {
+  return players.map((p) => playerSafePlayer(p, options));
 }
 
 /**
- * OWN-child view (RBAC matrix §6.6). A parent sees the full guardian-relevant
- * record for a child they are linked to — name, DOB, positions, status, photo,
- * and the medical/emergency fields a guardian legitimately owns. Coach/internal
- * fields and audit columns are intentionally not part of this shape.
+ * OWN-child view (RBAC matrix §6.6). A player account sees the full
+ * guardian-relevant record for a child they are linked to — name, DOB,
+ * positions, status, photo, and the medical/emergency fields a guardian
+ * legitimately owns. Coach/internal fields and audit columns are intentionally
+ * not part of this shape.
  */
 export interface OwnChildLike {
   id: string;

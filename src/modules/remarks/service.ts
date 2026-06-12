@@ -11,10 +11,11 @@ import { COACH_REMARK_NOTIFICATION_TYPE, IN_APP_CHANNEL, type AddRemarkInput } f
 /**
  * Remarks module service layer — the AUTHORITATIVE place for authorization,
  * tenant scoping, and audit for private, player-level coach remarks (one-way:
- * coach → parent). A remark is coach-only until `parentVisible` is turned on, at
- * which point the player's ACTIVE linked guardians get a bell-only Notification
- * (type COACH_REMARK, deliveryChannel IN_APP) — never a club announcement. A
- * PARENT only ever sees their own linked children's shared remarks.
+ * coach → player account). A remark is coach-only until `playerVisible` is turned
+ * on, at which point the player's ACTIVE linked guardians get a bell-only
+ * Notification (type COACH_REMARK, deliveryChannel IN_APP) — never a club
+ * announcement. A PLAYER account only ever sees their own linked children's
+ * shared remarks.
  */
 
 type PlayerName = { firstName: string; lastName: string; preferredName: string | null };
@@ -24,7 +25,7 @@ const displayName = (p: PlayerName) => p.preferredName ?? `${p.firstName} ${p.la
 export interface StaffRemark {
   id: string;
   body: string;
-  parentVisible: boolean;
+  playerVisible: boolean;
   createdAt: Date;
 }
 
@@ -35,7 +36,7 @@ export interface TeamRemarkRow {
   remarks: StaffRemark[];
 }
 
-/** Parent-facing group: one linked child and their shared remarks (no visibility flag). */
+/** Player-account-facing group: one linked child and their shared remarks (no visibility flag). */
 export interface ChildRemarkGroup {
   playerId: string;
   childName: string;
@@ -65,7 +66,7 @@ async function fanOutRemarkNotifications(
 
 /**
  * Add a remark to a player. Staff only (admin club-wide, coach assigned-team).
- * If created parent-visible, notifies the linked guardians in the same tx.
+ * If created player-visible, notifies the linked guardians in the same tx.
  */
 export async function addPlayerRemark(ctx: AuthContext, input: AddRemarkInput) {
   const player = await prisma.player.findFirst({
@@ -82,13 +83,13 @@ export async function addPlayerRemark(ctx: AuthContext, input: AddRemarkInput) {
         playerId: player.id,
         authorUserId: ctx.userId,
         body: input.body,
-        parentVisible: input.parentVisible,
-        sharedAt: input.parentVisible ? new Date() : null,
+        playerVisible: input.playerVisible,
+        sharedAt: input.playerVisible ? new Date() : null,
         createdBy: ctx.userId,
         updatedBy: ctx.userId,
       },
     });
-    if (input.parentVisible) {
+    if (input.playerVisible) {
       const recipients = await getPlayerGuardianUserIds(ctx, player.id);
       await fanOutRemarkNotifications(tx, {
         recipients,
@@ -105,32 +106,32 @@ export async function addPlayerRemark(ctx: AuthContext, input: AddRemarkInput) {
       resourceId: remark.id,
       clubId: player.clubId,
       actorUserId: ctx.userId,
-      metadata: { playerId: player.id, parentVisible: input.parentVisible },
+      metadata: { playerId: player.id, playerVisible: input.playerVisible },
     });
     return remark;
   });
 }
 
 /**
- * Flip a remark's parent visibility. Sharing for the first time fans out the
+ * Flip a remark's player visibility. Sharing for the first time fans out the
  * bell notifications; hiding pulls back any still-unread ones so it leaves the
- * parent's bell. `sharedAt` is set once, so re-sharing never re-notifies.
+ * player account's bell. `sharedAt` is set once, so re-sharing never re-notifies.
  */
-export async function setRemarkVisibility(ctx: AuthContext, remarkId: string, parentVisible: boolean) {
+export async function setRemarkVisibility(ctx: AuthContext, remarkId: string, playerVisible: boolean) {
   const remark = await prisma.playerRemark.findFirst({
     where: { id: remarkId, deletedAt: null },
-    select: { id: true, clubId: true, playerId: true, body: true, parentVisible: true, sharedAt: true },
+    select: { id: true, clubId: true, playerId: true, body: true, playerVisible: true, sharedAt: true },
   });
   if (!remark) throw new ForbiddenError("Remark not found");
   assertCan(ctx, "remarks.manage", { clubId: remark.clubId, playerId: remark.playerId });
-  if (remark.parentVisible === parentVisible) return remark; // no-op
+  if (remark.playerVisible === playerVisible) return remark; // no-op
 
   return prisma.$transaction(async (tx) => {
-    const firstShare = parentVisible && !remark.sharedAt;
+    const firstShare = playerVisible && !remark.sharedAt;
     const updated = await tx.playerRemark.update({
       where: { id: remarkId },
       data: {
-        parentVisible,
+        playerVisible,
         sharedAt: firstShare ? new Date() : remark.sharedAt,
         updatedBy: ctx.userId,
         updatedAt: new Date(),
@@ -150,7 +151,7 @@ export async function setRemarkVisibility(ctx: AuthContext, remarkId: string, pa
         body: remark.body,
         childName: player ? displayName(player) : "your player",
       });
-    } else if (!parentVisible) {
+    } else if (!playerVisible) {
       await tx.notification.deleteMany({
         where: {
           type: COACH_REMARK_NOTIFICATION_TYPE,
@@ -165,7 +166,7 @@ export async function setRemarkVisibility(ctx: AuthContext, remarkId: string, pa
       resourceId: remarkId,
       clubId: remark.clubId,
       actorUserId: ctx.userId,
-      metadata: { playerId: remark.playerId, parentVisible },
+      metadata: { playerId: remark.playerId, playerVisible },
     });
     return updated;
   });
@@ -182,7 +183,7 @@ export async function listPlayerRemarks(ctx: AuthContext, playerId: string): Pro
   return prisma.playerRemark.findMany({
     where: { playerId, deletedAt: null },
     orderBy: { createdAt: "desc" },
-    select: { id: true, body: true, parentVisible: true, createdAt: true },
+    select: { id: true, body: true, playerVisible: true, createdAt: true },
   });
 }
 
@@ -203,24 +204,25 @@ export async function listTeamRemarks(ctx: AuthContext, teamId: string): Promise
   const remarks = await prisma.playerRemark.findMany({
     where: { playerId: { in: players.map((p) => p.id) }, deletedAt: null },
     orderBy: { createdAt: "desc" },
-    select: { id: true, playerId: true, body: true, parentVisible: true, createdAt: true },
+    select: { id: true, playerId: true, body: true, playerVisible: true, createdAt: true },
   });
   const byPlayer = new Map<string, StaffRemark[]>();
   for (const r of remarks) {
     const list = byPlayer.get(r.playerId) ?? [];
-    list.push({ id: r.id, body: r.body, parentVisible: r.parentVisible, createdAt: r.createdAt });
+    list.push({ id: r.id, body: r.body, playerVisible: r.playerVisible, createdAt: r.createdAt });
     byPlayer.set(r.playerId, list);
   }
   return players.map((p) => ({ playerId: p.id, name: displayName(p), remarks: byPlayer.get(p.id) ?? [] }));
 }
 
 /**
- * A PARENT's view: their own linked children's SHARED remarks, grouped by child,
- * newest first. Parent-safe by construction — restricted to `ctx.linkedPlayerIds`
- * and `parentVisible: true`, so other families' notes are unreachable.
+ * A PLAYER account's view: their own linked children's SHARED remarks, grouped
+ * by child, newest first. Player-safe by construction — restricted to
+ * `ctx.linkedPlayerIds` and `playerVisible: true`, so other families' notes are
+ * unreachable.
  */
 export async function listMyChildRemarks(ctx: AuthContext): Promise<ChildRemarkGroup[]> {
-  // Parent-safe by construction: `linkedPlayerIds` is the authoritative own-child
+  // Player-safe by construction: `linkedPlayerIds` is the authoritative own-child
   // scope set (built in the context loader), exactly like listLinkedChildren —
   // no other family's player id can appear here.
   if (ctx.linkedPlayerIds.length === 0) return [];
@@ -232,7 +234,7 @@ export async function listMyChildRemarks(ctx: AuthContext): Promise<ChildRemarkG
       orderBy: { firstName: "asc" },
     }),
     prisma.playerRemark.findMany({
-      where: { playerId: { in: ctx.linkedPlayerIds }, parentVisible: true, deletedAt: null },
+      where: { playerId: { in: ctx.linkedPlayerIds }, playerVisible: true, deletedAt: null },
       orderBy: { createdAt: "desc" },
       select: { id: true, playerId: true, body: true, createdAt: true },
     }),

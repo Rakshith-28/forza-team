@@ -7,7 +7,7 @@ import { inviteCoachSchema } from "@/modules/coaches/schemas";
 
 /**
  * Coaches module authorization (RBAC matrix §6.5). Manage = Master Admin (any
- * club) + Club Admin (own club); Coach/Parent have no access. These guards
+ * club) + Club Admin (own club); Coach/Player have no access. These guards
  * reject BEFORE any DB access (assertCan runs first), so they're provable
  * without a database — matching the established guard-level test style.
  */
@@ -31,7 +31,7 @@ function ctx(overrides: Partial<AuthContext>): AuthContext {
 const clubAdminA = ctx({ role: "CLUB_ADMIN", activeClubId: CLUB_A });
 const masterAdmin = ctx({ role: "MASTER_ADMIN", activeClubId: null });
 const coachA = ctx({ role: "COACH", activeClubId: CLUB_A, coachTeamIds: ["t1"] });
-const parentA = ctx({ role: "PARENT", activeClubId: CLUB_A, linkedPlayerIds: ["kid"] });
+const playerA = ctx({ role: "PLAYER", activeClubId: CLUB_A, linkedPlayerIds: ["kid"] });
 
 // ---------------------------------------------------------------------------
 // Page/manage access — Master + Club Admin only
@@ -41,7 +41,7 @@ describe("coach management permission", () => {
     expect(can(clubAdminA, "teams.manage", { clubId: CLUB_A })).toBe(true);
     expect(can(masterAdmin, "teams.manage", { clubId: CLUB_A })).toBe(true);
     expect(can(coachA, "teams.manage", { clubId: CLUB_A })).toBe(false);
-    expect(can(parentA, "teams.manage", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "teams.manage", { clubId: CLUB_A })).toBe(false);
   });
 });
 
@@ -49,9 +49,9 @@ describe("coach management permission", () => {
 // listCoaches / inviteCoach reject non-admins and cross-club (before DB)
 // ---------------------------------------------------------------------------
 describe("listCoaches scope", () => {
-  it("rejects coaches and parents", async () => {
+  it("rejects coaches and players", async () => {
     await expect(listCoaches(coachA, CLUB_A)).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(listCoaches(parentA, CLUB_A)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(listCoaches(playerA, CLUB_A)).rejects.toBeInstanceOf(ForbiddenError);
   });
   it("rejects another club's coaches for a club admin", async () => {
     await expect(listCoaches(clubAdminA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
@@ -60,9 +60,9 @@ describe("listCoaches scope", () => {
 
 describe("inviteCoach scope", () => {
   const input = { email: "new@coach.test", teamId: null, roleType: "ASSISTANT_COACH" as const };
-  it("rejects coaches and parents", async () => {
+  it("rejects coaches and players", async () => {
     await expect(inviteCoach(coachA, CLUB_A, input)).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(inviteCoach(parentA, CLUB_A, input)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(inviteCoach(playerA, CLUB_A, input)).rejects.toBeInstanceOf(ForbiddenError);
   });
   it("rejects inviting into another club", async () => {
     await expect(inviteCoach(clubAdminA, CLUB_B, input)).rejects.toBeInstanceOf(ForbiddenError);
@@ -78,10 +78,10 @@ describe("assign/remove coach scope", () => {
     expect(can(clubAdminA, "teams.manage", { clubId: CLUB_B, teamId: "t1" })).toBe(false);
     expect(can(coachA, "teams.manage", { clubId: CLUB_A, teamId: "t1" })).toBe(false);
   });
-  it("removeCoach rejects a parent before DB access", async () => {
+  it("removeCoach rejects a player before DB access", async () => {
     // assertCan in clubs.removeCoach runs after a team lookup, so use can() for the
     // pure check and assignCoach (which asserts on a not-found team) for rejection.
-    expect(can(parentA, "teams.manage", { clubId: CLUB_A, teamId: "t1" })).toBe(false);
+    expect(can(playerA, "teams.manage", { clubId: CLUB_A, teamId: "t1" })).toBe(false);
     // sanity: the service functions are wired
     expect(typeof assignCoach).toBe("function");
     expect(typeof removeCoach).toBe("function");

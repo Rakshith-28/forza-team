@@ -65,7 +65,7 @@
 
   /* Event-type accents — calendar day-dots, card left-edge, badge background
    * (badge text stays --foreground). Console uses a restrained, desaturated
-   * professional set; the parent themes re-skin these in their layers below. */
+   * professional set; the player themes re-skin these in their layers below. */
   --event-game: var(--primary);
   --event-practice: oklch(0.62 0.1 230); /* muted blue */
   --event-tournament: oklch(0.7 0.11 75); /* muted amber */
@@ -142,10 +142,10 @@
 }
 
 /* ===========================================================================
- * PLAYER / PARENT APP THEMES (Vibrant + Classic) — token swap only.
- * Applied via [data-theme] on the parent app-shell root. The Console (:root,
+ * PLAYER APP THEMES (Vibrant + Classic) — token swap only.
+ * Applied via [data-theme] on the player app-shell root. The Console (:root,
  * admin/coach) is NEVER themed — these blocks only take effect inside an element
- * carrying data-theme, which only the player/parent surface renders. Same
+ * carrying data-theme, which only the player surface renders. Same
  * components/layout; tokens differ.
  * ------------------------------------------------------------------------- */
 
@@ -291,7 +291,7 @@
 /* ===========================================================================
  * CONSOLE GLASS — frosted surfaces for the admin/coach console only.
  *
- * Scoped to `.glass-scope` (set on the Console shell root). The parent portal
+ * Scoped to `.glass-scope` (set on the Console shell root). The player portal
  * shell carries no `.glass-scope`, so its surfaces stay solid even though it
  * shares the same Card primitive. Rules are intentionally UNLAYERED so they win
  * over the `bg-card` / `border` / `shadow` Tailwind utilities (layered) on Card

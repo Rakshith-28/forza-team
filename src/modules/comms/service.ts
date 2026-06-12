@@ -78,12 +78,12 @@ export function canViewAnnouncement(ctx: AuthContext, a: AnnouncementRow): boole
   if (ctx.role === "COACH") {
     if (a.audienceType === "CLUB_ALL" || a.audienceType === "COACHES_ONLY") return true;
     if (a.audienceType === "TEAM_ONLY") return a.teamId != null && ctx.coachTeamIds.includes(a.teamId);
-    return a.createdBy === ctx.userId; // PARENTS_ONLY not for coaches unless they authored it
+    return a.createdBy === ctx.userId; // PLAYERS_ONLY not for coaches unless they authored it
   }
-  // PARENT
-  if (a.audienceType === "CLUB_ALL" || a.audienceType === "PARENTS_ONLY") return true;
+  // PLAYER
+  if (a.audienceType === "CLUB_ALL" || a.audienceType === "PLAYERS_ONLY") return true;
   if (a.audienceType === "TEAM_ONLY") return a.teamId != null && ctx.childTeamIds.includes(a.teamId);
-  return false; // COACHES_ONLY and drafts are never visible to parents
+  return false; // COACHES_ONLY and drafts are never visible to players
 }
 
 export async function listAnnouncements(ctx: AuthContext, clubId: string) {
@@ -98,10 +98,10 @@ export async function listAnnouncements(ctx: AuthContext, clubId: string) {
       { status: "PUBLISHED", audienceType: "TEAM_ONLY", teamId: { in: ctx.coachTeamIds } },
       { createdBy: ctx.userId }, // own drafts + own published
     ];
-  } else if (!isClubLevel && ctx.role === "PARENT") {
+  } else if (!isClubLevel && ctx.role === "PLAYER") {
     where.status = "PUBLISHED";
     where.OR = [
-      { audienceType: { in: ["CLUB_ALL", "PARENTS_ONLY"] } },
+      { audienceType: { in: ["CLUB_ALL", "PLAYERS_ONLY"] } },
       { audienceType: "TEAM_ONLY", teamId: { in: ctx.childTeamIds } },
     ];
   }
@@ -129,7 +129,7 @@ function publishedVisibleWhere(ctx: AuthContext, clubId: string): Prisma.Announc
   return {
     ...base,
     OR: [
-      { audienceType: { in: ["CLUB_ALL", "PARENTS_ONLY"] } },
+      { audienceType: { in: ["CLUB_ALL", "PLAYERS_ONLY"] } },
       { audienceType: "TEAM_ONLY", teamId: { in: ctx.childTeamIds } },
     ],
   };
@@ -332,7 +332,7 @@ export async function listChatTeams(ctx: AuthContext) {
   const clubId = requireActiveClub(ctx);
   const where: Prisma.TeamWhereInput = { clubId, deletedAt: null, status: { not: "ARCHIVED" } };
   if (ctx.role === "COACH") where.id = { in: ctx.coachTeamIds };
-  else if (ctx.role === "PARENT") where.id = { in: ctx.childTeamIds };
+  else if (ctx.role === "PLAYER") where.id = { in: ctx.childTeamIds };
   return prisma.team.findMany({ where, orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 

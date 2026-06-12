@@ -6,7 +6,7 @@ import pg from "pg";
 // on the app's `@/` path aliases. Run with `npm run db:seed`.
 //
 // Seeds the four roles, a realistic demo club ("Demo FC") — settings, a season,
-// two teams, a coach, players, parents linked to children, a few events with
+// two teams, a coach, players, player accounts linked to children, a few events with
 // RSVPs/attendance, a published announcement, and an evaluation cycle with
 // sample scores — then a pending CLUB_ADMIN invitation whose accept-link is
 // printed so the full invite → sign-in → dashboard flow works end-to-end.
@@ -27,7 +27,7 @@ const ROLES: Array<[string, string, string]> = [
   ["MASTER_ADMIN", "Master Admin", "System-wide administrator across all clubs"],
   ["CLUB_ADMIN", "Club Manager", "Administrator of a single club"],
   ["COACH", "Coach", "Operational access to assigned teams"],
-  ["PARENT", "Parent / Guardian", "Access to linked children"],
+  ["PLAYER", "Player", "Access to linked children"],
 ];
 
 const DEMO_CLUB = { name: "Demo FC", shortCode: "DEMO" };
@@ -115,30 +115,30 @@ async function seedDemoData(client: DB, clubId: string): Promise<void> {
   for (const p of players.u12) await membership(p, teamU12);
   for (const p of players.u14) await membership(p, teamU14);
 
-  // Two parents, each linked to children (one is a multi-child parent across teams).
-  const parentRole = await roleId(client, "PARENT");
-  const mkParent = async (email: string, first: string, last: string, childIds: string[]) => {
+  // Two player accounts, each linked to children (one is a multi-child account across teams).
+  const playerRole = await roleId(client, "PLAYER");
+  const mkPlayerAccount = async (email: string, first: string, last: string, childIds: string[]) => {
     const userId = await ensureUser(client, email, first, last);
     await client.query(
       `INSERT INTO user_role_assignments (user_id, role_id, club_id, is_primary, status) VALUES ($1, $2, $3, true, 'ACTIVE')`,
-      [userId, parentRole, clubId],
+      [userId, playerRole, clubId],
     );
-    const parent = await client.query<{ id: string }>(
-      `INSERT INTO parents (club_id, user_id, first_name, last_name, email) VALUES ($1, $2, $3, $4, $5)
+    const playerAccount = await client.query<{ id: string }>(
+      `INSERT INTO player_accounts (club_id, user_id, first_name, last_name, email) VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (club_id, user_id) DO UPDATE SET first_name = EXCLUDED.first_name RETURNING id`,
       [clubId, userId, first, last, email],
     );
     for (const childId of childIds) {
       await client.query(
-        `INSERT INTO player_parent_links (club_id, player_id, parent_id, relationship_type, status) VALUES ($1, $2, $3, 'GUARDIAN', 'ACTIVE')
-         ON CONFLICT (player_id, parent_id) DO NOTHING`,
-        [clubId, childId, parent.rows[0].id],
+        `INSERT INTO player_account_links (club_id, player_id, player_account_id, relationship_type, status) VALUES ($1, $2, $3, 'GUARDIAN', 'ACTIVE')
+         ON CONFLICT (player_id, player_account_id) DO NOTHING`,
+        [clubId, childId, playerAccount.rows[0].id],
       );
     }
   };
-  // Parent 1 has a child on each team (multi-child across teams).
-  await mkParent("parent1@demo.test", "Pat", "Stone", [players.u12[0], players.u14[0]]);
-  await mkParent("parent2@demo.test", "Sam", "Reyes", [players.u12[1]]);
+  // Player 1 has a child on each team (multi-child across teams).
+  await mkPlayerAccount("player1@demo.test", "Pat", "Stone", [players.u12[0], players.u14[0]]);
+  await mkPlayerAccount("player2@demo.test", "Sam", "Reyes", [players.u12[1]]);
 
   // Events: an upcoming practice + game for U12, plus a club-wide event.
   const day = (n: number) => new Date(Date.now() + n * 86_400_000);
@@ -204,7 +204,7 @@ async function seedDemoData(client: DB, clubId: string): Promise<void> {
   const sampleScores = [7, 8, 6];
   const overall = sampleScores.reduce((a, b) => a + b, 0) / sampleScores.length;
   const evaluation = await client.query<{ id: string }>(
-    `INSERT INTO player_evaluations (club_id, team_id, player_id, evaluation_cycle_id, template_id, position_code, overall_score, summary_comment, parent_visible_notes, coach_only_notes)
+    `INSERT INTO player_evaluations (club_id, team_id, player_id, evaluation_cycle_id, template_id, position_code, overall_score, summary_comment, player_visible_notes, coach_only_notes)
      VALUES ($1, $2, $3, $4, $5, 'MID', $6, 'Strong term, great attitude.', 'Keep working on first touch.', 'Consider for select squad trial.') RETURNING id`,
     [clubId, teamU12, players.u12[0], cycle.rows[0].id, templateId, overall],
   );
@@ -215,7 +215,7 @@ async function seedDemoData(client: DB, clubId: string): Promise<void> {
     );
   }
 
-  console.log("✓ seeded demo dataset: 1 season, 2 teams, 1 coach, 6 players, 2 parents, 3 events, 1 announcement, 1 evaluation");
+  console.log("✓ seeded demo dataset: 1 season, 2 teams, 1 coach, 6 players, 2 player accounts, 3 events, 1 announcement, 1 evaluation");
 }
 
 async function main() {

@@ -127,7 +127,7 @@ export function ClubRow({ club }: { club: ClubView }) {
 
 /**
  * Inline editor for a single club's name (used on the Club Admin dashboard).
- * Keyed by the club's updatedAt at the parent so a successful save remounts it
+ * Keyed by the club's updatedAt at the host so a successful save remounts it
  * collapsed; errors keep it open.
  */
 export function ClubNameForm({ clubId, name }: { clubId: string; name: string }) {

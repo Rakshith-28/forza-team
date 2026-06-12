@@ -6,12 +6,12 @@ import { setAppearanceThemeAction } from "@/app/(app)/me/appearance-actions";
 import { type AppearanceTheme } from "@/lib/appearance";
 
 /**
- * Player/parent app theming. The wrapper carries `data-theme`, so the whole
+ * Player app theming. The wrapper carries `data-theme`, so the whole
  * surface re-themes instantly when `setTheme` flips client state (optimistic);
  * the change is written through to the user record in a transition (no save
  * button, no reload). The initial value is read server-side (no flash).
  *
- * Scope: only the player/parent shell renders this — the Console never does.
+ * Scope: only the player shell renders this — the Console never does.
  */
 interface AppearanceCtx {
   theme: AppearanceTheme;
@@ -23,11 +23,11 @@ const Ctx = createContext<AppearanceCtx | null>(null);
 
 export function useAppearance(): AppearanceCtx {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useAppearance must be used within ParentThemeProvider");
+  if (!ctx) throw new Error("useAppearance must be used within PlayerThemeProvider");
   return ctx;
 }
 
-export function ParentThemeProvider({
+export function PlayerThemeProvider({
   initialTheme,
   children,
 }: {

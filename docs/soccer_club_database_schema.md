@@ -29,7 +29,7 @@ The schema supports:
 ## 3. Core Design Rules
 1. Every tenant-bound business table must include `club_id`.
 2. All user-facing entities should support audit fields.
-3. Parent visibility to other children must be enforced in application/query layer using safe projections.
+3. Player-account visibility to other players' profiles must be enforced in application/query layer using safe projections.
 4. Use join tables instead of comma-separated relationships.
 5. Preserve history for evaluations, payments, waivers, attendance, and registrations.
 6. Avoid hard delete except for low-risk ephemeral records when appropriate.
@@ -65,7 +65,7 @@ Use PostgreSQL enums or controlled string values enforced by application + DB ch
 MASTER_ADMIN
 CLUB_ADMIN
 COACH
-PARENT
+PLAYER
 ```
 
 ### 5.2 Team Coach Role Types
@@ -179,7 +179,7 @@ CUSTOM
 ### 5.14 Development Goal Visibility
 ```sql
 COACH_ONLY
-PARENT_VISIBLE
+PLAYER_VISIBLE
 ```
 
 ### 5.15 Announcement Audience Type
@@ -187,7 +187,7 @@ PARENT_VISIBLE
 CLUB_ALL
 TEAM_ONLY
 COACHES_ONLY
-PARENTS_ONLY
+PLAYERS_ONLY
 CUSTOM_SELECTION
 ```
 
@@ -230,11 +230,11 @@ UTILITY
 - teams
 - team_coaches
 
-### Player / Parent / Roster
+### Player / Player Account / Roster
 - players
 - player_team_memberships
-- parents
-- player_parent_links
+- player_accounts
+- player_account_links
 
 ### Communications
 - announcements
@@ -337,7 +337,7 @@ Seed values:
 - MASTER_ADMIN
 - CLUB_ADMIN
 - COACH
-- PARENT
+- PLAYER
 
 ---
 
@@ -366,7 +366,7 @@ CREATE TABLE user_role_assignments (
 - `MASTER_ADMIN` may have `club_id` and `team_id` null.
 - `CLUB_ADMIN` must have `club_id` and `team_id` null.
 - `COACH` must have `club_id` and usually `team_id` populated.
-- `PARENT` must have `club_id`; `team_id` can remain null.
+- `PLAYER` must have `club_id`; `team_id` can remain null.
 
 ### Indexes
 ```sql
@@ -379,7 +379,7 @@ CREATE INDEX idx_user_role_assignments_role_id ON user_role_assignments(role_id)
 ---
 
 ## 7.4 `invitations`
-Used for inviting coaches, parents, and club managers.
+Used for inviting coaches, player accounts, and club managers.
 
 ```sql
 CREATE TABLE invitations (
@@ -467,9 +467,9 @@ Normalized club settings instead of one large JSON blob.
 CREATE TABLE club_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID NOT NULL UNIQUE REFERENCES clubs(id),
-  allow_parent_to_parent_chat BOOLEAN NOT NULL DEFAULT FALSE,
-  allow_parent_child_evaluation_view BOOLEAN NOT NULL DEFAULT FALSE,
-  show_player_photos_to_parents BOOLEAN NOT NULL DEFAULT TRUE,
+  allow_player_to_player_chat BOOLEAN NOT NULL DEFAULT FALSE,
+  allow_player_evaluation_view BOOLEAN NOT NULL DEFAULT FALSE,
+  show_player_photos_to_players BOOLEAN NOT NULL DEFAULT TRUE,
   enable_ai_features BOOLEAN NOT NULL DEFAULT TRUE,
   enable_sms_notifications BOOLEAN NOT NULL DEFAULT FALSE,
   default_currency VARCHAR(10) NOT NULL DEFAULT 'USD',
@@ -637,11 +637,11 @@ CREATE INDEX idx_player_team_memberships_player_id ON player_team_memberships(pl
 
 ---
 
-## 7.13 `parents`
-Business profile for parent/guardian.
+## 7.13 `player_accounts`
+Business profile for the player login (managed by the player or, for a minor, their guardian).
 
 ```sql
-CREATE TABLE parents (
+CREATE TABLE player_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID NOT NULL REFERENCES clubs(id),
   user_id UUID NOT NULL REFERENCES users(id),
@@ -661,28 +661,28 @@ CREATE TABLE parents (
   created_by UUID NULL REFERENCES users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by UUID NULL REFERENCES users(id),
-  CONSTRAINT uq_parents_club_user UNIQUE (club_id, user_id)
+  CONSTRAINT uq_player_accounts_club_user UNIQUE (club_id, user_id)
 );
 ```
 
 ### Indexes
 ```sql
-CREATE INDEX idx_parents_club_id ON parents(club_id);
-CREATE INDEX idx_parents_user_id ON parents(user_id);
-CREATE INDEX idx_parents_email ON parents(email);
+CREATE INDEX idx_player_accounts_club_id ON player_accounts(club_id);
+CREATE INDEX idx_player_accounts_user_id ON player_accounts(user_id);
+CREATE INDEX idx_player_accounts_email ON player_accounts(email);
 ```
 
 ---
 
-## 7.14 `player_parent_links`
-Many-to-many parent-child linkage.
+## 7.14 `player_account_links`
+Many-to-many player-account-to-profile linkage.
 
 ```sql
-CREATE TABLE player_parent_links (
+CREATE TABLE player_account_links (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID NOT NULL REFERENCES clubs(id),
   player_id UUID NOT NULL REFERENCES players(id),
-  parent_id UUID NOT NULL REFERENCES parents(id),
+  player_account_id UUID NOT NULL REFERENCES player_accounts(id),
   relationship_type VARCHAR(50) NOT NULL,
   is_primary_guardian BOOLEAN NOT NULL DEFAULT FALSE,
   can_pickup BOOLEAN NOT NULL DEFAULT FALSE,
@@ -690,15 +690,15 @@ CREATE TABLE player_parent_links (
   status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by UUID NULL REFERENCES users(id),
-  CONSTRAINT uq_player_parent_link UNIQUE (player_id, parent_id)
+  CONSTRAINT uq_player_account_link UNIQUE (player_id, player_account_id)
 );
 ```
 
 ### Indexes
 ```sql
-CREATE INDEX idx_player_parent_links_club_id ON player_parent_links(club_id);
-CREATE INDEX idx_player_parent_links_player_id ON player_parent_links(player_id);
-CREATE INDEX idx_player_parent_links_parent_id ON player_parent_links(parent_id);
+CREATE INDEX idx_player_account_links_club_id ON player_account_links(club_id);
+CREATE INDEX idx_player_account_links_player_id ON player_account_links(player_id);
+CREATE INDEX idx_player_account_links_player_account_id ON player_account_links(player_account_id);
 ```
 
 ---
@@ -1069,7 +1069,7 @@ CREATE TABLE family_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID NOT NULL REFERENCES clubs(id),
   account_name VARCHAR(200) NOT NULL,
-  primary_parent_id UUID NULL REFERENCES parents(id),
+  primary_player_account_id UUID NULL REFERENCES player_accounts(id),
   status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by UUID NULL REFERENCES users(id),
@@ -1079,7 +1079,7 @@ CREATE TABLE family_accounts (
 ```
 
 ### Recommended linkage rule
-Associate parent(s) and players to a family account in application logic or via optional extra link tables if needed later.
+Associate player account(s) and players to a family account in application logic or via optional extra link tables if needed later.
 
 ---
 
@@ -1111,7 +1111,7 @@ CREATE TABLE invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID NOT NULL REFERENCES clubs(id),
   family_account_id UUID NULL REFERENCES family_accounts(id),
-  parent_id UUID NULL REFERENCES parents(id),
+  player_account_id UUID NULL REFERENCES player_accounts(id),
   player_id UUID NULL REFERENCES players(id),
   invoice_number VARCHAR(50) NOT NULL,
   currency VARCHAR(10) NOT NULL DEFAULT 'USD',
@@ -1143,7 +1143,7 @@ CHECK (
 ### Indexes
 ```sql
 CREATE INDEX idx_invoices_club_id ON invoices(club_id);
-CREATE INDEX idx_invoices_parent_id ON invoices(parent_id);
+CREATE INDEX idx_invoices_player_account_id ON invoices(player_account_id);
 CREATE INDEX idx_invoices_family_account_id ON invoices(family_account_id);
 CREATE INDEX idx_invoices_player_id ON invoices(player_id);
 CREATE INDEX idx_invoices_status ON invoices(status);
@@ -1479,7 +1479,7 @@ CREATE TABLE player_evaluations (
   bucket_label VARCHAR(50) NULL,
   summary_comment TEXT,
   coach_only_notes TEXT,
-  parent_visible_notes TEXT,
+  player_visible_notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by UUID NULL REFERENCES users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -1687,7 +1687,7 @@ CREATE TABLE platform_announcements (
   body TEXT NOT NULL,
   severity VARCHAR(20) NOT NULL DEFAULT 'INFO',          -- INFO | WARNING | CRITICAL
   audience_scope VARCHAR(30) NOT NULL DEFAULT 'ALL_CLUBS', -- ALL_CLUBS | SPECIFIC_CLUBS
-  audience_roles TEXT[] NOT NULL,                         -- CLUB_ADMIN | COACH | PARENT
+  audience_roles TEXT[] NOT NULL,                         -- CLUB_ADMIN | COACH | PLAYER
   status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',            -- DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
   pinned BOOLEAN NOT NULL DEFAULT false,
   published_at TIMESTAMPTZ NULL,
@@ -1795,7 +1795,7 @@ CREATE INDEX idx_announcement_reads_user_id ON announcement_reads(user_id);
 ### One-to-Many
 - clubs -> teams
 - clubs -> players
-- clubs -> parents
+- clubs -> player_accounts
 - clubs -> announcements
 - clubs -> events
 - clubs -> invoices
@@ -1804,7 +1804,7 @@ CREATE INDEX idx_announcement_reads_user_id ON announcement_reads(user_id);
 
 ### Many-to-Many via Join Tables
 - players <-> teams via `player_team_memberships`
-- players <-> parents via `player_parent_links`
+- players <-> player_accounts via `player_account_links`
 - chats <-> users via `chat_members`
 
 ### Historical/Versioned
@@ -1818,8 +1818,8 @@ CREATE INDEX idx_announcement_reads_user_id ON announcement_reads(user_id);
 ## 9. Recommended Safe Query Views
 These are not mandatory DB views on day one but are strongly recommended as application query projections or database views.
 
-### 9.1 `parent_roster_safe_view`
-Contains only safe fields for parents viewing other children:
+### 9.1 `player_roster_safe_view`
+Contains only safe fields for player accounts viewing other players' profiles:
 - player_id
 - team_id
 - team_name
@@ -1871,7 +1871,7 @@ A player is compliant only if:
 ---
 
 ## 11. Constraints and Business Rules to Enforce
-1. A parent can only update linked child records.
+1. A player account can only update its linked player profile records.
 2. `event_rsvps` must be unique per `event_id + player_id`.
 3. `attendance_records` must be unique per `event_id + player_id`.
 4. `waiver_acceptances` must be unique per `waiver_version_id + player_id`.
@@ -1879,7 +1879,7 @@ A player is compliant only if:
 6. `player_evaluations` should be unique per `player_id + evaluation_cycle_id + template_id` unless multi-rater is introduced.
 7. Invoice totals and payment totals must not go negative.
 8. Team-scoped coach actions must verify membership via `team_coaches` or scoped role assignment.
-9. Parent access should never expose other children’s restricted columns.
+9. Player-account access should never expose other players' restricted columns.
 
 ---
 
@@ -1889,7 +1889,7 @@ A player is compliant only if:
 - MASTER_ADMIN
 - CLUB_ADMIN
 - COACH
-- PARENT
+- PLAYER
 
 ### Default Evaluation Criteria
 - WORK_RATE
@@ -1922,9 +1922,9 @@ A player is compliant only if:
 6. user_role_assignments
 7. team_coaches
 8. players
-9. parents
+9. player_accounts
 10. player_team_memberships
-11. player_parent_links
+11. player_account_links
 12. files
 13. announcements / chats / chat_members / messages / message_attachments
 14. events / event_attachments / event_rsvps / attendance_records

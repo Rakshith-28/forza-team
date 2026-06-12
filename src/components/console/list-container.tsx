@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
  * Shared "Team Roster" list shell: a hollow, inset-3D bordered box whose items
  * scroll internally as the list grows. Items are laid out in a small vertical
  * stack; pass compact card rows as children. Used across the console list
- * surfaces (players, seasons, teams, parents) for a consistent look.
+ * surfaces (players, seasons, teams, player accounts) for a consistent look.
  */
 export function ListContainer({ children }: { children: ReactNode }) {
   return (

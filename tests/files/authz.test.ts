@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { can, ForbiddenError, type AuthContext } from "@/lib/rbac";
 import { canSetPlayerPhoto, uploadClubDocument } from "@/modules/files/service";
 import { UploadValidationError, validateUpload } from "@/modules/files/schemas";
-import { parentSafePlayer, type PlayerLike } from "@/modules/roster/projections";
+import { playerSafePlayer, type PlayerLike } from "@/modules/roster/projections";
 
 /**
  * Phase 4 authorization + validation for files (RBAC matrix §6.9). Service
@@ -29,7 +29,7 @@ function ctx(overrides: Partial<AuthContext>): AuthContext {
 
 const clubAdminA = ctx({ role: "CLUB_ADMIN", activeClubId: CLUB_A });
 const coachA = ctx({ role: "COACH", activeClubId: CLUB_A, coachTeamIds: ["t1"], coachTeamPlayerIds: ["p1"] });
-const parentA = ctx({ role: "PARENT", activeClubId: CLUB_A, linkedPlayerIds: ["kid"], childTeamIds: ["t2"] });
+const playerA = ctx({ role: "PLAYER", activeClubId: CLUB_A, linkedPlayerIds: ["kid"], childTeamIds: ["t2"] });
 
 const PNG = { originalName: "a.png", mimeType: "image/png", size: 1000 };
 
@@ -40,14 +40,14 @@ describe("club document management scope", () => {
   it("only admins manage club documents", () => {
     expect(can(clubAdminA, "documents.manage_club", { clubId: CLUB_A })).toBe(true);
     expect(can(coachA, "documents.manage_club", { clubId: CLUB_A })).toBe(false);
-    expect(can(parentA, "documents.manage_club", { clubId: CLUB_A })).toBe(false);
+    expect(can(playerA, "documents.manage_club", { clubId: CLUB_A })).toBe(false);
   });
 
   it("rejects club-document upload for non-admins (before DB)", async () => {
     await expect(uploadClubDocument(coachA, CLUB_A, { bytes: Buffer.from("x"), ...PNG })).rejects.toBeInstanceOf(
       ForbiddenError,
     );
-    await expect(uploadClubDocument(parentA, CLUB_A, { bytes: Buffer.from("x"), ...PNG })).rejects.toBeInstanceOf(
+    await expect(uploadClubDocument(playerA, CLUB_A, { bytes: Buffer.from("x"), ...PNG })).rejects.toBeInstanceOf(
       ForbiddenError,
     );
   });
@@ -60,7 +60,7 @@ describe("club document management scope", () => {
 
   it("club members can view shared docs; chat attachments ride team scope", () => {
     expect(can(coachA, "documents.view", { clubId: CLUB_A })).toBe(true);
-    expect(can(parentA, "documents.view", { clubId: CLUB_A })).toBe(true);
+    expect(can(playerA, "documents.view", { clubId: CLUB_A })).toBe(true);
     expect(can(coachA, "documents.view", { clubId: CLUB_B })).toBe(false);
     // Coach team-doc sharing = chat attachment on an assigned team only.
     expect(can(coachA, "chat.send_team", { clubId: CLUB_A, teamId: "t1" })).toBe(true);
@@ -68,12 +68,12 @@ describe("club document management scope", () => {
   });
 });
 
-describe("player-photo upload scope (parent's own account only)", () => {
-  // A player's photo is owned by the family: canSetPlayerPhoto requires role=PARENT
+describe("player-photo upload scope (player's own account only)", () => {
+  // A player's photo is owned by the family: canSetPlayerPhoto requires role=PLAYER
   // + own-child scope, so staff (who hold the broader edit perms) can never set it.
-  it("a parent may set only their own child's photo", () => {
-    expect(canSetPlayerPhoto(parentA, CLUB_A, "kid")).toBe(true);
-    expect(canSetPlayerPhoto(parentA, CLUB_A, "other-kid")).toBe(false);
+  it("a player may set only their own child's photo", () => {
+    expect(canSetPlayerPhoto(playerA, CLUB_A, "kid")).toBe(true);
+    expect(canSetPlayerPhoto(playerA, CLUB_A, "other-kid")).toBe(false);
   });
   it("staff (coach / admin) cannot set a player's photo, even within scope", () => {
     expect(canSetPlayerPhoto(coachA, CLUB_A, "p1")).toBe(false);
@@ -111,9 +111,9 @@ describe("upload validation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 11 — show_player_photos_to_parents=false hides photos (Phase 3 regression)
+// 11 — show_player_photos_to_players=false hides photos (Phase 3 regression)
 // ---------------------------------------------------------------------------
-describe("parent photo visibility setting", () => {
+describe("player photo visibility setting", () => {
   const player: PlayerLike = {
     id: "p",
     firstName: "A",
@@ -124,10 +124,10 @@ describe("parent photo visibility setting", () => {
     photoUrl: "/api/files/abc",
   };
   it("hides the photo when the club setting is off", () => {
-    expect(parentSafePlayer(player, { showPhotos: false }).photoUrl).toBeNull();
-    expect(parentSafePlayer(player).photoUrl).toBeNull();
+    expect(playerSafePlayer(player, { showPhotos: false }).photoUrl).toBeNull();
+    expect(playerSafePlayer(player).photoUrl).toBeNull();
   });
   it("shows the proxy URL when the setting is on", () => {
-    expect(parentSafePlayer(player, { showPhotos: true }).photoUrl).toBe("/api/files/abc");
+    expect(playerSafePlayer(player, { showPhotos: true }).photoUrl).toBe("/api/files/abc");
   });
 });

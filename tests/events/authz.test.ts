@@ -4,7 +4,7 @@ import { can, ForbiddenError, type AuthContext } from "@/lib/rbac";
 import {
   createEvent,
   listEvents,
-  listParentSchedule,
+  listPlayerSchedule,
 } from "@/modules/events/service";
 import { createEventSchema } from "@/modules/events/schemas";
 
@@ -32,8 +32,8 @@ function ctx(overrides: Partial<AuthContext>): AuthContext {
 
 const clubAdminA = ctx({ role: "CLUB_ADMIN", activeClubId: CLUB_A });
 const coachA = ctx({ role: "COACH", activeClubId: CLUB_A, coachTeamIds: ["t1"], coachTeamPlayerIds: ["p1"] });
-const parentA = ctx({
-  role: "PARENT",
+const playerA = ctx({
+  role: "PLAYER",
   activeClubId: CLUB_A,
   linkedPlayerIds: ["kid-1", "kid-2"],
   childTeamIds: ["t2", "t3"],
@@ -59,7 +59,7 @@ describe("event management scope", () => {
     expect(can(coachA, "events.manage", { clubId: CLUB_A, teamId: "t1" })).toBe(true);
     expect(can(coachA, "events.manage", { clubId: CLUB_A, teamId: "t-unassigned" })).toBe(false);
     expect(can(clubAdminA, "events.manage", { clubId: CLUB_A })).toBe(true);
-    expect(can(parentA, "events.manage", { clubId: CLUB_A, teamId: "t2" })).toBe(false);
+    expect(can(playerA, "events.manage", { clubId: CLUB_A, teamId: "t2" })).toBe(false);
   });
 });
 
@@ -68,13 +68,13 @@ function times() {
 }
 
 // ---------------------------------------------------------------------------
-// 2 — Parent RSVP only for a linked child
+// 2 — Player RSVP only for a linked child
 // ---------------------------------------------------------------------------
 describe("RSVP scope", () => {
-  it("parent may RSVP only for linked children", () => {
-    expect(can(parentA, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: "kid-1" })).toBe(true);
-    expect(can(parentA, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: "kid-2" })).toBe(true);
-    expect(can(parentA, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: "other" })).toBe(false);
+  it("player may RSVP only for linked children", () => {
+    expect(can(playerA, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: "kid-1" })).toBe(true);
+    expect(can(playerA, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: "kid-2" })).toBe(true);
+    expect(can(playerA, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: "other" })).toBe(false);
   });
   it("coach/admin may override RSVP within scope", () => {
     expect(can(coachA, "rsvp.respond_own_child", { clubId: CLUB_A, playerId: "p1" })).toBe(true);
@@ -84,11 +84,11 @@ describe("RSVP scope", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3 + 4 — Attendance: parent never; coach assigned-team only
+// 3 + 4 — Attendance: player never; coach assigned-team only
 // ---------------------------------------------------------------------------
 describe("attendance recording scope", () => {
-  it("parents cannot record attendance", () => {
-    expect(can(parentA, "attendance.record", { clubId: CLUB_A, teamId: "t2" })).toBe(false);
+  it("players cannot record attendance", () => {
+    expect(can(playerA, "attendance.record", { clubId: CLUB_A, teamId: "t2" })).toBe(false);
   });
   it("coach can record for assigned team only", () => {
     expect(can(coachA, "attendance.record", { clubId: CLUB_A, teamId: "t1" })).toBe(true);
@@ -100,15 +100,15 @@ describe("attendance recording scope", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5 — Multi-child parent schedule (guard + empty); aggregation is DB-backed
+// 5 — Multi-child player schedule (guard + empty); aggregation is DB-backed
 // ---------------------------------------------------------------------------
-describe("parent schedule aggregation guards", () => {
-  it("is parent-only", async () => {
-    await expect(listParentSchedule(coachA)).rejects.toBeInstanceOf(ForbiddenError);
+describe("player schedule aggregation guards", () => {
+  it("is player-only", async () => {
+    await expect(listPlayerSchedule(coachA)).rejects.toBeInstanceOf(ForbiddenError);
   });
   it("returns empty with no linked children (no DB access)", async () => {
-    const noKids = ctx({ role: "PARENT", activeClubId: CLUB_A, linkedPlayerIds: [], childTeamIds: [] });
-    await expect(listParentSchedule(noKids)).resolves.toEqual([]);
+    const noKids = ctx({ role: "PLAYER", activeClubId: CLUB_A, linkedPlayerIds: [], childTeamIds: [] });
+    await expect(listPlayerSchedule(noKids)).resolves.toEqual([]);
   });
 });
 
@@ -118,12 +118,12 @@ describe("parent schedule aggregation guards", () => {
 describe("cross-club isolation", () => {
   it("rejects listing another club's events", async () => {
     await expect(listEvents(coachA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(listEvents(parentA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(listEvents(playerA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
     await expect(listEvents(clubAdminA, CLUB_B)).rejects.toBeInstanceOf(ForbiddenError);
   });
   it("denies RSVP/attendance permissions in another club", () => {
     expect(can(coachA, "events.manage", { clubId: CLUB_B, teamId: "t1" })).toBe(false);
-    expect(can(parentA, "rsvp.respond_own_child", { clubId: CLUB_B, playerId: "kid-1" })).toBe(false);
+    expect(can(playerA, "rsvp.respond_own_child", { clubId: CLUB_B, playerId: "kid-1" })).toBe(false);
     expect(can(coachA, "attendance.record", { clubId: CLUB_B, teamId: "t1" })).toBe(false);
   });
 });
@@ -155,15 +155,15 @@ describe("event time validation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9 — Parent attendance view: own child only
+// 9 — Player attendance view: own child only
 // ---------------------------------------------------------------------------
 describe("attendance view scope", () => {
-  it("parent may view own child's attendance only", () => {
-    expect(can(parentA, "attendance.view_own_child", { clubId: CLUB_A, playerId: "kid-1" })).toBe(true);
-    expect(can(parentA, "attendance.view_own_child", { clubId: CLUB_A, playerId: "other" })).toBe(false);
+  it("player may view own child's attendance only", () => {
+    expect(can(playerA, "attendance.view_own_child", { clubId: CLUB_A, playerId: "kid-1" })).toBe(true);
+    expect(can(playerA, "attendance.view_own_child", { clubId: CLUB_A, playerId: "other" })).toBe(false);
   });
-  it("parent cannot use the team attendance view", () => {
-    expect(can(parentA, "attendance.view_team", { clubId: CLUB_A, teamId: "t2" })).toBe(false);
+  it("player cannot use the team attendance view", () => {
+    expect(can(playerA, "attendance.view_team", { clubId: CLUB_A, teamId: "t2" })).toBe(false);
   });
 });
 
@@ -171,10 +171,10 @@ describe("attendance view scope", () => {
 // 10 — Team-document view scope reuses teams.view (FK migration regression)
 // ---------------------------------------------------------------------------
 describe("team-document visibility scope", () => {
-  it("coach sees assigned-team docs; parent sees child-team docs", () => {
+  it("coach sees assigned-team docs; player sees child-team docs", () => {
     expect(can(coachA, "teams.view", { clubId: CLUB_A, teamId: "t1" })).toBe(true);
     expect(can(coachA, "teams.view", { clubId: CLUB_A, teamId: "t-unassigned" })).toBe(false);
-    expect(can(parentA, "teams.view", { clubId: CLUB_A, teamId: "t2" })).toBe(true);
-    expect(can(parentA, "teams.view", { clubId: CLUB_A, teamId: "t-other" })).toBe(false);
+    expect(can(playerA, "teams.view", { clubId: CLUB_A, teamId: "t2" })).toBe(true);
+    expect(can(playerA, "teams.view", { clubId: CLUB_A, teamId: "t-other" })).toBe(false);
   });
 });

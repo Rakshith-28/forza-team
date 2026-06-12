@@ -108,7 +108,7 @@ export function DevelopmentClient({
               <Select id="g-vis" value={visibility} onChange={(e) => setVisibility(e.target.value)}>
                 {GOAL_VISIBILITIES.map((v) => (
                   <option key={v} value={v}>
-                    {v === "COACH_ONLY" ? "Coaches only" : "Visible to parent"}
+                    {v === "COACH_ONLY" ? "Coaches only" : "Visible to player"}
                   </option>
                 ))}
               </Select>
@@ -176,7 +176,7 @@ function GoalCard({ goal }: { goal: DevelopmentGoalRow }) {
             {goal.playerName}
             {goal.category ? ` · ${goal.category}` : ""}
             {goal.targetDate ? ` · target ${fmtDate(goal.targetDate)}` : ""}
-            {goal.visibility === "PARENT_VISIBLE" ? " · parent-visible" : ""}
+            {goal.visibility === "PLAYER_VISIBLE" ? " · player-visible" : ""}
           </p>
         </div>
         <GoalStatus status={goal.status} />

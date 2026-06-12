@@ -29,8 +29,8 @@ const ACCOUNTS = [
   { email: "masteradmin@test.local", first: "Test", last: "Master", role: "MASTER_ADMIN" },
   { email: "clubmanager@test.local", first: "Test", last: "Manager", role: "CLUB_ADMIN" },
   { email: "coach@test.local", first: "Test", last: "Coach", role: "COACH" },
-  { email: "parent1@test.local", first: "Test", last: "ParentOne", role: "PARENT" },
-  { email: "parent2@test.local", first: "Test", last: "ParentTwo", role: "PARENT" },
+  { email: "player1@test.local", first: "Test", last: "PlayerOne", role: "PLAYER" },
+  { email: "player2@test.local", first: "Test", last: "PlayerTwo", role: "PLAYER" },
 ];
 
 /** Create a user via Better Auth signup; returns its id (reuses an existing one). */
@@ -69,7 +69,7 @@ try {
     ["MASTER_ADMIN", "Master Admin"],
     ["CLUB_ADMIN", "Club Manager"],
     ["COACH", "Coach"],
-    ["PARENT", "Parent / Guardian"],
+    ["PLAYER", "Player"],
   ]) {
     await client.query(
       `INSERT INTO roles (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`,
@@ -144,36 +144,36 @@ try {
   await ensureAssignment(userId["masteradmin@test.local"], "MASTER_ADMIN", null, null);
   await ensureAssignment(userId["clubmanager@test.local"], "CLUB_ADMIN", clubId, null);
   await ensureAssignment(userId["coach@test.local"], "COACH", clubId, null);
-  await ensureAssignment(userId["parent1@test.local"], "PARENT", clubId, null);
-  await ensureAssignment(userId["parent2@test.local"], "PARENT", clubId, null);
+  await ensureAssignment(userId["player1@test.local"], "PLAYER", clubId, null);
+  await ensureAssignment(userId["player2@test.local"], "PLAYER", clubId, null);
 
-  // 4) Coach → team; parents → parent profile + link to a player.
+  // 4) Coach → team; player accounts → player account profile + link to a player.
   await client.query(
     `INSERT INTO team_coaches (club_id, team_id, user_id, role_type, status)
      VALUES ($1, $2, $3, 'HEAD_COACH', 'ACTIVE') ON CONFLICT (team_id, user_id) DO NOTHING`,
     [clubId, teamId, userId["coach@test.local"]],
   );
 
-  async function ensureParentLink(uid, first, last, email, playerId) {
+  async function ensurePlayerLink(uid, first, last, email, playerId) {
     const p = await client.query(
-      `INSERT INTO parents (club_id, user_id, first_name, last_name, email)
+      `INSERT INTO player_accounts (club_id, user_id, first_name, last_name, email)
        VALUES ($1, $2, $3, $4, $5) ON CONFLICT (club_id, user_id) DO UPDATE SET first_name = EXCLUDED.first_name
        RETURNING id`,
       [clubId, uid, first, last, email],
     );
     await client.query(
-      `INSERT INTO player_parent_links (club_id, player_id, parent_id, relationship_type, status)
-       VALUES ($1, $2, $3, 'GUARDIAN', 'ACTIVE') ON CONFLICT (player_id, parent_id) DO NOTHING`,
+      `INSERT INTO player_account_links (club_id, player_id, player_account_id, relationship_type, status)
+       VALUES ($1, $2, $3, 'GUARDIAN', 'ACTIVE') ON CONFLICT (player_id, player_account_id) DO NOTHING`,
       [clubId, playerId, p.rows[0].id],
     );
   }
-  await ensureParentLink(userId["parent1@test.local"], "Test", "ParentOne", "parent1@test.local", player1);
-  await ensureParentLink(userId["parent2@test.local"], "Test", "ParentTwo", "parent2@test.local", player2);
+  await ensurePlayerLink(userId["player1@test.local"], "Test", "PlayerOne", "player1@test.local", player1);
+  await ensurePlayerLink(userId["player2@test.local"], "Test", "PlayerTwo", "player2@test.local", player2);
 
   console.log(`\n✓ Done. Test Club + team + 2 players ready; all accounts wired.\n`);
   console.log("LOGINS (email / password):");
   for (const a of ACCOUNTS) console.log(`  ${a.role.padEnd(12)}  ${a.email}  /  ${PASSWORD}`);
-  console.log(`\nParent-safe roster check: sign in as parent1 → that team's roster shows Player Two with safe fields only.`);
+  console.log(`\nPlayer-safe roster check: sign in as player1 → that team's roster shows Player Two with safe fields only.`);
 } finally {
   await client.end();
 }

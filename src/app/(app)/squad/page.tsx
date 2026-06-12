@@ -5,24 +5,24 @@ import { requireRole } from "@/lib/auth-guards";
 import { ForbiddenError } from "@/lib/rbac";
 import { listLinkedChildren, listSafeTeamRoster } from "@/modules/roster/service";
 import type { SafePlayer } from "@/modules/roster/projections";
-import { CollectibleCard } from "@/components/app/parent/widgets";
+import { CollectibleCard } from "@/components/app/player/widgets";
 
 import { ChildEditForm } from "../my-kids/[playerId]/child-edit-client";
 
 /**
  * Squad tab — a single screen showing one linked child's identity card and that
- * child's team roster directly (no intermediate roster page). When the parent
+ * child's team roster directly (no intermediate roster page). When the player
  * has more than one child a switcher appears; when the selected child is on more
  * than one team, team chips appear. Selection is carried in the URL (?child&team)
  * so chips are plain links and the server re-renders the card + roster. The
- * parent-safe projection and privacy note are unchanged. Parent surface only.
+ * safe projection and privacy note are unchanged. Player surface only.
  */
 export default async function SquadPage({
   searchParams,
 }: {
   searchParams: Promise<{ child?: string; team?: string }>;
 }) {
-  const ctx = await requireRole("PARENT");
+  const ctx = await requireRole("PLAYER");
   const children = await listLinkedChildren(ctx);
   const sp = await searchParams;
 
@@ -42,7 +42,7 @@ export default async function SquadPage({
   const child = children.find((c) => c.id === sp.child) ?? resolveActiveChild(children, await readActiveChildId());
   const team = child.teams.find((t) => t.id === sp.team) ?? child.teams[0] ?? null;
 
-  // Parent-safe roster for the selected team (identical projection + scope check).
+  // Player-safe roster for the selected team (identical projection + scope check).
   let roster: SafePlayer[] = [];
   if (team) {
     try {
@@ -56,7 +56,7 @@ export default async function SquadPage({
     <div className="flex flex-col gap-4 pt-2">
       <h1 className="font-display text-2xl uppercase text-foreground">Squad</h1>
 
-      {/* Child switcher — only when the parent has more than one child. */}
+      {/* Child switcher — only when the player has more than one child. */}
       {children.length > 1 ? (
         <div className="flex flex-wrap gap-2">
           {children.map((c) => {
@@ -87,7 +87,7 @@ export default async function SquadPage({
         href={`/my-kids/${child.id}`}
       />
 
-      {/* Edit My Child — parent self-service edit on their own child's card. */}
+      {/* Edit My Child — player self-service edit on their own child's card. */}
       <ChildEditForm child={child} />
 
       {/* Team roster, rendered directly on the page. */}

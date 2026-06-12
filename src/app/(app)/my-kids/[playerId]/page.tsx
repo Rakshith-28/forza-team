@@ -8,26 +8,26 @@ import { getOwnChild, listLinkedChildren } from "@/modules/roster/service";
 import { getChildAttendance } from "@/modules/events/service";
 import { ATTENDANCE_LABELS, type AttendanceStatus } from "@/modules/events/schemas";
 import { formatEventTime } from "@/modules/events/format";
-import { parentEvaluationViewEnabled } from "@/modules/evaluations/service";
+import { playerEvaluationViewEnabled } from "@/modules/evaluations/service";
 
 import { StatusBadge } from "../../seasons/season-forms";
 import { ChildEditForm } from "./child-edit-client";
 
 export default async function ChildProfilePage({ params }: { params: Promise<{ playerId: string }> }) {
   const { playerId } = await params;
-  const ctx = await requireRole("PARENT");
+  const ctx = await requireRole("PLAYER");
 
   const [child, siblings, attendance, evalEnabled] = await Promise.all([
     getOwnChild(ctx, playerId),
     listLinkedChildren(ctx),
     getChildAttendance(ctx, playerId),
-    ctx.activeClubId ? parentEvaluationViewEnabled(ctx.activeClubId) : Promise.resolve(false),
+    ctx.activeClubId ? playerEvaluationViewEnabled(ctx.activeClubId) : Promise.resolve(false),
   ]);
   if (!child) notFound();
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/dashboard/parent" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+      <Link href="/dashboard/player" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
         ← My Kids
       </Link>
 

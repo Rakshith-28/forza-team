@@ -11,7 +11,7 @@ import {
   getAttendanceSummary,
   getEvent,
   getRsvpSummary,
-  listParentSchedule,
+  listPlayerSchedule,
 } from "@/modules/events/service";
 import { EVENT_TYPE_LABELS, RSVP_LABELS, type EventType, type RsvpStatus } from "@/modules/events/schemas";
 import { formatEventDateChip, formatEventDay, formatEventTime, toDatetimeLocal } from "@/modules/events/format";
@@ -61,7 +61,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
   const event = await getEvent(ctx, eventId);
   if (!event) notFound();
 
-  const isParent = ctx.role === "PARENT";
+  const isPlayer = ctx.role === "PLAYER";
   const canManage = can(ctx, "events.manage", { clubId: event.clubId, teamId: event.teamId ?? undefined });
 
   const chip = formatEventDateChip(event.startAt, event.timezone);
@@ -136,9 +136,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
         ) : null}
       </div>
 
-      {isParent ? <ParentRsvpSection ctx={ctx} eventId={event.id} status={event.status} /> : null}
+      {isPlayer ? <PlayerRsvpSection ctx={ctx} eventId={event.id} status={event.status} /> : null}
 
-      {!isParent ? (
+      {!isPlayer ? (
         <>
           <StaffRsvpSummary ctx={ctx} eventId={event.id} />
           {event.teamId ? <StaffAttendance ctx={ctx} eventId={event.id} clubId={event.clubId} teamId={event.teamId} /> : null}
@@ -151,8 +151,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
 
 type Ctx = Awaited<ReturnType<typeof requireAuthContext>>;
 
-async function ParentRsvpSection({ ctx, eventId, status }: { ctx: Ctx; eventId: string; status: string }) {
-  const schedule = await listParentSchedule(ctx);
+async function PlayerRsvpSection({ ctx, eventId, status }: { ctx: Ctx; eventId: string; status: string }) {
+  const schedule = await listPlayerSchedule(ctx);
   const entry = schedule.find((s) => s.event.id === eventId);
   const children = entry?.children ?? [];
   return (

@@ -5,20 +5,20 @@ import type { ScheduleEvent } from "@/modules/events/service";
 
 import { ScheduleView } from "./schedule-view";
 
-export interface ParentChildRsvp {
+export interface PlayerChildRsvp {
   playerId: string;
   name: string;
   rsvpStatus: string | null;
 }
 
 /**
- * Parent/player calendar: the shared ScheduleView with a per-card RSVP slot.
+ * Player calendar: the shared ScheduleView with a per-card RSVP slot.
  * The day-rail card for each event renders an RSVP selector for the caller's
- * OWN linked children only (the data is already parent-safe — `events` are
- * audience-scoped and `childrenByEvent` carries only this parent's children).
+ * OWN linked children only (the data is already scoped — `events` are
+ * audience-scoped and `childrenByEvent` carries only this player's children).
  * RSVP submits through the existing server action + revalidation.
  */
-export function ParentSchedule({
+export function PlayerSchedule({
   events,
   childrenByEvent,
   today,
@@ -26,7 +26,7 @@ export function ParentSchedule({
   selectedDate,
 }: {
   events: ScheduleEvent[];
-  childrenByEvent: Record<string, ParentChildRsvp[]>;
+  childrenByEvent: Record<string, PlayerChildRsvp[]>;
   today: string;
   month: string;
   selectedDate: string;

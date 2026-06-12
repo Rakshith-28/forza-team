@@ -5,10 +5,10 @@ import { CopyInviteLinkButton } from "@/components/app/copy-invite-link-button";
 import { ListContainer } from "@/components/console";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth-guards";
-import { copyParentInviteLinkAction } from "@/modules/roster/actions";
-import { listParents, listPendingParentInvitations } from "@/modules/roster/service";
+import { copyPlayerAccountInviteLinkAction } from "@/modules/roster/actions";
+import { listPlayerAccounts, listPendingPlayerAccountInvitations } from "@/modules/roster/service";
 
-export default async function ParentsPage() {
+export default async function PlayerAccountsPage() {
   const ctx = await requireRole("MASTER_ADMIN", "CLUB_ADMIN");
   if (!ctx.activeClubId) {
     return (
@@ -20,16 +20,16 @@ export default async function ParentsPage() {
   }
 
   const clubId = ctx.activeClubId;
-  const [parents, pending] = await Promise.all([
-    listParents(ctx, clubId),
-    listPendingParentInvitations(ctx, clubId),
+  const [playerAccounts, pending] = await Promise.all([
+    listPlayerAccounts(ctx, clubId),
+    listPendingPlayerAccountInvitations(ctx, clubId),
   ]);
 
   return (
     <div className="mx-auto min-w-0 max-w-3xl">
-      <h1 className="font-display text-2xl uppercase tracking-tight text-foreground wrap-break-word sm:text-3xl">Parents</h1>
+      <h1 className="font-display text-2xl uppercase tracking-tight text-foreground wrap-break-word sm:text-3xl">Players</h1>
       <p className="mt-1 text-muted-foreground">
-        View parents and guardians and link them to their children. Parents are invited from a player&apos;s
+        View players and guardians and link them to their children. Players are invited from a player&apos;s
         roster — open a player and use its <span className="font-medium">Guardians</span> section to invite one.
       </p>
 
@@ -52,7 +52,7 @@ export default async function ParentsPage() {
                     <span className="min-w-0 truncate text-foreground">{inv.email}</span>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-1">
-                    <CopyInviteLinkButton invitationId={inv.id} action={copyParentInviteLinkAction} />
+                    <CopyInviteLinkButton invitationId={inv.id} action={copyPlayerAccountInviteLinkAction} />
                   </div>
                 </li>
               ))}
@@ -62,16 +62,16 @@ export default async function ParentsPage() {
       ) : null}
 
       <div className="mt-6">
-        {parents.length === 0 ? (
+        {playerAccounts.length === 0 ? (
           <p className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            No parents have joined yet. Invite one from a player&apos;s Guardians section.
+            No players have joined yet. Invite one from a player&apos;s Guardians section.
           </p>
         ) : (
           <ListContainer>
-            {parents.map((p) => (
+            {playerAccounts.map((p) => (
               <Link
                 key={p.id}
-                href={`/parents/${p.id}`}
+                href={`/player-accounts/${p.id}`}
                 className="group flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 shadow-xs ring-1 ring-transparent transition-all hover:border-primary hover:shadow-sm hover:ring-primary/10"
               >
                 <span

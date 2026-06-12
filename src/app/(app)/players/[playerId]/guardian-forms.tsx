@@ -42,14 +42,14 @@ function RelationshipFields() {
   );
 }
 
-/** Invite a (new) parent by email, tied to this player. No name fields (collected at accept). */
+/** Invite a (new) player account by email, tied to this player. No name fields (collected at accept). */
 export function InviteGuardianForm({ playerId }: { playerId: string }) {
   const [state, action, pending] = useActionState(inviteGuardianAction, INITIAL_STATE);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // After a successful invite, clear the fields so the next parent's email can
+  // After a successful invite, clear the fields so the next player's email can
   // be typed straight away (reset() is a DOM call, not setState — no cascade).
   useEffect(() => {
     if (state.ok) formRef.current?.reset();
@@ -60,7 +60,7 @@ export function InviteGuardianForm({ playerId }: { playerId: string }) {
   if (!open) {
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Invite parent
+        Invite player
       </Button>
     );
   }
@@ -69,19 +69,22 @@ export function InviteGuardianForm({ playerId }: { playerId: string }) {
     <form ref={formRef} action={action} className="flex w-full flex-col gap-3 rounded-lg border bg-card p-3">
       <input type="hidden" name="playerId" value={playerId} />
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="g-email">Parent email</Label>
-        <Input id="g-email" name="email" type="email" placeholder="parent@example.com" required />
+        <Label htmlFor="g-email">Player email</Label>
+        <Input id="g-email" name="email" type="email" placeholder="player@example.com" required />
+        <p className="text-xs text-muted-foreground">
+          If the player doesn&apos;t have their own email, use their parent&apos;s email.
+        </p>
       </div>
       <RelationshipFields />
       {state.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
       {state.ok ? (
         <p className="text-sm text-primary" role="status">
-          {state.notice ?? "Invitation sent — enter another email to invite the next parent."}
+          {state.notice ?? "Invitation sent — enter another email to invite the next player."}
         </p>
       ) : null}
 
       {/* Inline invite link — shown in the form (no blocking modal), so the
-          email field stays editable for inviting the next parent. */}
+          email field stays editable for inviting the next player. */}
       {linkUrl ? (
         <div className="flex flex-col gap-1.5 rounded-md border bg-secondary/30 p-2.5">
           <p className="text-xs font-medium text-foreground">Invite link — copy and share it:</p>
@@ -124,19 +127,19 @@ export function InviteGuardianForm({ playerId }: { playerId: string }) {
   );
 }
 
-interface ParentResult {
+interface PlayerAccountResult {
   id: string;
   name: string;
   email: string;
 }
 
-/** Link an existing club parent: search → pick → set relationship/permissions → link. */
+/** Link an existing club player account: search → pick → set relationship/permissions → link. */
 export function LinkExistingGuardianForm({ playerId }: { playerId: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<ParentResult[]>([]);
+  const [results, setResults] = useState<PlayerAccountResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selected, setSelected] = useState<ParentResult | null>(null);
+  const [selected, setSelected] = useState<PlayerAccountResult | null>(null);
   const [state, action, pending] = useActionState(linkGuardianAction, INITIAL_STATE);
 
   async function search() {
@@ -152,7 +155,7 @@ export function LinkExistingGuardianForm({ playerId }: { playerId: string }) {
   if (!open) {
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Link existing parent
+        Link existing player
       </Button>
     );
   }
@@ -161,7 +164,7 @@ export function LinkExistingGuardianForm({ playerId }: { playerId: string }) {
     <div className="flex w-full flex-col gap-3 rounded-lg border bg-card p-3">
       <div className="flex items-end gap-2">
         <div className="flex flex-1 flex-col gap-1.5">
-          <Label htmlFor="g-search">Find a parent</Label>
+          <Label htmlFor="g-search">Find a player</Label>
           <Input
             id="g-search"
             value={query}
@@ -199,7 +202,7 @@ export function LinkExistingGuardianForm({ playerId }: { playerId: string }) {
       ) : (
         <form action={action} className="flex flex-col gap-3">
           <input type="hidden" name="playerId" value={playerId} />
-          <input type="hidden" name="parentId" value={selected.id} />
+          <input type="hidden" name="playerAccountId" value={selected.id} />
           <p className="text-sm">
             Linking <span className="font-medium text-foreground">{selected.name}</span>{" "}
             <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setSelected(null)}>
@@ -211,7 +214,7 @@ export function LinkExistingGuardianForm({ playerId }: { playerId: string }) {
           {state.ok ? <p className="text-sm text-primary" role="status">Linked.</p> : null}
           <div>
             <Button type="submit" size="sm" disabled={pending}>
-              {pending ? "Linking…" : "Link parent"}
+              {pending ? "Linking…" : "Link player"}
             </Button>
           </div>
         </form>

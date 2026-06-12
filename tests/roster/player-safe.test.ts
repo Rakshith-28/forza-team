@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parentSafePlayer, type PlayerLike } from "@/modules/roster/projections";
+import { playerSafePlayer, type PlayerLike } from "@/modules/roster/projections";
 
 // A full player record with all the restricted fields populated.
 const fullPlayer: PlayerLike = {
@@ -18,8 +18,8 @@ const fullPlayer: PlayerLike = {
   emergencyContactPhone: "+1-555-0100",
 };
 
-describe("parentSafePlayer — projection for OTHER families' children (matrix §6.8/§7.1)", () => {
-  const safe = parentSafePlayer(fullPlayer, { showPhotos: true });
+describe("playerSafePlayer — projection for OTHER families' children (matrix §6.8/§7.1)", () => {
+  const safe = playerSafePlayer(fullPlayer, { showPhotos: true });
 
   it("exposes only the safe fields", () => {
     expect(Object.keys(safe).sort()).toEqual(
@@ -44,13 +44,13 @@ describe("parentSafePlayer — projection for OTHER families' children (matrix �
   });
 
   it("falls back to full name when no preferred name", () => {
-    const s = parentSafePlayer({ ...fullPlayer, preferredName: null });
+    const s = playerSafePlayer({ ...fullPlayer, preferredName: null });
     expect(s.displayName).toBe("Alex Rivera");
   });
 
   it("gates the photo behind the club setting (default hidden)", () => {
-    expect(parentSafePlayer(fullPlayer).photoUrl).toBeNull();
-    expect(parentSafePlayer(fullPlayer, { showPhotos: false }).photoUrl).toBeNull();
-    expect(parentSafePlayer(fullPlayer, { showPhotos: true }).photoUrl).toBe("https://cdn/p1.jpg");
+    expect(playerSafePlayer(fullPlayer).photoUrl).toBeNull();
+    expect(playerSafePlayer(fullPlayer, { showPhotos: false }).photoUrl).toBeNull();
+    expect(playerSafePlayer(fullPlayer, { showPhotos: true }).photoUrl).toBe("https://cdn/p1.jpg");
   });
 });

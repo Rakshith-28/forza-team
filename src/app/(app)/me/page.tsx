@@ -2,19 +2,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SignOutButton } from "@/components/app/sign-out-button";
-import { AppearanceSwitcher } from "@/components/app/parent/appearance-switcher";
+import { AppearanceSwitcher } from "@/components/app/player/appearance-switcher";
 import { requireUserAndContext } from "@/lib/auth-guards";
 import { ROLE_HOME } from "@/lib/rbac";
 import { listLinkedChildren } from "@/modules/roster/service";
 
 /**
  * Me tab — profile + the Appearance switcher (Vibrant / Classic) + quick links.
- * PARENT-only: the Appearance switcher needs the parent shell's theme provider,
- * so non-parents are redirected to their own home (Console).
+ * PLAYER-only: the Appearance switcher needs the player shell's theme provider,
+ * so non-players are redirected to their own home (Console).
  */
 export default async function MePage() {
   const { session, ctx } = await requireUserAndContext();
-  if (ctx.role !== "PARENT") redirect(ROLE_HOME[ctx.role]);
+  if (ctx.role !== "PLAYER") redirect(ROLE_HOME[ctx.role]);
   const children = await listLinkedChildren(ctx);
   const displayName = session.user.name || session.user.email;
 

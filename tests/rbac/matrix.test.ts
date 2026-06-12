@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { can, roleHasPermission, type AuthContext, type Permission } from "@/lib/rbac";
-import { parentSafePlayer, type PlayerLike } from "@/modules/roster/projections";
+import { playerSafePlayer, type PlayerLike } from "@/modules/roster/projections";
 
 /**
  * RBAC / privacy regression pack — the allow/deny truth table from
  * soccer_club_rbac_matrix.md, asserted at the permission/scope layer that the
  * service layer enforces (not UI). Covers cross-tenant isolation, coach team
- * scope, parent child scope, management denial for parents, and the parent-safe
+ * scope, player child scope, management denial for players, and the player-safe
  * projection. (DB-gated settings behavior is exercised in the integration suite.)
  */
 
@@ -30,7 +30,7 @@ function ctx(o: Partial<AuthContext>): AuthContext {
 const master = ctx({ role: "MASTER_ADMIN", activeClubId: null });
 const clubAdminA = ctx({ role: "CLUB_ADMIN", activeClubId: A });
 const coachA = ctx({ role: "COACH", activeClubId: A, coachTeamIds: ["t1"], coachTeamPlayerIds: ["p1"] });
-const parentA = ctx({ role: "PARENT", activeClubId: A, linkedPlayerIds: ["kid1"], childTeamIds: ["t1"] });
+const playerA = ctx({ role: "PLAYER", activeClubId: A, linkedPlayerIds: ["kid1"], childTeamIds: ["t1"] });
 
 const WRITE_PERMS: Permission[] = [
   "clubs.manage",
@@ -38,7 +38,7 @@ const WRITE_PERMS: Permission[] = [
   "teams.manage",
   "players.create",
   "players.edit_full",
-  "parents.manage",
+  "playerAccounts.manage",
   "events.manage",
   "attendance.record",
   "announcements.publish_club",
@@ -67,7 +67,7 @@ const VIEW_PERMS: Permission[] = [
 // ---------------------------------------------------------------------------
 describe("cross-tenant isolation", () => {
   const target = { clubId: B, teamId: "t1", playerId: "p1" };
-  for (const actor of [{ name: "Club Manager", c: clubAdminA }, { name: "Coach", c: coachA }, { name: "Parent", c: parentA }]) {
+  for (const actor of [{ name: "Club Manager", c: clubAdminA }, { name: "Coach", c: coachA }, { name: "Player", c: playerA }]) {
     it(`${actor.name}: denied every write in club B`, () => {
       for (const perm of WRITE_PERMS) expect(can(actor.c, perm, target)).toBe(false);
     });
@@ -100,37 +100,37 @@ describe("coach team scope", () => {
     expect(can(coachA, "players.edit_full", { clubId: A, playerId: "pX" })).toBe(false);
   });
   it("cannot manage club-wide config", () => {
-    for (const perm of ["clubs.manage", "seasons.manage", "teams.manage", "parents.manage", "evaluations.manage_templates", "documents.manage_club"] as Permission[]) {
+    for (const perm of ["clubs.manage", "seasons.manage", "teams.manage", "playerAccounts.manage", "evaluations.manage_templates", "documents.manage_club"] as Permission[]) {
       expect(can(coachA, perm, { clubId: A })).toBe(false);
     }
   });
 });
 
 // ---------------------------------------------------------------------------
-// Parent scope: own child only; no management.
+// Player scope: own child only; no management.
 // ---------------------------------------------------------------------------
-describe("parent scope", () => {
+describe("player scope", () => {
   it("holds no management/staff permissions", () => {
     for (const perm of [...WRITE_PERMS, "roster.view_full", "attendance.view_team", "evaluations.view_team"] as Permission[]) {
-      expect(can(parentA, perm, { clubId: A, teamId: "t1", playerId: "kid1" })).toBe(false);
+      expect(can(playerA, perm, { clubId: A, teamId: "t1", playerId: "kid1" })).toBe(false);
     }
   });
   it("edits/RSVPs/views only their own linked child", () => {
     for (const perm of ["players.edit_limited_own_child", "rsvp.respond_own_child", "attendance.view_own_child", "evaluations.view_own_child_summary"] as Permission[]) {
-      expect(can(parentA, perm, { clubId: A, playerId: "kid1" })).toBe(true);
-      expect(can(parentA, perm, { clubId: A, playerId: "other-kid" })).toBe(false);
+      expect(can(playerA, perm, { clubId: A, playerId: "kid1" })).toBe(true);
+      expect(can(playerA, perm, { clubId: A, playerId: "other-kid" })).toBe(false);
     }
   });
   it("may post in their linked child's team chat only", () => {
-    expect(can(parentA, "chat.send_team", { clubId: A, teamId: "t1" })).toBe(true);
-    expect(can(parentA, "chat.send_team", { clubId: A, teamId: "t9" })).toBe(false);
+    expect(can(playerA, "chat.send_team", { clubId: A, teamId: "t1" })).toBe(true);
+    expect(can(playerA, "chat.send_team", { clubId: A, teamId: "t9" })).toBe(false);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Parent-safe roster projection — restricted PII never leaves the server.
+// Player-safe roster projection — restricted PII never leaves the server.
 // ---------------------------------------------------------------------------
-describe("parent-safe roster projection", () => {
+describe("player-safe roster projection", () => {
   const full: PlayerLike = {
     id: "p1",
     firstName: "Alex",
@@ -147,22 +147,22 @@ describe("parent-safe roster projection", () => {
   };
 
   it("exposes only the safe fields", () => {
-    const safe = parentSafePlayer(full, { showPhotos: true });
+    const safe = playerSafePlayer(full, { showPhotos: true });
     expect(Object.keys(safe).sort()).toEqual(
       ["displayName", "id", "jerseyNumber", "photoUrl", "preferredName", "primaryPosition"].sort(),
     );
   });
 
   it("never leaks DOB / medical / allergy / emergency contact", () => {
-    const serialized = JSON.stringify(parentSafePlayer(full, { showPhotos: true }));
+    const serialized = JSON.stringify(playerSafePlayer(full, { showPhotos: true }));
     for (const secret of ["2012-04-01", "asthma", "peanuts", "Sam Rivera", "+1-555-0100"]) {
       expect(serialized).not.toContain(secret);
     }
   });
 
-  it("gates the photo behind show_player_photos_to_parents (default hidden)", () => {
-    expect(parentSafePlayer(full).photoUrl).toBeNull();
-    expect(parentSafePlayer(full, { showPhotos: false }).photoUrl).toBeNull();
-    expect(parentSafePlayer(full, { showPhotos: true }).photoUrl).toBe("/api/files/abc");
+  it("gates the photo behind show_player_photos_to_players (default hidden)", () => {
+    expect(playerSafePlayer(full).photoUrl).toBeNull();
+    expect(playerSafePlayer(full, { showPhotos: false }).photoUrl).toBeNull();
+    expect(playerSafePlayer(full, { showPhotos: true }).photoUrl).toBe("/api/files/abc");
   });
 });

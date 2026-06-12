@@ -4,7 +4,7 @@
  * derived from which of `club_id` / `team_id` / child-linkage applies.
  */
 
-export const ROLES = ["MASTER_ADMIN", "CLUB_ADMIN", "COACH", "PARENT"] as const;
+export const ROLES = ["MASTER_ADMIN", "CLUB_ADMIN", "COACH", "PLAYER"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const SCOPES = ["SYSTEM", "CLUB", "TEAM", "CHILD"] as const;
@@ -14,7 +14,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   MASTER_ADMIN: "Master Admin",
   CLUB_ADMIN: "Club Manager",
   COACH: "Coach",
-  PARENT: "Parent / Guardian",
+  PLAYER: "Player",
 };
 
 export function isRole(value: unknown): value is Role {
@@ -26,7 +26,7 @@ export const ROLE_HOME: Record<Role, string> = {
   MASTER_ADMIN: "/dashboard/admin",
   CLUB_ADMIN: "/dashboard/club",
   COACH: "/dashboard/coach",
-  PARENT: "/dashboard/parent",
+  PLAYER: "/dashboard/player",
 };
 
 /** Privilege ranking, used to resolve a single active role when a user holds several. */
@@ -34,7 +34,7 @@ export const ROLE_PRIORITY: Record<Role, number> = {
   MASTER_ADMIN: 4,
   CLUB_ADMIN: 3,
   COACH: 2,
-  PARENT: 1,
+  PLAYER: 1,
 };
 
 /**

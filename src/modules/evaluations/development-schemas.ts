@@ -12,7 +12,7 @@ export const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
   ON_HOLD: "On hold",
 };
 
-export const GOAL_VISIBILITIES = ["COACH_ONLY", "PARENT_VISIBLE"] as const;
+export const GOAL_VISIBILITIES = ["COACH_ONLY", "PLAYER_VISIBLE"] as const;
 export type GoalVisibility = (typeof GOAL_VISIBILITIES)[number];
 
 export const createGoalSchema = z.object({

@@ -33,7 +33,7 @@ export interface AttendanceRow {
 export interface RemarkItem {
   id: string;
   body: string;
-  parentVisible: boolean;
+  playerVisible: boolean;
   createdAt: string; // ISO
 }
 
@@ -68,7 +68,7 @@ function fmtDate(iso: string): string {
 /**
  * Coach/admin attendance surface: an Overview tab (team-average graph + each
  * player's percentage) and a Remarks tab (private coach notes per player with a
- * parent-visibility toggle). Team selection stays URL-driven in the page; this
+ * player-visibility toggle). Team selection stays URL-driven in the page; this
  * component handles the tabs and the remark dialogs/toggles.
  */
 export function AttendanceView({
@@ -296,8 +296,8 @@ function RemarksPanel({ players }: { players: PlayerRemarks[] }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted-foreground">
-        Remarks are private by default. Turn on “Visible to parents” to share a note — the player&apos;s
-        parent(s) get a bell notification (it never appears in announcements).
+        Remarks are private by default. Turn on “Visible to players” to share a note — the player
+        gets a bell notification (it never appears in announcements).
       </p>
       {players.map((p) => (
         <PlayerRemarkCard key={p.playerId} player={p} />
@@ -375,9 +375,9 @@ function AddRemarkDialog({ playerId, playerName }: { playerId: string; playerNam
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
             <ToggleSwitch
-              name="parentVisible"
-              label="Visible to parents"
-              help="Shares this note and sends the parent(s) a bell notification."
+              name="playerVisible"
+              label="Visible to players"
+              help="Shares this note and sends the player a bell notification."
             />
             {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
             <div>
@@ -403,17 +403,17 @@ function RemarkRow({ remark }: { remark: RemarkItem }) {
         <div className="flex items-center gap-2">
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-              remark.parentVisible ? "bg-primary/10 text-primary" : "bg-secondary text-secondary-foreground"
+              remark.playerVisible ? "bg-primary/10 text-primary" : "bg-secondary text-secondary-foreground"
             }`}
           >
-            {remark.parentVisible ? "Shared" : "Private"}
+            {remark.playerVisible ? "Shared" : "Private"}
           </span>
           <form action={action}>
             <input type="hidden" name="remarkId" value={remark.id} />
             {/* Submit the OPPOSITE of the current visibility. */}
-            {!remark.parentVisible ? <input type="hidden" name="parentVisible" value="on" /> : null}
+            {!remark.playerVisible ? <input type="hidden" name="playerVisible" value="on" /> : null}
             <Button type="submit" variant="ghost" size="sm" disabled={pending} className="h-7 px-2 text-xs">
-              {remark.parentVisible ? "Make private" : "Share with parents"}
+              {remark.playerVisible ? "Make private" : "Share with players"}
             </Button>
           </form>
         </div>

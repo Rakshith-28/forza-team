@@ -2,13 +2,13 @@ import { requireRole } from "@/lib/auth-guards";
 import { listMyChildRemarks } from "@/modules/remarks/service";
 
 /**
- * Parent "Coach Notes" — the private, one-way remarks a coach has shared about
- * the parent's own linked children, grouped per child (newest first). This is
- * where a bell remark notification deep-links. Read-only; parent-safe by
- * construction (the service restricts to the parent's linked, shared remarks).
+ * Player "Coach Notes" — the private, one-way remarks a coach has shared about
+ * the player's own linked children, grouped per child (newest first). This is
+ * where a bell remark notification deep-links. Read-only; player-safe by
+ * construction (the service restricts to the player's linked, shared remarks).
  */
 export default async function CoachNotesPage() {
-  const ctx = await requireRole("PARENT");
+  const ctx = await requireRole("PLAYER");
   const groups = await listMyChildRemarks(ctx);
 
   return (

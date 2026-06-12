@@ -137,14 +137,14 @@ new module service must uphold them (details in @docs/BUILD_PLAN.md §2):
    a `clubId`, and every query is scoped to the caller's active club. Cross-tenant
    reads must be impossible by construction.
 2. **Layered, defense-in-depth RBAC.** Roles `MASTER_ADMIN` / `CLUB_ADMIN` /
-   `COACH` / `PARENT` over scopes `SYSTEM` / `CLUB` / `TEAM` / `CHILD`. Three
+   `COACH` / `PLAYER` over scopes `SYSTEM` / `CLUB` / `TEAM` / `CHILD`. Three
    layers: middleware session gate → route/action guard (`requireUser`,
    `requireRole`) → **service-layer scope assertions** (`assertClubScope`,
    `assertTeamScope`, `assertChildScope`). The service layer is authoritative;
    never trust the UI or middleware alone.
-3. **Parent-safe projections for minors' data.** A `PARENT` only ever sees their
+3. **Player-safe projections for minors' data.** A `PLAYER` only ever sees their
    own linked children and team-public info. Roster/contact queries reachable by
-   parents run through dedicated projections that strip other families' PII.
+   player accounts run through dedicated projections that strip other families' PII.
    Raw phone/email of other members is never returned to non-privileged roles.
 4. **Audit sensitive mutations** (child linkage, role grants, data exports).
 

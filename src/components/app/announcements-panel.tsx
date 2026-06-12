@@ -22,7 +22,7 @@ const AUDIENCE_LABEL: Record<string, string> = {
   CLUB_ALL: "Club",
   TEAM_ONLY: "Team",
   COACHES_ONLY: "Coaches",
-  PARENTS_ONLY: "Parents",
+  PLAYERS_ONLY: "Players",
 };
 
 export interface AnnouncementPanelItem {

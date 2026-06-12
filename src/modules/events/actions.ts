@@ -118,7 +118,7 @@ export async function submitRsvpAction(_prev: FormState, fd: FormData): Promise<
   }
   revalidatePath("/schedule");
   revalidatePath(`/schedule/${eventId}`);
-  revalidatePath("/dashboard/parent");
+  revalidatePath("/dashboard/player");
   return { ok: true, error: null };
 }
 

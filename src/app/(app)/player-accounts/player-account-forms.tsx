@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { linkParentAction, updateParentAction } from "@/modules/roster/actions";
+import { linkPlayerAccountAction, updatePlayerAccountAction } from "@/modules/roster/actions";
 import { INITIAL_STATE } from "@/modules/roster/action-state";
 import { CONTACT_METHODS, RELATIONSHIP_LABELS, RELATIONSHIP_TYPES } from "@/modules/roster/schemas";
 
-export interface ParentEditData {
+export interface PlayerAccountEditData {
   id: string;
   firstName: string;
   lastName: string;
@@ -24,27 +24,27 @@ export interface ParentEditData {
   postalCode: string | null;
 }
 
-export function ParentEditForm({ parent }: { parent: ParentEditData }) {
-  const [state, action, pending] = useActionState(updateParentAction, INITIAL_STATE);
+export function PlayerAccountEditForm({ playerAccount }: { playerAccount: PlayerAccountEditData }) {
+  const [state, action, pending] = useActionState(updatePlayerAccountAction, INITIAL_STATE);
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <input type="hidden" name="parentId" value={parent.id} />
+      <input type="hidden" name="playerAccountId" value={playerAccount.id} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="firstName" label="First name">
-          <Input id="firstName" name="firstName" defaultValue={parent.firstName} required />
+          <Input id="firstName" name="firstName" defaultValue={playerAccount.firstName} required />
         </Field>
         <Field id="lastName" label="Last name">
-          <Input id="lastName" name="lastName" defaultValue={parent.lastName} required />
+          <Input id="lastName" name="lastName" defaultValue={playerAccount.lastName} required />
         </Field>
         <Field id="phone" label="Phone">
-          <Input id="phone" name="phone" defaultValue={parent.phone ?? ""} />
+          <Input id="phone" name="phone" defaultValue={playerAccount.phone ?? ""} />
         </Field>
         <Field id="secondaryPhone" label="Secondary phone">
-          <Input id="secondaryPhone" name="secondaryPhone" defaultValue={parent.secondaryPhone ?? ""} />
+          <Input id="secondaryPhone" name="secondaryPhone" defaultValue={playerAccount.secondaryPhone ?? ""} />
         </Field>
         <Field id="preferredContactMethod" label="Preferred contact">
-          <Select id="preferredContactMethod" name="preferredContactMethod" defaultValue={parent.preferredContactMethod ?? ""}>
+          <Select id="preferredContactMethod" name="preferredContactMethod" defaultValue={playerAccount.preferredContactMethod ?? ""}>
             <option value="">— None —</option>
             {CONTACT_METHODS.map((m) => (
               <option key={m} value={m}>
@@ -54,19 +54,19 @@ export function ParentEditForm({ parent }: { parent: ParentEditData }) {
           </Select>
         </Field>
         <Field id="addressLine1" label="Address line 1">
-          <Input id="addressLine1" name="addressLine1" defaultValue={parent.addressLine1 ?? ""} />
+          <Input id="addressLine1" name="addressLine1" defaultValue={playerAccount.addressLine1 ?? ""} />
         </Field>
         <Field id="addressLine2" label="Address line 2">
-          <Input id="addressLine2" name="addressLine2" defaultValue={parent.addressLine2 ?? ""} />
+          <Input id="addressLine2" name="addressLine2" defaultValue={playerAccount.addressLine2 ?? ""} />
         </Field>
         <Field id="city" label="City">
-          <Input id="city" name="city" defaultValue={parent.city ?? ""} />
+          <Input id="city" name="city" defaultValue={playerAccount.city ?? ""} />
         </Field>
         <Field id="state" label="State">
-          <Input id="state" name="state" defaultValue={parent.state ?? ""} />
+          <Input id="state" name="state" defaultValue={playerAccount.state ?? ""} />
         </Field>
         <Field id="postalCode" label="Postal code">
-          <Input id="postalCode" name="postalCode" defaultValue={parent.postalCode ?? ""} />
+          <Input id="postalCode" name="postalCode" defaultValue={playerAccount.postalCode ?? ""} />
         </Field>
       </div>
       {state.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
@@ -85,8 +85,8 @@ export interface PlayerOption {
   name: string;
 }
 
-export function LinkChildForm({ parentId, players }: { parentId: string; players: PlayerOption[] }) {
-  const [state, action, pending] = useActionState(linkParentAction, INITIAL_STATE);
+export function LinkChildForm({ playerAccountId, players }: { playerAccountId: string; players: PlayerOption[] }) {
+  const [state, action, pending] = useActionState(linkPlayerAccountAction, INITIAL_STATE);
 
   if (players.length === 0) {
     return <p className="text-sm text-muted-foreground">No unlinked players available to link.</p>;
@@ -94,7 +94,7 @@ export function LinkChildForm({ parentId, players }: { parentId: string; players
 
   return (
     <form action={action} className="flex flex-col gap-3">
-      <input type="hidden" name="parentId" value={parentId} />
+      <input type="hidden" name="playerAccountId" value={playerAccountId} />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex flex-1 flex-col gap-1.5">
           <Label htmlFor="playerId">Child</Label>

@@ -28,8 +28,8 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-/** Narrow the invitation's jsonb link_metadata back to ParentLinkMetadata. */
-export function parseLinkMetadata(value: unknown): ParentLinkMetadata | null {
+/** Narrow the invitation's jsonb link_metadata back to PlayerLinkMetadata. */
+export function parseLinkMetadata(value: unknown): PlayerLinkMetadata | null {
   if (!value || typeof value !== "object") return null;
   const m = value as Record<string, unknown>;
   if (typeof m.playerId !== "string" || typeof m.relationshipType !== "string") return null;
@@ -66,8 +66,8 @@ export interface InvitationGrantSource {
 export interface InvitationGrants {
   /** team_coaches role_type to create for a COACH invite with an initial team, else null. */
   teamCoachRoleType: string | null;
-  /** player_parent_link to create for a PARENT invite carrying link metadata, else null. */
-  parentLink: ParentLinkMetadata | null;
+  /** player_account_link to create for a PLAYER invite carrying link metadata, else null. */
+  playerLink: PlayerLinkMetadata | null;
 }
 
 /**
@@ -80,8 +80,8 @@ export function planInvitationGrants(inv: InvitationGrantSource): InvitationGran
     inv.roleCode === "COACH" && inv.clubId && inv.teamId
       ? inv.teamRoleType ?? DEFAULT_TEAM_ROLE_TYPE
       : null;
-  const parentLink = inv.roleCode === "PARENT" && inv.clubId ? parseLinkMetadata(inv.linkMetadata) : null;
-  return { teamCoachRoleType, parentLink };
+  const playerLink = inv.roleCode === "PLAYER" && inv.clubId ? parseLinkMetadata(inv.linkMetadata) : null;
+  return { teamCoachRoleType, playerLink };
 }
 
 /** Fields applyInvitationGrants needs from the invitation row. */
@@ -89,19 +89,19 @@ export type InvitationForGrants = InvitationGrantSource & { createdBy: string | 
 
 /**
  * Apply an accepted invitation's grants within a transaction: create the
- * team_coaches row (COACH + initial team) and/or the player_parent_link
- * (PARENT + link metadata, parent already created). A link to a missing player
- * is skipped GRACEFULLY (no orphan/partial write). Separated from Better Auth so
- * it is integration-testable directly with a real tx.
+ * team_coaches row (COACH + initial team) and/or the player_account_link
+ * (PLAYER + link metadata, player account already created). A link to a missing
+ * player is skipped GRACEFULLY (no orphan/partial write). Separated from Better
+ * Auth so it is integration-testable directly with a real tx.
  */
 export async function applyInvitationGrants(
   tx: Prisma.TransactionClient,
-  args: { invitation: InvitationForGrants; userId: string; parentId?: string },
-): Promise<{ teamCoach: boolean; parentLink: boolean }> {
-  const { invitation: inv, userId, parentId } = args;
+  args: { invitation: InvitationForGrants; userId: string; playerAccountId?: string },
+): Promise<{ teamCoach: boolean; playerLink: boolean }> {
+  const { invitation: inv, userId, playerAccountId } = args;
   const grants = planInvitationGrants(inv);
   let teamCoach = false;
-  let parentLink = false;
+  let playerLink = false;
 
   if (grants.teamCoachRoleType && inv.clubId && inv.teamId) {
     await tx.teamCoach.upsert({
@@ -119,32 +119,32 @@ export async function applyInvitationGrants(
     teamCoach = true;
   }
 
-  if (grants.parentLink && parentId && inv.clubId) {
+  if (grants.playerLink && playerAccountId && inv.clubId) {
     const player = await tx.player.findFirst({
-      where: { id: grants.parentLink.playerId, clubId: inv.clubId, deletedAt: null },
+      where: { id: grants.playerLink.playerId, clubId: inv.clubId, deletedAt: null },
       select: { id: true },
     });
     if (player) {
-      await tx.playerParentLink.upsert({
-        where: { uq_player_parent_link: { playerId: grants.parentLink.playerId, parentId } },
+      await tx.playerAccountLink.upsert({
+        where: { uq_player_account_link: { playerId: grants.playerLink.playerId, playerAccountId } },
         create: {
           clubId: inv.clubId,
-          playerId: grants.parentLink.playerId,
-          parentId,
-          relationshipType: grants.parentLink.relationshipType,
-          isPrimaryGuardian: grants.parentLink.isPrimaryGuardian,
-          canPickup: grants.parentLink.canPickup,
-          canPay: grants.parentLink.canPay,
+          playerId: grants.playerLink.playerId,
+          playerAccountId,
+          relationshipType: grants.playerLink.relationshipType,
+          isPrimaryGuardian: grants.playerLink.isPrimaryGuardian,
+          canPickup: grants.playerLink.canPickup,
+          canPay: grants.playerLink.canPay,
           status: "ACTIVE",
           createdBy: inv.createdBy,
         },
         update: { status: "ACTIVE" },
       });
-      parentLink = true;
+      playerLink = true;
     }
   }
 
-  return { teamCoach, parentLink };
+  return { teamCoach, playerLink };
 }
 
 function tokenMatches(token: string, hash: string): boolean {
@@ -161,16 +161,16 @@ export interface CreateInvitationInput {
   /** For a COACH invite with an initial team: the team_coaches role_type to apply on accept. */
   teamRoleType?: string | null;
   /**
-   * For a PARENT invite carrying a child link: applied as a player_parent_link on
+   * For a PLAYER invite carrying a child link: applied as a player_account_link on
    * accept. Also reused as generic jsonb for other roles (e.g. a CLUB_ADMIN invite
    * carries `{ firstName, lastName }` for display in the pending-admin list).
    */
-  linkMetadata?: ParentLinkMetadata | Record<string, unknown> | null;
+  linkMetadata?: PlayerLinkMetadata | Record<string, unknown> | null;
   invitedByUserId: string;
 }
 
-/** Parent↔player link carried on a PARENT invite, applied on acceptance. */
-export interface ParentLinkMetadata {
+/** Account↔player link carried on a PLAYER invite, applied on acceptance. */
+export interface PlayerLinkMetadata {
   playerId: string;
   relationshipType: string;
   isPrimaryGuardian: boolean;
@@ -367,12 +367,13 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
         createdBy: invitation.createdBy,
       },
     });
-    // A PARENT invite also provisions the parent business profile (parents.user_id
-    // is required, so the profile can only exist once the login is created). The
-    // admin can then link children to this profile (roster module, Phase 3).
-    let parentId: string | undefined;
-    if (invitation.roleCode === "PARENT" && invitation.clubId) {
-      const parent = await tx.parent.create({
+    // A PLAYER invite also provisions the player-account profile
+    // (player_accounts.user_id is required, so the profile can only exist once the
+    // login is created). The admin can then link player profiles to this account
+    // (roster module, Phase 3).
+    let playerAccountId: string | undefined;
+    if (invitation.roleCode === "PLAYER" && invitation.clubId) {
+      const account = await tx.playerAccount.create({
         data: {
           clubId: invitation.clubId,
           userId,
@@ -384,11 +385,11 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
           createdBy: invitation.createdBy,
         },
       });
-      parentId = parent.id;
+      playerAccountId = account.id;
     }
-    // Apply the planned grants (COACH → team_coaches; PARENT-with-link →
-    // player_parent_link). Decoupled + integration-tested in applyInvitationGrants.
-    await applyInvitationGrants(tx, { invitation, userId, parentId });
+    // Apply the planned grants (COACH → team_coaches; PLAYER-with-link →
+    // player_account_link). Decoupled + integration-tested in applyInvitationGrants.
+    await applyInvitationGrants(tx, { invitation, userId, playerAccountId });
 
     await tx.invitation.update({
       where: { id: invitation.id },

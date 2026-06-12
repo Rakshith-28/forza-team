@@ -54,7 +54,7 @@ function requireActiveClub(ctx: AuthContext): string {
 /** The teams (other than club-wide) an actor can see events for. */
 function actorTeamIds(ctx: AuthContext): string[] {
   if (ctx.role === "COACH") return ctx.coachTeamIds;
-  if (ctx.role === "PARENT") return ctx.childTeamIds;
+  if (ctx.role === "PLAYER") return ctx.childTeamIds;
   return []; // club-level actors are handled separately (they see everything)
 }
 
@@ -251,7 +251,7 @@ export async function listEvents(
 }
 
 /**
- * Single calendar/list query powering EVERY surface (Console + parent portal):
+ * Single calendar/list query powering EVERY surface (Console + player portal):
  * the events visible to `actor` in `[from, to)`, scoped per the audience model,
  * with resolved team tags + status. Eager-loads team names for badges.
  */
@@ -439,10 +439,10 @@ export async function cancelEvent(ctx: AuthContext, eventId: string) {
 }
 
 // ===========================================================================
-// Parent-safe serialization
+// Player-safe serialization
 // ===========================================================================
 
-export interface ParentSafeEvent {
+export interface PlayerSafeEvent {
   id: string;
   title: string;
   eventType: string;
@@ -457,8 +457,8 @@ export interface ParentSafeEvent {
   myRsvp: string | null;
 }
 
-/** Shape `toParentSafeEvent` needs: an event with targeted teams + rsvps. */
-export interface ParentSafeEventInput {
+/** Shape `toPlayerSafeEvent` needs: an event with targeted teams + rsvps. */
+export interface PlayerSafeEventInput {
   id: string;
   title: string;
   eventType: string;
@@ -473,12 +473,12 @@ export interface ParentSafeEventInput {
 }
 
 /**
- * Parent-safe projection of an event for a single linked child: exposes only
+ * Player-safe projection of an event for a single linked child: exposes only
  * public event fields + team name(s) + that child's own RSVP. Strips
  * description/uniform notes and every OTHER child's RSVP/attendance data — the
  * child-safety guarantee, applied in the data layer (BUILD_PLAN §2).
  */
-export function toParentSafeEvent(event: ParentSafeEventInput, opts: { childId: string }): ParentSafeEvent {
+export function toPlayerSafeEvent(event: PlayerSafeEventInput, opts: { childId: string }): PlayerSafeEvent {
   return {
     id: event.id,
     title: event.title,
@@ -517,7 +517,7 @@ export async function submitRsvp(ctx: AuthContext, eventId: string, input: RsvpI
     select: { clubId: true, status: true, eventTeams: { select: { teamId: true } } },
   });
   if (!event) throw new ForbiddenError("Event not found");
-  // Parent → own child only; admin/coach may override (scope-checked by permission).
+  // Player → own child only; admin/coach may override (scope-checked by permission).
   assertCan(ctx, "rsvp.respond_own_child", { clubId: event.clubId, playerId: input.playerId });
   await assertPlayerParticipates(input.playerId, event.clubId, event.eventTeams.map((et) => et.teamId));
 
@@ -547,7 +547,7 @@ export async function getRsvpSummary(ctx: AuthContext, eventId: string) {
     select: { clubId: true, audienceScope: true, eventTeams: { select: { teamId: true } } },
   });
   if (!event) throw new ForbiddenError("Event not found");
-  if (ctx.role === "PARENT") throw new ForbiddenError("Parents see only their own child's RSVP");
+  if (ctx.role === "PLAYER") throw new ForbiddenError("Player accounts see only their own child's RSVP");
   assertCan(ctx, "events.view", { clubId: event.clubId });
   if (!canViewEventAudience(ctx, event.audienceScope, event.eventTeams.map((et) => et.teamId))) {
     throw new ForbiddenError("Event is outside your scope");
@@ -626,11 +626,11 @@ export async function getAttendanceSummary(ctx: AuthContext, eventId: string) {
   return records;
 }
 
-/** Parent (or staff) view of a single child's attendance history. Own child only for parents. */
+/** Player account (or staff) view of a single child's attendance history. Own child only for player accounts. */
 export async function getChildAttendance(ctx: AuthContext, playerId: string) {
   const player = await prisma.player.findFirst({ where: { id: playerId, deletedAt: null }, select: { clubId: true } });
   if (!player) throw new ForbiddenError("Player not found");
-  if (ctx.role === "PARENT") {
+  if (ctx.role === "PLAYER") {
     assertCan(ctx, "attendance.view_own_child", { clubId: player.clubId, playerId });
   } else {
     assertCan(ctx, "attendance.view_team", { clubId: player.clubId });
@@ -660,7 +660,7 @@ export interface TeamAttendanceRow {
 /**
  * Per-player attendance summary across a team's events (the Attendance section,
  * separate from Schedule). Staff-only; a coach must be assigned to the team.
- * "Attended" counts PRESENT or LATE (mirrors the parent dashboard ring).
+ * "Attended" counts PRESENT or LATE (mirrors the player dashboard ring).
  */
 export async function listTeamAttendance(ctx: AuthContext, teamId: string): Promise<TeamAttendanceRow[]> {
   const team = await prisma.team.findFirst({ where: { id: teamId, deletedAt: null }, select: { clubId: true } });
@@ -795,10 +795,10 @@ export async function getPlayerAttendanceForStaff(ctx: AuthContext, playerId: st
 }
 
 // ===========================================================================
-// Parent multi-child schedule aggregation
+// Player-account multi-child schedule aggregation
 // ===========================================================================
 
-export interface ParentScheduleEntry {
+export interface PlayerScheduleEntry {
   event: {
     id: string;
     title: string;
@@ -815,15 +815,15 @@ export interface ParentScheduleEntry {
 }
 
 /**
- * Aggregated schedule for a parent across ALL linked children: events targeting
- * any linked child's team plus club-wide events, de-duplicated (one row per
- * event), each carrying the relevant children and that child's RSVP.
+ * Aggregated schedule for a player account across ALL linked children: events
+ * targeting any linked child's team plus club-wide events, de-duplicated (one
+ * row per event), each carrying the relevant children and that child's RSVP.
  */
-export async function listParentSchedule(
+export async function listPlayerSchedule(
   ctx: AuthContext,
   opts: { upcomingOnly?: boolean; limit?: number } = {},
-): Promise<ParentScheduleEntry[]> {
-  if (ctx.role !== "PARENT") throw new ForbiddenError("Parent schedule is for parents");
+): Promise<PlayerScheduleEntry[]> {
+  if (ctx.role !== "PLAYER") throw new ForbiddenError("Player schedule is for player accounts");
   const clubId = requireActiveClub(ctx);
   if (ctx.linkedPlayerIds.length === 0) return [];
 
