@@ -31,12 +31,16 @@ The goal is to provide enough detail for implementation of the web application a
 ## 3. Global UX Framework
 
 ## 3.1 Primary App Shell
-All authenticated areas should use a common shell with:
+Authenticated areas use one of **two shells by role**: a **Console** shell (sidebar +
+glass top bar, never themed) for Master Admin / Club Admin / Coach, and a separate
+themed **Player app** shell (floating bottom tab bar on mobile, side rails on desktop)
+for Players. The Player app additionally offers a Vibrant/Classic appearance theme (set
+on the **Me** tab); the Console is not themed. Both shells provide:
 - left navigation (desktop) / bottom or drawer navigation (mobile)
 - top bar
 - page title area
-- global search or contextual search where appropriate
-- notifications icon
+- contextual search where appropriate
+- notifications/announcements bell
 - profile menu
 - role / club context display
 
@@ -50,10 +54,11 @@ All authenticated areas should use a common shell with:
 
 ### User Menu Options
 - My Profile
-- Notification Preferences
-- Switch Role (future-ready)
-- Switch Player Profile Context (for player accounts)
+- Switch Identity/Role (for multi-role users — the account menu carries an identity switcher)
 - Sign Out
+
+(Child/profile switching is an **on-page** switcher row — pills carried in the URL
+`?child=` — not a top-bar menu item. Notification Preferences live on the account/Me page.)
 
 ---
 
@@ -62,9 +67,8 @@ All authenticated areas should use a common shell with:
 A player account with multiple linked profiles must have a **profile switcher** visible in the player dashboard and on any profile-specific page.
 
 Recommended behavior:
-- dropdown at top of page
-- “All Players” summary option on dashboard only
-- selected profile persists during session until changed
+- child switcher rendered as **pills** (selection carried in the URL `?child=`) and persisted via cookie across the session
+- the dashboard focuses on a single primary child (there is **no “All Players” aggregate view**)
 
 ### Club Context
 For Master Admin or future multi-club users:
@@ -100,59 +104,58 @@ Recommended visual system:
 ## 4.1 Master Admin Navigation
 - Dashboard
 - Clubs
+- Coaches
 - Users
-- Plans / Feature Flags
+- Platform Announcements
 - Audit Logs
-- Support / Impersonation
 - System Settings
+
+(No "Plans / Feature Flags" and no "Support / Impersonation" surface is implemented.)
 
 ---
 
 ## 4.2 Club Admin Navigation
 - Dashboard
+- Seasons
 - Teams
 - Players
 - Player Accounts
 - Coaches
 - Schedule
 - Attendance
-- Registration
-- Payments
-- Waivers
 - Announcements
+- Team Chat
+- Documents
 - Evaluations
-- Reports
-- AI Assistant
+- Audit Logs
 - Settings
+
+(Registration, Payments, Waivers appear only as placeholder nav labels — not yet built.
+Reports aliases the dashboard; there is no AI Assistant.)
 
 ---
 
 ## 4.3 Coach Navigation
 - Dashboard
-- Team Roster
+- Team Roster (→ `/players`, scoped to the active team)
 - Schedule
 - Attendance
-- Chat
+- Team Chat
 - Announcements
-- Evaluations
-- Radar Comparison
-- Development Tracking
+- Evaluations (Compare players links to the radar at `/evaluations/compare`)
+- Development
 - Documents
-- AI Assistant
+
+(No standalone "Radar Comparison" nav item and no AI Assistant.)
 
 ---
 
 ## 4.4 Player Navigation
-- My Players
-- Schedule
-- Team Roster
-- Chat
-- Announcements
-- Registration
-- Payments
-- Waivers
-- Development
-- Documents
+Player bottom tabs: Home, Squad (team roster), Play (Schedule), Chat, Coach Notes,
+Notifications (bell), Me — plus Announcements & Documents.
+
+(Registration, Payments, Waivers, and a standalone Development page are not built;
+they appear as placeholder labels only.)
 
 ---
 
@@ -270,7 +273,6 @@ Manage all clubs.
 - View
 - Edit
 - Suspend / Activate
-- Impersonate Club Admin
 
 ### Primary Actions
 - Create Club
@@ -282,6 +284,11 @@ Manage all clubs.
 ---
 
 ## 6.3 Club Detail Page (Master Admin View)
+> **Not implemented as a separate route.** Clubs are managed entirely from the Clubs
+> list page (`/clubs`), which combines a filterable table with an inline "New club"
+> form. There is no per-club detail page, subscription/features tab, or impersonation
+> flow. The tabs below remain as forward-looking design intent.
+
 ### Tabs
 - Overview
 - Teams
@@ -342,6 +349,22 @@ Review system and tenant-level audit logs.
 ### Actions
 - open details drawer
 - export logs (future)
+
+---
+
+## 6.6 Coaches Page (Master Admin View)
+Platform-wide coaches table (`/coaches`), filterable by club / status / role type.
+
+---
+
+## 6.7 Platform Announcements Page (Master Admin View)
+Broadcast system notices to clubs (`/platform-announcements`), with severity and
+reusable templates. Master-Admin-only authoring; all other roles are recipients.
+
+---
+
+## 6.8 System Settings Page (Master Admin View)
+Global configuration and new-club defaults (`/system-settings`).
 
 ---
 
@@ -422,13 +445,12 @@ Fields:
 ## 7.3 Team Detail Page (Club Admin View)
 ### Tabs
 - Overview
-- Roster
 - Coaches
 - Schedule
-- Attendance
-- Chat
-- Evaluations
-- Documents
+
+(Team detail also exposes a permanent **Delete team** action via a typed-name confirm
+dialog. Attendance, Chat, Evaluations, and Documents are top-level pages, not
+team-detail tabs.)
 
 ### Overview Panel
 - team metadata
@@ -500,8 +522,12 @@ Search and manage all club players.
 ### Guardians Tab
 - linked player accounts list
 - relationship type
-- permissions (`can_pickup`, `can_pay`)
 - add/remove player account
+
+(The parallel "Player Accounts" surface is titled "Players" and lists "Linked
+children"; `can_pickup`/`can_pay` permission controls are not implemented in the UI.
+The player detail page also exposes a permanent **Delete player** action; Billing,
+Registration, and Documents tabs are not implemented.)
 
 ### Evaluations Tab
 - evaluation timeline
@@ -590,10 +616,11 @@ Manage coaches and assignments.
 Manage all club/team events.
 
 ### View Modes
-- month
-- week
-- agenda
-- list
+- month calendar (single view — no week/agenda/list toggles)
+
+Events target either the whole club (`CLUB_WIDE`) or one-or-more specific teams
+(multi-select checkbox list). Coaches are limited to teams they coach; club-wide is
+admin-only.
 
 ### Filters
 - team
@@ -653,6 +680,8 @@ View attendance trends across teams.
 ---
 
 ## 7.11 Registration Page (Club Admin)
+> **Not yet implemented (placeholder nav only).** Schema tables exist; no route/UI is built. Forward-looking design intent below.
+
 ### Purpose
 Manage programs, forms, and submissions.
 
@@ -703,6 +732,8 @@ Columns:
 ---
 
 ## 7.12 Payments Page (Club Admin)
+> **Not yet implemented (placeholder nav only).** Schema tables exist; no route/UI is built. Forward-looking design intent below.
+
 ### Purpose
 Manage invoices and payments.
 
@@ -750,6 +781,8 @@ Sections:
 ---
 
 ## 7.13 Waivers Page (Club Admin)
+> **Not yet implemented (placeholder nav only).** Schema tables exist; no route/UI is built. Forward-looking design intent below.
+
 ### Purpose
 Manage waiver templates and compliance.
 
@@ -849,6 +882,8 @@ Table format by position:
 ---
 
 ## 7.16 Reports Page (Club Admin)
+> **Not a standalone page.** The "Reports" nav item aliases the club dashboard (`/dashboard/club`). Forward-looking design intent below.
+
 ### Tabs
 - Attendance
 - Billing
@@ -861,6 +896,8 @@ Each tab should support export (future or initial CSV).
 ---
 
 ## 7.17 AI Assistant Page (Club Admin)
+> **Not yet implemented (no route).** Forward-looking design intent below.
+
 ### Purpose
 Provide AI-assisted admin tools.
 
@@ -932,7 +969,10 @@ Help coach run team day-to-day.
 
 ## 8.2 Team Roster Page (Coach)
 ### Purpose
-Primary operational page for team player management.
+Primary operational page for team player management. A coach acts on **one active
+team at a time** — the roster, teamless add-pool, attendance, and events are all
+scoped to that active team. With no team selected the roster is empty and prompts the
+coach to pick a team (it is never a union across all assigned teams).
 
 ### Layout
 - search bar
@@ -973,9 +1013,7 @@ Open side drawer with:
 Manage team events only.
 
 ### View Modes
-- calendar
-- agenda
-- list
+- month calendar (single view)
 
 ### Actions
 - Create Event
@@ -1038,7 +1076,7 @@ Quick team attendance management and trend review.
 
 ---
 
-## 8.6 Chat Page (Coach)
+## 8.6 Team Chat Page (Coach)
 ### Layout
 - conversation list (if multiple chats)
 - selected thread panel
@@ -1047,8 +1085,7 @@ Quick team attendance management and trend review.
 
 ### Thread Types
 - Team Chat
-- Announcement Replies (if enabled)
-- Direct Player Messages (future/optional)
+- (Announcement Replies and Direct Player Messages are not implemented)
 
 ### Message Composer
 - text input
@@ -1213,6 +1250,8 @@ Team document hub.
 ---
 
 ## 8.12 AI Assistant Page (Coach)
+> **Not yet implemented (no route).** Forward-looking design intent below.
+
 ### Sections
 - Draft Training Plan
 - Draft Team Announcement
@@ -1232,7 +1271,7 @@ Team document hub.
 
 ## 9. Player Pages
 
-## 9.1 My Players Dashboard
+## 9.1 My Kids Dashboard
 ### Purpose
 Central player landing page.
 
@@ -1329,9 +1368,12 @@ After submit:
 
 ---
 
-## 9.5 Team Roster Page (Player)
+## 9.5 Squad / Team Roster (Player)
 ### Purpose
-View roster safely.
+View roster safely. Implemented as the **Squad** tab (`/squad`), which shows the
+selected child's identity card, an inline edit form, and that child's player-safe team
+roster on one screen — not a separate page. Child/team selection uses pill links
+(`?child=` / `?team=`).
 
 ### Layout
 - team selector / profile context
@@ -1358,7 +1400,7 @@ Never show:
 
 ---
 
-## 9.6 Chat Page (Player)
+## 9.6 Team Chat Page (Player)
 ### Layout
 - team thread list if multiple teams
 - selected conversation
@@ -1392,6 +1434,8 @@ View all relevant announcements across linked player profiles.
 ---
 
 ## 9.8 Registration Page (Player)
+> **Not yet implemented (no route).** Forward-looking design intent below.
+
 ### Purpose
 Complete registration for linked player profiles.
 
@@ -1422,6 +1466,8 @@ Complete registration for linked player profiles.
 ---
 
 ## 9.9 Payments Page (Player)
+> **Not yet implemented (no route).** Forward-looking design intent below.
+
 ### Purpose
 Manage family invoices and payment history.
 
@@ -1450,6 +1496,8 @@ Manage family invoices and payment history.
 ---
 
 ## 9.10 Waivers Page (Player)
+> **Not yet implemented (no route).** Forward-looking design intent below.
+
 ### Purpose
 Review and sign waivers.
 
@@ -1505,11 +1553,12 @@ View relevant team/club documents.
 
 ## 10.1 Confirmation Modal
 Use for:
-- archive player
+- delete player / team / coach (permanent — typed-name gate; captured as an audit snapshot; **no restore/undo**)
 - remove player-account link
 - cancel event
-- delete draft
-- void invoice
+
+Deletes are permanent: the audit log keeps a snapshot, but there is no restore/undo or
+trash surface anywhere.
 
 Standard structure:
 - title
@@ -1550,18 +1599,14 @@ Recommended:
 - drawer for secondary items
 
 ### Player Bottom Nav
-- My Players
-- Schedule
+- Home
+- Squad
+- Play (Schedule)
 - Chat
-- Payments
-- More
+- Me
 
-### Coach Bottom Nav
-- Dashboard
-- Roster
-- Schedule
-- Attendance
-- More
+(Bottom-tab navigation applies to the **Player app** only. Coaches use the Console
+shell with a sidebar/drawer, not a bottom tab bar.)
 
 ---
 

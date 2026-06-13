@@ -36,7 +36,7 @@ identity vendor holding child records).
 | Rate limiting | **Upstash Redis** (`@upstash/ratelimit`) | Auth routes are **not** rate-limited by default — this is required, not optional. |
 | Error monitoring | **Sentry** | Server + client. |
 | Hosting | **Vercel** | Matches the framework; Neon branching pairs with preview deploys. |
-| Package manager | **npm** | Standard, zero-setup, ships with Node; lockfile committed as `package-lock.json`. |
+| Package manager | **pnpm** (pinned `pnpm@11.5.1` via `packageManager`) | Fast, disk-efficient, strict; lockfile committed as `pnpm-lock.yaml`; workspace settings (approved build scripts, overrides) in `pnpm-workspace.yaml`. Use pnpm only — never npm. |
 
 ### Decision note — ORM (resolved: Prisma 7)
 
@@ -54,14 +54,14 @@ Both Prisma 7 and Drizzle are production-grade in 2026. The call here is
 Drizzle would have been the pick for an edge-heavy app with a lean schema. This
 isn't that — so Prisma 7 it is.
 
-### Decision note — realtime messaging (resolved: deferred)
+### Decision note — realtime messaging (resolved: short polling)
 
 Comms (announcements/chat) is **built last in the MVP sequence** (see Phase 4
-placement), and the realtime transport is **decided then, not now**. When we get
-there the default will be the simplest thing that works — server actions + short
-polling or SSE — with a managed push layer (Pusher/Ably) only if push semantics
-turn out to be needed. The self-hosted Redis + WebSocket gateway from the old
-architecture stays a Phase 2+ concern.
+placement), and the realtime transport was **decided then, not now**. The shipped
+choice is the simplest thing that works — server actions + **short polling (~5s)**;
+SSE / a managed push layer (Pusher/Ably) remain options only if push semantics turn
+out to be needed. The self-hosted Redis + WebSocket gateway from the old architecture
+stays a Phase 2+ concern.
 
 ---
 
@@ -124,22 +124,34 @@ forza-team/
 │   ├── modules/                   # domain modules (the real boundaries)
 │   │   ├── identity/              # users, roles, sessions (Better Auth glue)
 │   │   ├── clubs/                 # clubs, seasons, teams, coach assignments
-│   │   ├── roster/                # players, player accounts, profile linkage
-│   │   ├── comms/                 # announcements, chat, documents
-│   │   ├── schedule/              # events, RSVP, attendance
-│   │   ├── evaluations/           # player evals, development tracking
-│   │   └── reporting/             # dashboards
+│   │   ├── coaches/               # coach profiles, team assignments, deletion
+│   │   ├── roster/                # players, player accounts, profile linkage, player-safe rosters
+│   │   ├── comms/                 # team chat / messaging
+│   │   ├── announcements/         # club announcements, inbox, platform (cross-club) announcements
+│   │   ├── events/                # events, RSVP, attendance, multi-team audience targeting
+│   │   ├── evaluations/           # player evals, position weights, development tracking
+│   │   ├── remarks/               # private coach→player notes
+│   │   ├── files/                 # documents + file storage/proxy
+│   │   ├── master/                # platform / master-admin: system settings, cross-club ops
+│   │   ├── audit/                 # club + system audit log
+│   │   └── reporting/             # (placeholder) per-role dashboards are assembled in
+│   │                              #   master + per-module services and the dashboard pages
 │   ├── db/                        # prisma client, generated types, seed
-│   ├── lib/                       # auth, rbac, validation, http helpers
+│   ├── lib/                       # auth, rbac, validation, http helpers, appearance, active-child/identity
 │   ├── components/ui/             # shadcn primitives
-│   └── components/                # composed app components
+│   ├── components/console/        # admin/coach design system (barrel-exported)
+│   └── components/                # composed app components (+ app/player, schedule)
 ├── prisma/                        # schema.prisma + migrations
-├── tests/
-└── .github/workflows/             # CI: lint, typecheck, test, build
+├── tests/                         # unit/RBAC; tests-integration/ for DB-backed tests
+└── .github/workflows/             # CI: verify (lint, typecheck, build) + test (unit + integration)
 ```
 
 Each module owns its schema slice, service layer, and validators; modules talk to
 each other through service functions, never by reaching into each other's tables.
+The decomposition shipped finer-grained than the original seven planned modules:
+`comms` was split into chat (`comms`) + `announcements`; scheduling lives in `events`
+(the empty `schedule/` dir is a vestige); and `coaches`, `remarks`, `files`, `master`,
+and `audit` were carved out as their own modules.
 
 ---
 
@@ -186,14 +198,21 @@ behavior. **Mobile-first** — players and coaches live on phones.
 Each phase ends with something deployable and testable. Tackle them in order;
 don't start a phase until the prior one is green in CI.
 
+> **Status (as of 2026-06):** Phases 0–7 are implemented. Post-MVP items below
+> (payments, waivers, registration, AI) remain not built — schema tables for
+> registration/billing/waivers exist and feed dashboard counts, but there is no
+> service/UI for them.
+
 ### Phase 0 — Foundation
-- `create-next-app` (TS, Tailwind, ESLint, App Router, Turbopack, npm).
+> **Status: implemented.**
+- `create-next-app` (TS, Tailwind, ESLint, App Router, Turbopack, pnpm).
 - Prisma 7 + Neon wired; env validation; singleton client; structured logger.
 - shadcn/ui installed and themed (Stage A + B design tokens).
 - CI: lint + typecheck + test + build. Health-check endpoint.
 - **Exit:** app boots, connects to DB, CI passes on every PR.
 
 ### Phase 1 — Identity, auth & RBAC
+> **Status: implemented.**
 - Better Auth: email+password, sessions, password reset, invite acceptance.
 - Organizations (club tenancy) + the four roles and scope helpers.
 - Layered guards (middleware → route guard → service scope assertions).
@@ -203,31 +222,37 @@ don't start a phase until the prior one is green in CI.
   cross-tenant access is provably blocked.
 
 ### Phase 2 — Clubs, seasons, teams
+> **Status: implemented.**
 - Club CRUD (master/club manager), seasons, teams, coach assignments.
 - Tenant scoping verified end-to-end.
 - **Exit:** an admin can build out a club's structure for a season.
 
 ### Phase 3 — Players & player accounts
+> **Status: implemented.**
 - Player records, player accounts, **player account↔profile linkage**.
 - Player-safe roster projections (the child-safety layer from §2).
 - **Exit:** player accounts see only their own profiles + team-public info; PII isolation holds.
 
 ### Phase 4 — Communications
+> **Status: implemented.** (Realtime transport: short polling.)
 - Announcements (team/club scoped), basic messaging/chat, document uploads.
 - Realtime transport decided here (default: polling/SSE; managed push only if needed).
 - **Exit:** a coach can announce to a team; players receive it; files attach.
 
 ### Phase 5 — Schedule
+> **Status: implemented.**
 - Events, RSVP, attendance tracking.
 - Calendar views; reminders via email (Resend).
 - **Exit:** create event → players RSVP → coach records attendance.
 
 ### Phase 6 — Dashboards & reporting
+> **Status: implemented.** (Per-role dashboards; no standalone Reports surface — "Reports" aliases the dashboard.)
 - Per-role dashboards filled with real data (attendance rates, upcoming events,
   roster health, unread announcements).
 - **Exit:** each role's landing page is genuinely useful.
 
 ### Phase 7 — Evaluations & development
+> **Status: implemented.**
 - Basic player evaluations, position weights, comparison views, development goals.
 - **Exit:** a coach can evaluate a player and track progress over a season.
 

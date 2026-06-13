@@ -106,6 +106,10 @@ A player account can only fully access:
 - Coach: View/Edit own profile
 - Player: View/Edit own profile
 
+### Appearance / Theme Preference
+- Master Admin / Club Manager / Coach: N/A — the Console is not themed
+- Player: Edit own theme (Vibrant / Classic); persisted per user
+
 ### Role Switching (future-ready)
 - Master Admin: Allowed
 - Club Manager: Allowed if multiple assignments exist
@@ -178,6 +182,12 @@ A player account can only fully access:
 - Coach: No
 - Player: No
 
+### Delete Team (Hard, Permanent)
+- Master Admin: No (deliberately has no hard-delete capability for these entities)
+- Club Manager: Yes (own club only; typed-name gate; audited with snapshot)
+- Coach: No
+- Player: No
+
 ---
 
 ## 6.5 Team Coach Assignment Module
@@ -191,6 +201,12 @@ A player account can only fully access:
 ### Assign / Remove Coach
 - Master Admin: Yes
 - Club Manager: Yes (own club)
+- Coach: No
+- Player: No
+
+### Delete Coach (Hard, Permanent)
+- Master Admin: No (deliberately has no hard-delete capability for these entities)
+- Club Manager: Yes (own club only; typed-name gate; audited with snapshot)
 - Coach: No
 - Player: No
 
@@ -232,6 +248,12 @@ A player account can only fully access:
 - Master Admin: Yes
 - Club Manager: Yes
 - Coach: Optional if club allows, otherwise No
+- Player: No
+
+### Delete Player (Hard, Permanent)
+- Master Admin: No (deliberately has no hard-delete capability for these entities)
+- Club Manager: Yes (own club only; typed-name gate; audited with snapshot)
+- Coach: No
 - Player: No
 
 ### View Player Detail
@@ -366,6 +388,12 @@ A player account can view and potentially edit approved fields based on club pol
 - Coach: Yes for own team announcement drafts/posted announcements if policy allows
 - Player: No
 
+### Platform Announcements (cross-club / system-wide)
+- Master Admin: Create / Edit / Publish / Archive / Delete / Duplicate / manage templates
+- Club Manager: No authoring (recipient only — may mark read / dismiss)
+- Coach: No authoring (recipient only)
+- Player: No authoring (recipient only)
+
 ---
 
 ## 6.11 Chat / Messaging Module
@@ -410,22 +438,28 @@ A player account can view and potentially edit approved fields based on club pol
 - Coach: Yes for assigned teams
 - Player: Yes for linked child teams
 
+> **Event audience model:** events carry an `audienceScope` (`CLUB_WIDE` | `TEAMS`)
+> plus an `event_teams` join (the deprecated `events.team_id` is never read). Writing a
+> team-scoped event requires `events.manage` on **every** targeted team; club-wide
+> events are club-admin-only. So a coach can only create/edit/cancel an event whose
+> targeted teams are ALL within their assigned set.
+
 ### Create Event
 - Master Admin: Yes
-- Club Manager: Yes
-- Coach: Yes for assigned teams
+- Club Manager: Yes (club-wide or any teams)
+- Coach: Yes — team-scoped events only, and only when every targeted team is among the coach's assigned teams (no club-wide)
 - Player: No
 
 ### Edit Event
 - Master Admin: Yes
 - Club Manager: Yes
-- Coach: Yes for assigned teams
+- Coach: Yes — requires events.manage on both the current and the proposed audience (assigned teams only)
 - Player: No
 
 ### Cancel Event
 - Master Admin: Yes
 - Club Manager: Yes
-- Coach: Yes for assigned teams
+- Coach: Yes for events whose targeted teams are all assigned to the coach
 - Player: No
 
 ### View Club-Wide Events
@@ -611,7 +645,7 @@ A player account can view and potentially edit approved fields based on club pol
 ### View Evaluation Templates
 - Master Admin: All
 - Club Manager: Own club
-- Coach: View active template(s) for assigned team use
+- Coach: View all club evaluation templates/criteria (read-only, club scope via `evaluations.view_config`); cycles are limited to club-wide + assigned-team cycles
 - Player: No
 
 ### Create / Edit Evaluation Template
@@ -713,6 +747,29 @@ A player account can view and potentially edit approved fields based on club pol
 - Club Manager: Yes
 - Coach: Yes
 - Player: Yes for linked child only if club enables development view
+
+---
+
+## 6.19a Player Remarks Module (private coach → player notes)
+
+A `PlayerRemark` is a private, per-player note. It is coach-only until toggled
+player-visible, at which point the player's active linked guardians are notified via
+the in-app bell (a `COACH_REMARK` notification) — never via club announcements.
+
+### Add / Edit Remark
+- Master Admin: Yes
+- Club Manager: Yes (own club)
+- Coach: Yes for players on assigned team(s)
+- Player: No
+
+### Share Remark with Player (toggle player-visible)
+- Master Admin / Club Manager / Coach (assigned team): Yes — sharing notifies the player's active linked guardians (in-app bell only)
+- Player: No
+
+### View Remarks
+- Master Admin / Club Manager: All in scope (includes coach-only / unshared)
+- Coach: Assigned-team players (includes unshared)
+- Player: Own linked child only, and only remarks marked player-visible
 
 ---
 

@@ -24,8 +24,9 @@ first access. Required vs optional:
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | optional | Rate limiting on auth routes; absent ⇒ not limited (warned once). |
 | `LOG_LEVEL` | optional | `debug`/`info`/`warn`/`error`. |
 
-> **Node:** use **Node 22 LTS** (`.nvmrc` / `.node-version` pin `22`; `engines`
-> in package.json). Odd releases (e.g. 23.x) fail Prisma's install guard.
+> **Node:** use **Node 22 LTS** (`.nvmrc` / `.node-version` pin `22`). `engines`
+> in package.json requires `>=22.12 <23 || >=24`, so Node 24+ is also supported;
+> odd releases (e.g. 23.x) are excluded and fail Prisma's install guard.
 
 ### Neon + Prisma + Vercel connection model (the common gotcha)
 - App runtime ([src/db/client.ts](../src/db/client.ts)) connects through the
@@ -42,11 +43,11 @@ first access. Required vs optional:
 
 ```bash
 nvm use                 # Node 22 (from .nvmrc)
-npm install
+pnpm install
 cp .env.example .env     # then fill DATABASE_URL / DIRECT_URL / AUTH_SECRET
-npm run db:deploy        # apply migrations to the DB
-npm run db:seed          # seed roles + the Demo FC club (prints an accept link)
-npm run dev
+pnpm db:deploy           # apply migrations to the DB
+pnpm db:seed             # seed roles + the Demo FC club (prints an accept link)
+pnpm dev
 ```
 
 Open the printed `accept-invite` link → set a password → land on the Club Manager
@@ -57,9 +58,9 @@ server console** (look for the `──── EMAIL (dev fallback) ────` 
 
 ## 3. Migrate & seed
 
-- `npm run db:deploy` — apply committed migrations (prod-safe; uses `DIRECT_URL`).
-- `npm run db:migrate -- --name <x>` — create a new dev migration.
-- `npm run db:seed` — idempotent demo seed (roles + `Demo FC`: settings, season,
+- `pnpm db:deploy` — apply committed migrations (prod-safe; uses `DIRECT_URL`).
+- `pnpm exec prisma migrate dev --name <x>` — create a new dev migration.
+- `pnpm db:seed` — idempotent demo seed (roles + `Demo FC`: settings, season,
   2 teams, a coach, 6 players, 2 player accounts linked to profiles, 3 events with an
   RSVP + attendance, a published announcement, an evaluation cycle with sample
   scores). Re-running is safe (the dataset is inserted only when the club has no
@@ -80,8 +81,10 @@ the accept links appear in the server logs.
 2. Add env vars (Section 1): pooled `DATABASE_URL`, direct `DIRECT_URL`,
    `AUTH_SECRET`, `BETTER_AUTH_URL` (= deploy URL), `RESEND_API_KEY` + verified
    `EMAIL_FROM`, `STORAGE_DRIVER=blob` + `BLOB_READ_WRITE_TOKEN`.
-3. Build runs `next build`. Apply migrations against the prod/preview DB with
-   `npm run db:deploy` (Neon branch per preview pairs well with this).
+3. Build runs `vercel-build` (`prisma migrate deploy && prisma generate &&
+   next build`), so migrations are applied during the Vercel build. To apply
+   them manually against a prod/preview DB use `pnpm db:deploy` (Neon branch
+   per preview pairs well with this).
 4. Verify: sign-in, upload a player photo (Blob + proxy), open `/api/files/[id]`
    only while authorized.
 
@@ -92,10 +95,10 @@ generic message + a digest ref; API routes return generic status text.
 
 ## 5. Tests
 
-- `npm test` — guard-level unit + RBAC regression (no DB needed). Includes the
+- `pnpm test` — guard-level unit + RBAC regression (no DB needed). Includes the
   RBAC/privacy matrix (`tests/rbac/matrix.test.ts`), player-safe projection, and
   the decoupled accept→link grant logic (`tests/identity/invitation-grants.test.ts`).
-- `npm run test:integration` — DB-backed integration tests. **Gated + guarded**:
+- `pnpm test:integration` — DB-backed integration tests. **Gated + guarded**:
   skips unless `TEST_DATABASE_URL` is set, and **refuses to run** if that URL
   resolves to the same database as the app's `DATABASE_URL`/`DIRECT_URL` (fails
   fast — never touches production). Point it at an **isolated** DB — a Neon test
@@ -104,20 +107,20 @@ generic message + a digest ref; API routes return generic status text.
   ```bash
   docker run -e POSTGRES_PASSWORD=pw -p 5433:5432 -d postgres:16
   export TEST_DATABASE_URL=postgresql://postgres:pw@localhost:5433/postgres
-  npx prisma migrate deploy            # apply schema to the test DB
-  npm run test:integration             # RSVP/attendance/eval upserts, player
+  pnpm exec prisma migrate deploy      # apply schema to the test DB
+  pnpm test:integration                # RSVP/attendance/eval upserts, player
                                        # multi-profile aggregation + club scoping,
                                        # player-safe roster, eval gating
   ```
 
-Always run `npm run typecheck && npm run lint && npm test && npm run build`
+Always run `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
 before shipping.
 
 ---
 
 ## 6. Per-role manual QA — mapped to the 8 MVP success criteria
 
-Seed first (`npm run db:seed`), accept the Club Manager invite, then:
+Seed first (`pnpm db:seed`), accept the Club Manager invite, then:
 
 ### Master Admin
 - [ ] **(1 Auth/RBAC)** Sign in → lands on `/dashboard/admin`; sees system
@@ -171,16 +174,16 @@ Seed first (`npm run db:seed`), accept the Club Manager invite, then:
 ## 7. Production seed & first-deploy verification
 
 ### Production seed safety
-`npm run db:seed` seeds the four **roles** (auth needs them) and, **only outside
+`pnpm db:seed` seeds the four **roles** (auth needs them) and, **only outside
 production**, the **Demo FC** demo dataset. In production the seed prints
 "seeded roles only; skipping Demo FC" and stops — Demo FC can never reach prod
 (override intentionally with `SEED_DEMO=1`, not recommended). Production schema is
-applied via `npm run db:deploy` (`prisma migrate deploy`), never `migrate dev`.
+applied via `pnpm db:deploy` (`prisma migrate deploy`), never `migrate dev`.
 
 Minimal production bootstrap:
 ```bash
-npm run db:deploy        # apply migrations
-NODE_ENV=production npm run db:seed   # roles only (no Demo FC)
+pnpm db:deploy        # apply migrations
+NODE_ENV=production pnpm db:seed   # roles only (no Demo FC)
 # then create the first Master Admin + a real club via your admin path
 ```
 

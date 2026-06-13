@@ -221,7 +221,9 @@ UTILITY
 - user_role_assignments
 - invitations
 - password_reset_tokens
-- user_sessions (optional)
+- sessions (Better Auth; carries active_club_id tenant context)
+- accounts (Better Auth; holds credential password)
+- verifications (Better Auth)
 
 ### Tenant / Club Operations
 - clubs
@@ -248,10 +250,12 @@ UTILITY
 
 ### Schedule / RSVP / Attendance
 - events
+- event_teams
 - event_attachments
 - event_rsvps
 - attendance_records
-- reminder_jobs (optional, can stay in queue metadata instead)
+- player_remarks
+- reminder_jobs (optional — not implemented; can stay in queue metadata instead)
 
 ### Registration / Billing / Waivers
 - registration_programs
@@ -302,13 +306,16 @@ Authentication identity table.
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email CITEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
+  name VARCHAR(200),                  -- Better Auth core field
+  image TEXT,                         -- Better Auth core field
+  password_hash TEXT NULL,            -- legacy/unused; credential password now lives in accounts
   first_name VARCHAR(100) NOT NULL,
   last_name VARCHAR(100) NOT NULL,
   phone VARCHAR(30),
   is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
   last_login_at TIMESTAMPTZ,
   status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  appearance_theme VARCHAR(20) NOT NULL DEFAULT 'classic',  -- player app theme: 'vibrant' | 'classic'
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -388,6 +395,8 @@ CREATE TABLE invitations (
   email CITEXT NOT NULL,
   role_code VARCHAR(50) NOT NULL,
   team_id UUID NULL REFERENCES teams(id),
+  team_role_type VARCHAR(50) NULL,    -- COACH invite: initial team_coaches.role_type, applied on accept
+  link_metadata JSONB NULL,           -- PLAYER invite: account↔player link payload, materialized on accept
   token_hash TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   accepted_at TIMESTAMPTZ,
@@ -418,6 +427,81 @@ CREATE TABLE password_reset_tokens (
   used_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+```
+
+---
+
+## 7.5a `sessions` (Better Auth)
+Better Auth-owned session table. Carries a custom `active_club_id` — the club the
+session is currently acting within (tenant context).
+
+```sql
+CREATE TABLE sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  active_club_id UUID NULL,            -- custom: current tenant context
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+### Indexes
+```sql
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+```
+
+---
+
+## 7.5b `accounts` (Better Auth)
+Better Auth-owned credential/provider table. The credential password (provider
+`credential`) lives here in `password`; `users.password_hash` is legacy/unused.
+
+```sql
+CREATE TABLE accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id TEXT NOT NULL,
+  provider_id TEXT NOT NULL,
+  access_token TEXT,
+  refresh_token TEXT,
+  access_token_expires_at TIMESTAMPTZ,
+  refresh_token_expires_at TIMESTAMPTZ,
+  scope TEXT,
+  id_token TEXT,
+  password TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+### Indexes
+```sql
+CREATE INDEX idx_accounts_user_id ON accounts(user_id);
+```
+
+---
+
+## 7.5c `verifications` (Better Auth)
+Better Auth-owned verification/OTP table.
+
+```sql
+CREATE TABLE verifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  identifier TEXT NOT NULL,
+  value TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+### Indexes
+```sql
+CREATE INDEX idx_verifications_identifier ON verifications(identifier);
 ```
 
 ---
@@ -470,6 +554,7 @@ CREATE TABLE club_settings (
   allow_player_to_player_chat BOOLEAN NOT NULL DEFAULT FALSE,
   allow_player_evaluation_view BOOLEAN NOT NULL DEFAULT FALSE,
   show_player_photos_to_players BOOLEAN NOT NULL DEFAULT TRUE,
+  allow_coach_invite_players BOOLEAN NOT NULL DEFAULT TRUE,
   enable_ai_features BOOLEAN NOT NULL DEFAULT TRUE,
   enable_sms_notifications BOOLEAN NOT NULL DEFAULT FALSE,
   default_currency VARCHAR(10) NOT NULL DEFAULT 'USD',
@@ -556,6 +641,7 @@ CREATE TABLE team_coaches (
   user_id UUID NOT NULL REFERENCES users(id),
   role_type VARCHAR(50) NOT NULL,
   status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  ended_at TIMESTAMPTZ NULL,          -- set when un-assigned; row preserved as history (status -> ENDED)
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by UUID NULL REFERENCES users(id),
   UNIQUE (team_id, user_id)
@@ -638,7 +724,7 @@ CREATE INDEX idx_player_team_memberships_player_id ON player_team_memberships(pl
 ---
 
 ## 7.13 `player_accounts`
-Business profile for the player login (managed by the player or, for a minor, their guardian).
+Business profile for the player login (managed by the player or, for a minor, the adult who holds the linked player account).
 
 ```sql
 CREATE TABLE player_accounts (
@@ -710,6 +796,8 @@ CREATE TABLE files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID NOT NULL REFERENCES clubs(id),
   owner_user_id UUID NULL REFERENCES users(id),
+  team_id UUID NULL REFERENCES teams(id),       -- optional: team-scoped document
+  player_id UUID NULL REFERENCES players(id),   -- optional: player photo/document
   storage_key TEXT NOT NULL,
   original_name VARCHAR(255) NOT NULL,
   mime_type VARCHAR(150) NOT NULL,
@@ -723,6 +811,8 @@ CREATE TABLE files (
 ```sql
 CREATE INDEX idx_files_club_id ON files(club_id);
 CREATE INDEX idx_files_purpose ON files(purpose);
+CREATE INDEX idx_files_team_id ON files(team_id);
+CREATE INDEX idx_files_player_id ON files(player_id);
 ```
 
 ---
@@ -737,6 +827,8 @@ CREATE TABLE announcements (
   title VARCHAR(250) NOT NULL,
   body TEXT NOT NULL,
   audience_type VARCHAR(50) NOT NULL,
+  pinned BOOLEAN NOT NULL DEFAULT FALSE,
+  important BOOLEAN NOT NULL DEFAULT FALSE,
   published_at TIMESTAMPTZ,
   status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -846,7 +938,8 @@ CREATE TABLE message_attachments (
 CREATE TABLE events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID NOT NULL REFERENCES clubs(id),
-  team_id UUID NULL REFERENCES teams(id),
+  team_id UUID NULL REFERENCES teams(id),       -- DEPRECATED: do not read; audience resolved via audience_scope + event_teams. To be dropped.
+  audience_scope VARCHAR(20) NOT NULL DEFAULT 'TEAMS', -- 'CLUB_WIDE' | 'TEAMS' (TEAMS targets via event_teams)
   event_type VARCHAR(50) NOT NULL,
   title VARCHAR(200) NOT NULL,
   description TEXT,
@@ -881,6 +974,30 @@ CREATE INDEX idx_events_club_id ON events(club_id);
 CREATE INDEX idx_events_team_id ON events(team_id);
 CREATE INDEX idx_events_start_at ON events(start_at);
 CREATE INDEX idx_events_status ON events(status);
+```
+
+---
+
+## 7.21a `event_teams`
+Join table targeting an event to specific teams when `events.audience_scope = 'TEAMS'`.
+Canonical source of an event's team audience, replacing reliance on the deprecated
+`events.team_id`.
+
+```sql
+CREATE TABLE event_teams (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  club_id UUID NOT NULL REFERENCES clubs(id),
+  event_id UUID NOT NULL REFERENCES events(id),
+  team_id UUID NOT NULL REFERENCES teams(id),
+  CONSTRAINT uq_event_team UNIQUE (event_id, team_id)
+);
+```
+
+### Indexes
+```sql
+CREATE INDEX idx_event_teams_event_id ON event_teams(event_id);
+CREATE INDEX idx_event_teams_team_id ON event_teams(team_id);
+CREATE INDEX idx_event_teams_club_id ON event_teams(club_id);
 ```
 
 ---
@@ -946,6 +1063,37 @@ CREATE TABLE attendance_records (
 CREATE INDEX idx_attendance_records_club_id ON attendance_records(club_id);
 CREATE INDEX idx_attendance_records_event_id ON attendance_records(event_id);
 CREATE INDEX idx_attendance_records_player_id ON attendance_records(player_id);
+```
+
+---
+
+## 7.24a `player_remarks`
+A private, player-level note a coach writes. Coach-only until `player_visible` is
+turned on, at which point the player's linked accounts are notified via the bell
+(Notification rows, type `COACH_REMARK`) — never via club announcements.
+
+```sql
+CREATE TABLE player_remarks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  club_id UUID NOT NULL REFERENCES clubs(id),
+  player_id UUID NOT NULL REFERENCES players(id),
+  author_user_id UUID NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL,
+  player_visible BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by UUID NULL REFERENCES users(id),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by UUID NULL REFERENCES users(id),
+  deleted_at TIMESTAMPTZ NULL,
+  deleted_by UUID NULL REFERENCES users(id)
+);
+```
+
+### Indexes
+```sql
+CREATE INDEX idx_player_remarks_club_id ON player_remarks(club_id);
+CREATE INDEX idx_player_remarks_player_id ON player_remarks(player_id);
 ```
 
 ---

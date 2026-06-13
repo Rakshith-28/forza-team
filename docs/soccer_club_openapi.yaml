@@ -1,0 +1,4714 @@
+openapi: 3.0.3
+info:
+  title: Soccer Club Management App API
+  version: 1.0.0-draft
+  description: |
+    Draft OpenAPI / Swagger YAML for the Soccer Club Management App.
+    This starter spec is aligned to the previously defined API contract and covers:
+    - Authentication
+    - Clubs / Teams / Seasons
+    - Players / Parents / Roster
+    - Events / RSVP / Attendance
+    - Registration / Billing / Waivers
+    - Evaluations / Radar Comparison / Development Goals
+    - Notifications
+    - AI Assistant
+servers:
+  - url: /api/v1
+    description: Relative API base path
+
+tags:
+  - name: Auth
+  - name: Master Admin
+  - name: Clubs
+  - name: Seasons
+  - name: Teams
+  - name: Players
+  - name: Parents
+  - name: Files
+  - name: Announcements
+  - name: Messages
+  - name: Events
+  - name: Registration
+  - name: Billing
+  - name: Waivers
+  - name: Evaluations
+  - name: Development
+  - name: Notifications
+  - name: AI
+  - name: Reports
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login success
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RefreshTokenResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout current session
+      responses:
+        '200':
+          description: Logout success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Reset email accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password with token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user profile and active roles
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthMeResponse'
+
+  /auth/switch-role:
+    post:
+      tags: [Auth]
+      summary: Switch active role assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchRoleRequest'
+      responses:
+        '200':
+          description: New token for selected role context
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RefreshTokenResponse'
+
+  /master/clubs:
+    get:
+      tags: [Master Admin]
+      summary: List all clubs
+      parameters:
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Club list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubListResponse'
+    post:
+      tags: [Master Admin]
+      summary: Create club
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClubRequest'
+      responses:
+        '201':
+          description: Club created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubDetailResponse'
+
+  /master/clubs/{clubId}:
+    get:
+      tags: [Master Admin]
+      summary: Get club detail
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      responses:
+        '200':
+          description: Club detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubDetailResponse'
+    put:
+      tags: [Master Admin]
+      summary: Update club
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClubRequest'
+      responses:
+        '200':
+          description: Club updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubDetailResponse'
+
+  /master/clubs/{clubId}/status:
+    patch:
+      tags: [Master Admin]
+      summary: Update club status
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdateRequest'
+      responses:
+        '200':
+          description: Club status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubDetailResponse'
+
+  /master/clubs/{clubId}/admins:
+    post:
+      tags: [Master Admin]
+      summary: Invite initial club admin
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClubAdminRequest'
+      responses:
+        '201':
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/InvitationResponse'
+
+  /clubs/{clubId}/dashboard:
+    get:
+      tags: [Clubs]
+      summary: Club dashboard summary
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      responses:
+        '200':
+          description: Club dashboard metrics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ClubDashboardSummary'
+
+  /clubs/{clubId}/settings:
+    get:
+      tags: [Clubs]
+      summary: Get club settings
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      responses:
+        '200':
+          description: Club settings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ClubSettings'
+    put:
+      tags: [Clubs]
+      summary: Update club settings
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClubSettingsRequest'
+      responses:
+        '200':
+          description: Club settings updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ClubSettings'
+
+  /clubs/{clubId}/seasons:
+    get:
+      tags: [Seasons]
+      summary: List seasons for club
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      responses:
+        '200':
+          description: Seasons list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeasonListResponse'
+    post:
+      tags: [Seasons]
+      summary: Create season
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSeasonRequest'
+      responses:
+        '201':
+          description: Season created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeasonDetailResponse'
+
+  /seasons/{seasonId}:
+    get:
+      tags: [Seasons]
+      summary: Get season detail
+      parameters:
+        - $ref: '#/components/parameters/SeasonIdPath'
+      responses:
+        '200':
+          description: Season detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeasonDetailResponse'
+    put:
+      tags: [Seasons]
+      summary: Update season
+      parameters:
+        - $ref: '#/components/parameters/SeasonIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSeasonRequest'
+      responses:
+        '200':
+          description: Season updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeasonDetailResponse'
+
+  /clubs/{clubId}/teams:
+    get:
+      tags: [Teams]
+      summary: List teams for club
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+        - $ref: '#/components/parameters/SearchQuery'
+        - in: query
+          name: season_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: age_group
+          schema:
+            type: string
+        - $ref: '#/components/parameters/StatusQuery'
+      responses:
+        '200':
+          description: Team list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamListResponse'
+    post:
+      tags: [Teams]
+      summary: Create team
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeamRequest'
+      responses:
+        '201':
+          description: Team created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamDetailResponse'
+
+  /teams/{teamId}:
+    get:
+      tags: [Teams]
+      summary: Get team detail
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      responses:
+        '200':
+          description: Team detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamDetailResponse'
+    put:
+      tags: [Teams]
+      summary: Update team
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTeamRequest'
+      responses:
+        '200':
+          description: Team updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamDetailResponse'
+
+  /teams/{teamId}/status:
+    patch:
+      tags: [Teams]
+      summary: Update team status
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdateRequest'
+      responses:
+        '200':
+          description: Team status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamDetailResponse'
+
+  /teams/{teamId}/coaches:
+    get:
+      tags: [Teams]
+      summary: List team coaches
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      responses:
+        '200':
+          description: Team coaches list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoachAssignmentListResponse'
+    post:
+      tags: [Teams]
+      summary: Assign coach to team
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignCoachRequest'
+      responses:
+        '201':
+          description: Coach assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoachAssignmentResponse'
+
+  /teams/{teamId}/coaches/{userId}:
+    delete:
+      tags: [Teams]
+      summary: Remove coach from team
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '204':
+          description: Coach removed
+
+  /clubs/{clubId}/users:
+    get:
+      tags: [Clubs]
+      summary: List club users
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+        - $ref: '#/components/parameters/SearchQuery'
+        - in: query
+          name: role_code
+          schema:
+            $ref: '#/components/schemas/RoleCode'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Club users list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubUserListResponse'
+
+  /teams/{teamId}/players:
+    get:
+      tags: [Players]
+      summary: List team roster
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - in: query
+          name: position
+          schema:
+            $ref: '#/components/schemas/PositionCode'
+        - in: query
+          name: include
+          schema:
+            type: string
+            example: parents,evaluations
+      responses:
+        '200':
+          description: Team roster list
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/PlayerFullListResponse'
+                  - $ref: '#/components/schemas/PlayerSafeListResponse'
+    post:
+      tags: [Players]
+      summary: Add player to team
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlayerRequest'
+      responses:
+        '201':
+          description: Player added
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CreatePlayerResponse'
+
+  /players/{playerId}:
+    get:
+      tags: [Players]
+      summary: Get player detail
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+      responses:
+        '200':
+          description: Player detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerDetailResponse'
+    put:
+      tags: [Players]
+      summary: Update player
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlayerRequest'
+      responses:
+        '200':
+          description: Player updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerDetailResponse'
+
+  /players/{playerId}/parents:
+    post:
+      tags: [Parents]
+      summary: Link parent to player
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkParentRequest'
+      responses:
+        '201':
+          description: Parent linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentLinkResponse'
+
+  /players/{playerId}/parents/{parentId}:
+    delete:
+      tags: [Parents]
+      summary: Remove parent link from player
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+        - $ref: '#/components/parameters/ParentIdPath'
+      responses:
+        '204':
+          description: Parent link removed
+
+  /parents/me/children:
+    get:
+      tags: [Parents]
+      summary: List authenticated parent's linked children
+      responses:
+        '200':
+          description: Linked children list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentChildrenResponse'
+
+  /files:
+    post:
+      tags: [Files]
+      summary: Upload file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, purpose, club_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                purpose:
+                  type: string
+                club_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+
+  /files/{fileId}:
+    get:
+      tags: [Files]
+      summary: Get file metadata
+      parameters:
+        - $ref: '#/components/parameters/FileIdPath'
+      responses:
+        '200':
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMetadataResponse'
+
+  /announcements:
+    get:
+      tags: [Announcements]
+      summary: List announcements
+      parameters:
+        - in: query
+          name: club_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: team_id
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Announcement list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementListResponse'
+    post:
+      tags: [Announcements]
+      summary: Create announcement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnnouncementRequest'
+      responses:
+        '201':
+          description: Announcement created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementDetailResponse'
+
+  /teams/{teamId}/messages:
+    get:
+      tags: [Messages]
+      summary: List team messages
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+        - in: query
+          name: cursor
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Team messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+    post:
+      tags: [Messages]
+      summary: Send team message
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '201':
+          description: Team message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateMessageResponseEnvelope'
+
+  /teams/{teamId}/events:
+    get:
+      tags: [Events]
+      summary: List team events
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: event_type
+          schema:
+            $ref: '#/components/schemas/EventType'
+        - $ref: '#/components/parameters/StatusQuery'
+      responses:
+        '200':
+          description: Team events list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventListResponse'
+    post:
+      tags: [Events]
+      summary: Create team event
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDetailResponse'
+
+  /events/{eventId}:
+    get:
+      tags: [Events]
+      summary: Get event detail
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      responses:
+        '200':
+          description: Event detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDetailResponse'
+    put:
+      tags: [Events]
+      summary: Update event
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventRequest'
+      responses:
+        '200':
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDetailResponse'
+
+  /events/{eventId}/rsvps:
+    post:
+      tags: [Events]
+      summary: Submit RSVP for child
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRsvpRequest'
+      responses:
+        '200':
+          description: RSVP submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RsvpResponseEnvelope'
+    get:
+      tags: [Events]
+      summary: List RSVPs for event
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      responses:
+        '200':
+          description: RSVP list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RsvpListResponse'
+
+  /events/{eventId}/attendance:
+    get:
+      tags: [Events]
+      summary: List attendance for event
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      responses:
+        '200':
+          description: Attendance list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceListResponse'
+    post:
+      tags: [Events]
+      summary: Record attendance for event
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordAttendanceRequest'
+      responses:
+        '200':
+          description: Attendance recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedCountResponse'
+
+  /parents/me/schedule:
+    get:
+      tags: [Events]
+      summary: Parent aggregated child schedule
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: player_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Parent schedule feed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentScheduleResponse'
+
+  /clubs/{clubId}/registration-programs:
+    get:
+      tags: [Registration]
+      summary: List registration programs
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      responses:
+        '200':
+          description: Registration programs list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationProgramListResponse'
+    post:
+      tags: [Registration]
+      summary: Create registration program
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRegistrationProgramRequest'
+      responses:
+        '201':
+          description: Registration program created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationProgramDetailResponse'
+
+  /registration-programs/{programId}/forms:
+    post:
+      tags: [Registration]
+      summary: Create registration form version
+      parameters:
+        - $ref: '#/components/parameters/ProgramIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRegistrationFormRequest'
+      responses:
+        '201':
+          description: Registration form created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationFormDetailResponse'
+
+  /registration-submissions:
+    post:
+      tags: [Registration]
+      summary: Submit registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRegistrationSubmissionRequest'
+      responses:
+        '201':
+          description: Registration submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationSubmissionResponse'
+
+  /parents/me/registrations:
+    get:
+      tags: [Registration]
+      summary: List current parent's registrations
+      responses:
+        '200':
+          description: Parent registrations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationSubmissionListResponse'
+
+  /registration-submissions/{submissionId}/status:
+    patch:
+      tags: [Registration]
+      summary: Review/update registration submission status
+      parameters:
+        - $ref: '#/components/parameters/SubmissionIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdateRequest'
+      responses:
+        '200':
+          description: Registration status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationSubmissionResponse'
+
+  /parents/me/invoices:
+    get:
+      tags: [Billing]
+      summary: List current parent's invoices
+      responses:
+        '200':
+          description: Parent invoice list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceListResponse'
+
+  /invoices:
+    post:
+      tags: [Billing]
+      summary: Create invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvoiceRequest'
+      responses:
+        '201':
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceDetailResponse'
+
+  /invoices/{invoiceId}:
+    get:
+      tags: [Billing]
+      summary: Get invoice detail
+      parameters:
+        - $ref: '#/components/parameters/InvoiceIdPath'
+      responses:
+        '200':
+          description: Invoice detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceDetailResponse'
+
+  /invoices/{invoiceId}/payments:
+    post:
+      tags: [Billing]
+      summary: Create payment intent / checkout
+      parameters:
+        - $ref: '#/components/parameters/InvoiceIdPath'
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePaymentResponse'
+    get:
+      tags: [Billing]
+      summary: List payments for invoice
+      parameters:
+        - $ref: '#/components/parameters/InvoiceIdPath'
+      responses:
+        '200':
+          description: Payment list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentListResponse'
+
+  /invoices/{invoiceId}/offline-payments:
+    post:
+      tags: [Billing]
+      summary: Record offline payment
+      parameters:
+        - $ref: '#/components/parameters/InvoiceIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOfflinePaymentRequest'
+      responses:
+        '201':
+          description: Offline payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePaymentResponse'
+
+  /webhooks/payments/{provider}:
+    post:
+      tags: [Billing]
+      summary: Payment provider webhook
+      security: []
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /clubs/{clubId}/waivers:
+    get:
+      tags: [Waivers]
+      summary: List club waivers
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      responses:
+        '200':
+          description: Club waivers list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaiverListResponse'
+    post:
+      tags: [Waivers]
+      summary: Create waiver
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWaiverRequest'
+      responses:
+        '201':
+          description: Waiver created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaiverDetailResponse'
+
+  /waivers/{waiverId}/versions:
+    post:
+      tags: [Waivers]
+      summary: Create waiver version
+      parameters:
+        - $ref: '#/components/parameters/WaiverIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWaiverVersionRequest'
+      responses:
+        '201':
+          description: Waiver version created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaiverVersionResponse'
+
+  /parents/me/waivers:
+    get:
+      tags: [Waivers]
+      summary: List current parent's required waivers
+      responses:
+        '200':
+          description: Parent required waivers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentWaiverListResponse'
+
+  /waivers/{waiverId}/accept:
+    post:
+      tags: [Waivers]
+      summary: Accept waiver for linked child
+      parameters:
+        - $ref: '#/components/parameters/WaiverIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptWaiverRequest'
+      responses:
+        '201':
+          description: Waiver accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaiverAcceptanceResponse'
+
+  /clubs/{clubId}/evaluation-templates:
+    get:
+      tags: [Evaluations]
+      summary: List club evaluation templates
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      responses:
+        '200':
+          description: Template list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationTemplateListResponse'
+    post:
+      tags: [Evaluations]
+      summary: Create evaluation template
+      parameters:
+        - $ref: '#/components/parameters/ClubIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvaluationTemplateRequest'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationTemplateDetailResponse'
+
+  /evaluation-templates/{templateId}:
+    get:
+      tags: [Evaluations]
+      summary: Get evaluation template detail
+      parameters:
+        - $ref: '#/components/parameters/TemplateIdPath'
+      responses:
+        '200':
+          description: Template detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationTemplateDetailResponse'
+    put:
+      tags: [Evaluations]
+      summary: Update evaluation template
+      parameters:
+        - $ref: '#/components/parameters/TemplateIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEvaluationTemplateRequest'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationTemplateDetailResponse'
+
+  /evaluation-templates/{templateId}/criteria:
+    get:
+      tags: [Evaluations]
+      summary: List template criteria
+      parameters:
+        - $ref: '#/components/parameters/TemplateIdPath'
+      responses:
+        '200':
+          description: Criteria list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationCriteriaListResponse'
+    post:
+      tags: [Evaluations]
+      summary: Create evaluation criterion
+      parameters:
+        - $ref: '#/components/parameters/TemplateIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvaluationCriterionRequest'
+      responses:
+        '201':
+          description: Criterion created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationCriterionResponse'
+
+  /evaluation-criteria/{criterionId}:
+    put:
+      tags: [Evaluations]
+      summary: Update evaluation criterion
+      parameters:
+        - $ref: '#/components/parameters/CriterionIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEvaluationCriterionRequest'
+      responses:
+        '200':
+          description: Criterion updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationCriterionResponse'
+    delete:
+      tags: [Evaluations]
+      summary: Delete evaluation criterion
+      parameters:
+        - $ref: '#/components/parameters/CriterionIdPath'
+      responses:
+        '204':
+          description: Criterion deleted
+
+  /evaluation-templates/{templateId}/position-weight-profiles:
+    get:
+      tags: [Evaluations]
+      summary: List position weight profiles
+      parameters:
+        - $ref: '#/components/parameters/TemplateIdPath'
+      responses:
+        '200':
+          description: Position weight profile list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionWeightProfileListResponse'
+    post:
+      tags: [Evaluations]
+      summary: Create position weight profile
+      parameters:
+        - $ref: '#/components/parameters/TemplateIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePositionWeightProfileRequest'
+      responses:
+        '201':
+          description: Position weight profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionWeightProfileResponse'
+
+  /position-weight-profiles/{profileId}:
+    get:
+      tags: [Evaluations]
+      summary: Get position weight profile detail
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdPath'
+      responses:
+        '200':
+          description: Position weight profile detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionWeightProfileResponse'
+    put:
+      tags: [Evaluations]
+      summary: Update position weight profile
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePositionWeightProfileRequest'
+      responses:
+        '200':
+          description: Position weight profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionWeightProfileResponse'
+
+  /teams/{teamId}/evaluation-cycles:
+    get:
+      tags: [Evaluations]
+      summary: List team evaluation cycles
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      responses:
+        '200':
+          description: Evaluation cycle list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationCycleListResponse'
+    post:
+      tags: [Evaluations]
+      summary: Create evaluation cycle
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvaluationCycleRequest'
+      responses:
+        '201':
+          description: Evaluation cycle created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationCycleResponse'
+
+  /evaluation-cycles/{cycleId}:
+    get:
+      tags: [Evaluations]
+      summary: Get evaluation cycle detail
+      parameters:
+        - $ref: '#/components/parameters/CycleIdPath'
+      responses:
+        '200':
+          description: Evaluation cycle detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationCycleResponse'
+    put:
+      tags: [Evaluations]
+      summary: Update evaluation cycle
+      parameters:
+        - $ref: '#/components/parameters/CycleIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEvaluationCycleRequest'
+      responses:
+        '200':
+          description: Evaluation cycle updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationCycleResponse'
+
+  /players/{playerId}/evaluations:
+    get:
+      tags: [Evaluations]
+      summary: List player evaluations
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+        - in: query
+          name: evaluation_cycle_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: latest_only
+          schema:
+            type: boolean
+        - in: query
+          name: include
+          schema:
+            type: string
+            example: scores
+      responses:
+        '200':
+          description: Player evaluations list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerEvaluationListResponse'
+    post:
+      tags: [Evaluations]
+      summary: Create player evaluation
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlayerEvaluationRequest'
+      responses:
+        '201':
+          description: Player evaluation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePlayerEvaluationResponse'
+
+  /player-evaluations/{evaluationId}:
+    put:
+      tags: [Evaluations]
+      summary: Update player evaluation
+      parameters:
+        - $ref: '#/components/parameters/EvaluationIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlayerEvaluationRequest'
+      responses:
+        '200':
+          description: Player evaluation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePlayerEvaluationResponse'
+
+  /teams/{teamId}/evaluation-leaderboard:
+    get:
+      tags: [Evaluations]
+      summary: Team evaluation leaderboard
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+        - in: query
+          name: evaluation_cycle_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: metric
+          schema:
+            type: string
+            enum: [OVERALL_SCORE, WORK_RATE, PASSING, DRIBBLING, PHYSICALITY, AGGRESSION, PACE, TACTICAL_AWARENESS]
+        - in: query
+          name: position
+          schema:
+            $ref: '#/components/schemas/PositionCode'
+      responses:
+        '200':
+          description: Evaluation leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationLeaderboardResponse'
+
+  /teams/{teamId}/radar-comparison:
+    get:
+      tags: [Evaluations]
+      summary: Radar comparison for selected players
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+        - in: query
+          name: player_ids
+          required: true
+          schema:
+            type: string
+            description: Comma-separated UUID list of 2-3 players
+            example: uuid1,uuid2,uuid3
+        - in: query
+          name: evaluation_cycle_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Radar comparison payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarComparisonResponse'
+
+  /players/{playerId}/development-goals:
+    get:
+      tags: [Development]
+      summary: List development goals for player
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+      responses:
+        '200':
+          description: Development goals list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevelopmentGoalListResponse'
+    post:
+      tags: [Development]
+      summary: Create development goal
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDevelopmentGoalRequest'
+      responses:
+        '201':
+          description: Development goal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevelopmentGoalResponse'
+
+  /development-goals/{goalId}:
+    get:
+      tags: [Development]
+      summary: Get development goal detail
+      parameters:
+        - $ref: '#/components/parameters/GoalIdPath'
+      responses:
+        '200':
+          description: Development goal detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevelopmentGoalResponse'
+    put:
+      tags: [Development]
+      summary: Update development goal
+      parameters:
+        - $ref: '#/components/parameters/GoalIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDevelopmentGoalRequest'
+      responses:
+        '200':
+          description: Development goal updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevelopmentGoalResponse'
+
+  /development-goals/{goalId}/updates:
+    get:
+      tags: [Development]
+      summary: List development goal updates
+      parameters:
+        - $ref: '#/components/parameters/GoalIdPath'
+      responses:
+        '200':
+          description: Goal updates list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevelopmentGoalUpdateListResponse'
+    post:
+      tags: [Development]
+      summary: Add development goal update
+      parameters:
+        - $ref: '#/components/parameters/GoalIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDevelopmentGoalUpdateRequest'
+      responses:
+        '201':
+          description: Goal update created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevelopmentGoalUpdateResponse'
+
+  /parents/me/dashboard:
+    get:
+      tags: [Parents]
+      summary: Parent dashboard summary
+      responses:
+        '200':
+          description: Parent dashboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentDashboardResponse'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List current user's notifications
+      parameters:
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Notifications list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+
+  /notifications/{notificationId}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark notification as read
+      parameters:
+        - $ref: '#/components/parameters/NotificationIdPath'
+      responses:
+        '200':
+          description: Notification marked read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationReadResponse'
+
+  /notification-preferences:
+    get:
+      tags: [Notifications]
+      summary: Get current user's notification preferences
+      responses:
+        '200':
+          description: Notification preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesResponse'
+    put:
+      tags: [Notifications]
+      summary: Update current user's notification preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationPreferencesRequest'
+      responses:
+        '200':
+          description: Notification preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesResponse'
+
+  /ai/announcements/draft:
+    post:
+      tags: [AI]
+      summary: Draft announcement with AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIDraftAnnouncementRequest'
+      responses:
+        '200':
+          description: AI announcement draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIDraftAnnouncementResponse'
+
+  /ai/team-recap/draft:
+    post:
+      tags: [AI]
+      summary: Draft team recap with AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AITeamRecapRequest'
+      responses:
+        '200':
+          description: AI recap draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AITextResponse'
+
+  /ai/training-plan/draft:
+    post:
+      tags: [AI]
+      summary: Draft training plan with AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AITrainingPlanRequest'
+      responses:
+        '200':
+          description: AI training plan draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AITextResponse'
+
+  /ai/player-summary/draft:
+    post:
+      tags: [AI]
+      summary: Draft player summary with AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIPlayerSummaryRequest'
+      responses:
+        '200':
+          description: AI player summary draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AITextResponse'
+
+  /ai/payment-reminders/draft:
+    post:
+      tags: [AI]
+      summary: Draft payment reminder campaign with AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIPaymentReminderRequest'
+      responses:
+        '200':
+          description: AI payment reminder draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AITextResponse'
+
+  /reports/attendance-summary:
+    get:
+      tags: [Reports]
+      summary: Attendance summary report
+      parameters:
+        - in: query
+          name: club_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: team_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Attendance summary report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSummaryResponse'
+
+  /reports/registration-summary:
+    get:
+      tags: [Reports]
+      summary: Registration summary report
+      responses:
+        '200':
+          description: Registration summary report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericReportResponse'
+
+  /reports/billing-summary:
+    get:
+      tags: [Reports]
+      summary: Billing summary report
+      responses:
+        '200':
+          description: Billing summary report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericReportResponse'
+
+  /reports/evaluation-summary:
+    get:
+      tags: [Reports]
+      summary: Evaluation summary report
+      parameters:
+        - in: query
+          name: club_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: team_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: evaluation_cycle_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: position_code
+          schema:
+            $ref: '#/components/schemas/PositionCode'
+      responses:
+        '200':
+          description: Evaluation summary report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericReportResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ClubIdPath:
+      in: path
+      name: clubId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SeasonIdPath:
+      in: path
+      name: seasonId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TeamIdPath:
+      in: path
+      name: teamId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserIdPath:
+      in: path
+      name: userId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PlayerIdPath:
+      in: path
+      name: playerId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ParentIdPath:
+      in: path
+      name: parentId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FileIdPath:
+      in: path
+      name: fileId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EventIdPath:
+      in: path
+      name: eventId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProgramIdPath:
+      in: path
+      name: programId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SubmissionIdPath:
+      in: path
+      name: submissionId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InvoiceIdPath:
+      in: path
+      name: invoiceId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    WaiverIdPath:
+      in: path
+      name: waiverId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TemplateIdPath:
+      in: path
+      name: templateId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CriterionIdPath:
+      in: path
+      name: criterionId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProfileIdPath:
+      in: path
+      name: profileId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CycleIdPath:
+      in: path
+      name: cycleId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EvaluationIdPath:
+      in: path
+      name: evaluationId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    GoalIdPath:
+      in: path
+      name: goalId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    NotificationIdPath:
+      in: path
+      name: notificationId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SearchQuery:
+      in: query
+      name: search
+      required: false
+      schema:
+        type: string
+    StatusQuery:
+      in: query
+      name: status
+      required: false
+      schema:
+        type: string
+    PageQuery:
+      in: query
+      name: page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeQuery:
+      in: query
+      name: page_size
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 25
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        data:
+          nullable: true
+        meta:
+          type: object
+          additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorItem'
+      required: [data, meta, errors]
+
+    ErrorItem:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+          nullable: true
+      required: [code, message]
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              nullable: true
+              example: null
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_records:
+          type: integer
+        total_pages:
+          type: integer
+
+    SuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                success:
+                  type: boolean
+              required: [success]
+
+    MessageResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                message:
+                  type: string
+              required: [message]
+
+    UpdatedCountResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                updated_count:
+                  type: integer
+              required: [updated_count]
+
+    RoleCode:
+      type: string
+      enum: [MASTER_ADMIN, CLUB_ADMIN, COACH, PARENT]
+
+    TeamCoachRoleType:
+      type: string
+      enum: [HEAD_COACH, ASSISTANT_COACH, TEAM_MANAGER]
+
+    PositionCode:
+      type: string
+      enum: [GK, CB, FB, DM, CM, AM, WINGER, ST, UTILITY]
+
+    TeamStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, ARCHIVED]
+
+    PlayerStatus:
+      type: string
+      enum: [ACTIVE, INJURED, INACTIVE, ARCHIVED]
+
+    EventType:
+      type: string
+      enum: [PRACTICE, GAME, TOURNAMENT, MEETING, TEAM_EVENT, CLUB_EVENT]
+
+    EventStatus:
+      type: string
+      enum: [SCHEDULED, CANCELLED, COMPLETED, POSTPONED]
+
+    RsvpStatus:
+      type: string
+      enum: [GOING, NOT_GOING, MAYBE, LATE]
+
+    AttendanceStatus:
+      type: string
+      enum: [PRESENT, EXCUSED_ABSENT, UNEXCUSED_ABSENT, LATE, INJURED, PARTIAL]
+
+    RegistrationStatus:
+      type: string
+      enum: [DRAFT, SUBMITTED, APPROVED, WAITLISTED, REJECTED, CANCELLED]
+
+    InvoiceStatus:
+      type: string
+      enum: [DRAFT, OPEN, PARTIALLY_PAID, PAID, OVERDUE, VOID, REFUNDED]
+
+    PaymentStatus:
+      type: string
+      enum: [PENDING, SUCCEEDED, FAILED, CANCELLED, REFUNDED, PARTIALLY_REFUNDED]
+
+    WaiverType:
+      type: string
+      enum: [LIABILITY, MEDICAL, MEDIA, TRAVEL, CODE_OF_CONDUCT, CUSTOM]
+
+    EvaluationCycleType:
+      type: string
+      enum: [TRYOUT, PRESEASON, MIDSEASON, POSTSEASON, CUSTOM]
+
+    DevelopmentGoalVisibility:
+      type: string
+      enum: [COACH_ONLY, PARENT_VISIBLE]
+
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+      required: [id, email, first_name, last_name]
+
+    RoleAssignment:
+      type: object
+      properties:
+        assignment_id:
+          type: string
+          format: uuid
+        role_code:
+          $ref: '#/components/schemas/RoleCode'
+        club_id:
+          type: string
+          format: uuid
+          nullable: true
+        team_id:
+          type: string
+          format: uuid
+          nullable: true
+        is_primary:
+          type: boolean
+      required: [assignment_id, role_code, is_primary]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+          nullable: true
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        active_role:
+          $ref: '#/components/schemas/RoleAssignment'
+      required: [access_token, user, active_role]
+
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    RefreshTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+      required: [access_token]
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, new_password]
+      properties:
+        token:
+          type: string
+        new_password:
+          type: string
+          format: password
+
+    AuthMeResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleAssignment'
+      required: [user, roles]
+
+    SwitchRoleRequest:
+      type: object
+      required: [assignment_id]
+      properties:
+        assignment_id:
+          type: string
+          format: uuid
+
+    ClubSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        short_code:
+          type: string
+        status:
+          type: string
+        timezone:
+          type: string
+      required: [id, name, short_code, status, timezone]
+
+    ClubListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClubSummary'
+            meta:
+              $ref: '#/components/schemas/PaginationMeta'
+
+    CreateClubRequest:
+      type: object
+      required: [name, short_code, timezone]
+      properties:
+        name:
+          type: string
+        short_code:
+          type: string
+        timezone:
+          type: string
+        phone:
+          type: string
+        website:
+          type: string
+          format: uri
+
+    UpdateClubRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        short_code:
+          type: string
+        timezone:
+          type: string
+        phone:
+          type: string
+        website:
+          type: string
+          format: uri
+        status:
+          type: string
+
+    ClubDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ClubSummary'
+
+    CreateClubAdminRequest:
+      type: object
+      required: [email, first_name, last_name]
+      properties:
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+
+    InvitationResponse:
+      type: object
+      properties:
+        invitation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+      required: [invitation_id, status]
+
+    ClubDashboardSummary:
+      type: object
+      properties:
+        totals:
+          type: object
+          properties:
+            teams:
+              type: integer
+            players:
+              type: integer
+            coaches:
+              type: integer
+            parents:
+              type: integer
+            open_invoices:
+              type: integer
+            upcoming_events:
+              type: integer
+          required: [teams, players, coaches, parents, open_invoices, upcoming_events]
+      required: [totals]
+
+    ClubSettings:
+      type: object
+      properties:
+        allow_parent_to_parent_chat:
+          type: boolean
+        allow_parent_child_evaluation_view:
+          type: boolean
+        show_player_photos_to_parents:
+          type: boolean
+        enable_ai_features:
+          type: boolean
+        default_currency:
+          type: string
+      required: [allow_parent_to_parent_chat, allow_parent_child_evaluation_view, show_player_photos_to_parents, enable_ai_features, default_currency]
+
+    UpdateClubSettingsRequest:
+      allOf:
+        - $ref: '#/components/schemas/ClubSettings'
+
+    SeasonSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        club_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+      required: [id, club_id, name, start_date, end_date, status]
+
+    SeasonListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SeasonSummary'
+
+    CreateSeasonRequest:
+      type: object
+      required: [name, start_date, end_date]
+      properties:
+        name:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+
+    UpdateSeasonRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+
+    SeasonDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SeasonSummary'
+
+    TeamSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        club_id:
+          type: string
+          format: uuid
+        season_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        team_code:
+          type: string
+        age_group:
+          type: string
+          nullable: true
+        division:
+          type: string
+          nullable: true
+        competitive_level:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/TeamStatus'
+      required: [id, club_id, name, team_code, status]
+
+    TeamListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/TeamSummary'
+
+    CreateTeamRequest:
+      type: object
+      required: [name, team_code]
+      properties:
+        season_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        team_code:
+          type: string
+        age_group:
+          type: string
+        division:
+          type: string
+        competitive_level:
+          type: string
+
+    UpdateTeamRequest:
+      type: object
+      properties:
+        season_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        team_code:
+          type: string
+        age_group:
+          type: string
+        division:
+          type: string
+        competitive_level:
+          type: string
+        status:
+          $ref: '#/components/schemas/TeamStatus'
+
+    TeamDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TeamSummary'
+
+    AssignCoachRequest:
+      type: object
+      required: [user_id, role_type]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role_type:
+          $ref: '#/components/schemas/TeamCoachRoleType'
+
+    CoachAssignment:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        role_type:
+          $ref: '#/components/schemas/TeamCoachRoleType'
+      required: [user_id, display_name, role_type]
+
+    CoachAssignmentListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/CoachAssignment'
+
+    CoachAssignmentResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CoachAssignment'
+
+    ClubUserSummary:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role_codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleCode'
+        status:
+          type: string
+      required: [user_id, name, email, role_codes, status]
+
+    ClubUserListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClubUserSummary'
+            meta:
+              $ref: '#/components/schemas/PaginationMeta'
+
+    ParentLinkSummary:
+      type: object
+      properties:
+        parent_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+      required: [parent_id, display_name]
+
+    PlayerFullView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        preferred_name:
+          type: string
+          nullable: true
+        jersey_number:
+          type: string
+          nullable: true
+        primary_position:
+          $ref: '#/components/schemas/PositionCode'
+        secondary_position:
+          $ref: '#/components/schemas/PositionCode'
+          nullable: true
+        status:
+          $ref: '#/components/schemas/PlayerStatus'
+        photo_url:
+          type: string
+          nullable: true
+        medical_notes:
+          type: string
+          nullable: true
+        parent_links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParentLinkSummary'
+      required: [id, first_name, last_name, primary_position, status]
+
+    PlayerSafeView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        preferred_name:
+          type: string
+          nullable: true
+        jersey_number:
+          type: string
+          nullable: true
+        primary_position:
+          $ref: '#/components/schemas/PositionCode'
+        photo_url:
+          type: string
+          nullable: true
+      required: [id, display_name, primary_position]
+
+    PlayerFullListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlayerFullView'
+
+    PlayerSafeListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlayerSafeView'
+
+    CreatePlayerRequest:
+      type: object
+      required: [first_name, last_name, primary_position]
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        preferred_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        jersey_number:
+          type: string
+        primary_position:
+          $ref: '#/components/schemas/PositionCode'
+        secondary_position:
+          $ref: '#/components/schemas/PositionCode'
+
+    CreatePlayerResponse:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        team_membership_id:
+          type: string
+          format: uuid
+      required: [player_id, team_membership_id]
+
+    UpdatePlayerRequest:
+      type: object
+      properties:
+        preferred_name:
+          type: string
+        jersey_number:
+          type: string
+        primary_position:
+          $ref: '#/components/schemas/PositionCode'
+        secondary_position:
+          $ref: '#/components/schemas/PositionCode'
+        status:
+          $ref: '#/components/schemas/PlayerStatus'
+        medical_notes:
+          type: string
+        allergy_notes:
+          type: string
+        emergency_contact_name:
+          type: string
+        emergency_contact_phone:
+          type: string
+        photo_url:
+          type: string
+
+    PlayerDetail:
+      allOf:
+        - $ref: '#/components/schemas/PlayerFullView'
+        - type: object
+          properties:
+            date_of_birth:
+              type: string
+              format: date
+              nullable: true
+
+    PlayerDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PlayerDetail'
+
+    LinkParentRequest:
+      type: object
+      required: [parent_id, relationship_type]
+      properties:
+        parent_id:
+          type: string
+          format: uuid
+        relationship_type:
+          type: string
+        is_primary_guardian:
+          type: boolean
+        can_pickup:
+          type: boolean
+        can_pay:
+          type: boolean
+
+    ParentLinkResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                player_id:
+                  type: string
+                  format: uuid
+                parent_id:
+                  type: string
+                  format: uuid
+                relationship_type:
+                  type: string
+              required: [player_id, parent_id, relationship_type]
+
+    ParentChildSummary:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        team_memberships:
+          type: array
+          items:
+            type: object
+            properties:
+              team_id:
+                type: string
+                format: uuid
+              team_name:
+                type: string
+            required: [team_id, team_name]
+      required: [player_id, display_name, team_memberships]
+
+    ParentChildrenResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ParentChildSummary'
+
+    UploadedFile:
+      type: object
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        storage_url:
+          type: string
+          format: uri
+      required: [file_id, storage_url]
+
+    FileUploadResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UploadedFile'
+
+    FileMetadata:
+      type: object
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        original_name:
+          type: string
+        mime_type:
+          type: string
+        size_bytes:
+          type: integer
+        purpose:
+          type: string
+      required: [file_id, original_name, mime_type, size_bytes, purpose]
+
+    FileMetadataResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/FileMetadata'
+
+    AudienceType:
+      type: string
+      enum: [CLUB_ALL, TEAM_ONLY, COACHES_ONLY, PARENTS_ONLY, CUSTOM_SELECTION]
+
+    AnnouncementSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        body:
+          type: string
+        audience_type:
+          $ref: '#/components/schemas/AudienceType'
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+      required: [id, title, body, audience_type, status]
+
+    AnnouncementListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AnnouncementSummary'
+            meta:
+              $ref: '#/components/schemas/PaginationMeta'
+
+    CreateAnnouncementRequest:
+      type: object
+      required: [club_id, title, body, audience_type]
+      properties:
+        club_id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        body:
+          type: string
+        audience_type:
+          $ref: '#/components/schemas/AudienceType'
+        publish_now:
+          type: boolean
+          default: false
+
+    AnnouncementDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AnnouncementSummary'
+
+    MessageSender:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+      required: [user_id, display_name]
+
+    MessageSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender:
+          $ref: '#/components/schemas/MessageSender'
+        body:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, sender, body, created_at]
+
+    MessageListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageSummary'
+            meta:
+              type: object
+              properties:
+                next_cursor:
+                  type: string
+                  nullable: true
+
+    CreateMessageRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+        reply_to_message_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    CreateMessageResponse:
+      type: object
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+      required: [message_id, created_at]
+
+    CreateMessageResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CreateMessageResponse'
+
+    EventSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_type:
+          $ref: '#/components/schemas/EventType'
+        title:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        location_name:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/EventStatus'
+      required: [id, event_type, title, start_at, end_at, status]
+
+    EventListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventSummary'
+
+    CreateEventRequest:
+      type: object
+      required: [event_type, title, start_at, end_at, timezone]
+      properties:
+        event_type:
+          $ref: '#/components/schemas/EventType'
+        title:
+          type: string
+        description:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+        location_name:
+          type: string
+        address_line1:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        opponent_name:
+          type: string
+        home_away:
+          type: string
+          enum: [HOME, AWAY]
+        arrival_time:
+          type: string
+          format: date-time
+        uniform_notes:
+          type: string
+
+    UpdateEventRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateEventRequest'
+        - type: object
+          properties:
+            status:
+              $ref: '#/components/schemas/EventStatus'
+
+    EventDetail:
+      allOf:
+        - $ref: '#/components/schemas/EventSummary'
+        - type: object
+          properties:
+            team_id:
+              type: string
+              format: uuid
+              nullable: true
+            description:
+              type: string
+              nullable: true
+            opponent_name:
+              type: string
+              nullable: true
+            home_away:
+              type: string
+              nullable: true
+
+    EventDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/EventDetail'
+
+    CreateRsvpRequest:
+      type: object
+      required: [player_id, response_status]
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        response_status:
+          $ref: '#/components/schemas/RsvpStatus'
+        comment:
+          type: string
+
+    RsvpEntry:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          nullable: true
+        response_status:
+          $ref: '#/components/schemas/RsvpStatus'
+        responded_at:
+          type: string
+          format: date-time
+      required: [player_id, response_status, responded_at]
+
+    RsvpResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RsvpEntry'
+
+    RsvpListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/RsvpEntry'
+
+    AttendanceRecord:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          nullable: true
+        attendance_status:
+          $ref: '#/components/schemas/AttendanceStatus'
+        notes:
+          type: string
+          nullable: true
+      required: [player_id, attendance_status]
+
+    AttendanceListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AttendanceRecord'
+
+    RecordAttendanceRequest:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceRecord'
+
+    ParentScheduleItem:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        player_name:
+          type: string
+        team_name:
+          type: string
+        event_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+      required: [player_id, player_name, team_name, event_id, title, start_at]
+
+    ParentScheduleResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ParentScheduleItem'
+
+    RegistrationProgramSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        opens_at:
+          type: string
+          format: date-time
+        closes_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+      required: [id, name, opens_at, closes_at, status]
+
+    RegistrationProgramListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegistrationProgramSummary'
+
+    CreateRegistrationProgramRequest:
+      type: object
+      required: [name, opens_at, closes_at]
+      properties:
+        season_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        opens_at:
+          type: string
+          format: date-time
+        closes_at:
+          type: string
+          format: date-time
+
+    RegistrationProgramDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RegistrationProgramSummary'
+
+    RegistrationFieldSchema:
+      type: object
+      additionalProperties: true
+
+    CreateRegistrationFormRequest:
+      type: object
+      required: [name, version, schema_json]
+      properties:
+        name:
+          type: string
+        version:
+          type: integer
+        schema_json:
+          type: object
+          additionalProperties: true
+
+    RegistrationFormDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                form_id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                version:
+                  type: integer
+                schema_json:
+                  type: object
+                  additionalProperties: true
+              required: [form_id, name, version, schema_json]
+
+    RegistrationAnswerInput:
+      type: object
+      required: [field_key, field_value]
+      properties:
+        field_key:
+          type: string
+        field_value:
+          nullable: true
+
+    CreateRegistrationSubmissionRequest:
+      type: object
+      required: [club_id, registration_program_id, form_id, player_id, answers]
+      properties:
+        club_id:
+          type: string
+          format: uuid
+        registration_program_id:
+          type: string
+          format: uuid
+        form_id:
+          type: string
+          format: uuid
+        player_id:
+          type: string
+          format: uuid
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegistrationAnswerInput'
+        submit:
+          type: boolean
+          default: false
+
+    RegistrationSubmissionSummary:
+      type: object
+      properties:
+        submission_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/RegistrationStatus'
+      required: [submission_id, status]
+
+    RegistrationSubmissionResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RegistrationSubmissionSummary'
+
+    RegistrationSubmissionListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegistrationSubmissionSummary'
+
+    InvoiceSummary:
+      type: object
+      properties:
+        invoice_id:
+          type: string
+          format: uuid
+        invoice_number:
+          type: string
+        player_name:
+          type: string
+          nullable: true
+        total_amount:
+          type: number
+          format: float
+        amount_paid:
+          type: number
+          format: float
+        amount_due:
+          type: number
+          format: float
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/InvoiceStatus'
+      required: [invoice_id, invoice_number, total_amount, amount_paid, amount_due, status]
+
+    InvoiceListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/InvoiceSummary'
+
+    InvoiceItemInput:
+      type: object
+      required: [description, quantity, unit_amount]
+      properties:
+        description:
+          type: string
+        quantity:
+          type: number
+          format: float
+        unit_amount:
+          type: number
+          format: float
+        category:
+          type: string
+
+    CreateInvoiceRequest:
+      type: object
+      required: [club_id, currency, items]
+      properties:
+        club_id:
+          type: string
+          format: uuid
+        family_account_id:
+          type: string
+          format: uuid
+        player_id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          example: USD
+        due_date:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvoiceItemInput'
+
+    InvoiceDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/InvoiceSummary'
+
+    CreatePaymentRequest:
+      type: object
+      required: [amount, payment_method]
+      properties:
+        amount:
+          type: number
+          format: float
+        payment_method:
+          type: string
+          enum: [CARD, ACH, CASH, CHECK, OTHER]
+
+    CreateOfflinePaymentRequest:
+      type: object
+      required: [amount, payment_method, paid_at]
+      properties:
+        amount:
+          type: number
+          format: float
+        payment_method:
+          type: string
+          enum: [CHECK, CASH, OTHER]
+        reference_number:
+          type: string
+        paid_at:
+          type: string
+          format: date-time
+
+    PaymentSummary:
+      type: object
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        amount:
+          type: number
+          format: float
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+      required: [payment_id, provider, amount, status]
+
+    CreatePaymentResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                payment_id:
+                  type: string
+                  format: uuid
+                provider:
+                  type: string
+                checkout_url:
+                  type: string
+                  format: uri
+                  nullable: true
+                status:
+                  $ref: '#/components/schemas/PaymentStatus'
+              required: [payment_id, provider, status]
+
+    PaymentListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentSummary'
+
+    WaiverSummary:
+      type: object
+      properties:
+        waiver_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        waiver_type:
+          $ref: '#/components/schemas/WaiverType'
+        status:
+          type: string
+      required: [waiver_id, name, waiver_type, status]
+
+    WaiverListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/WaiverSummary'
+
+    CreateWaiverRequest:
+      type: object
+      required: [name, waiver_type]
+      properties:
+        name:
+          type: string
+        waiver_type:
+          $ref: '#/components/schemas/WaiverType'
+
+    WaiverDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/WaiverSummary'
+
+    CreateWaiverVersionRequest:
+      type: object
+      required: [version_number, effective_at]
+      properties:
+        version_number:
+          type: integer
+        content_markdown:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+
+    WaiverVersionResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                waiver_version_id:
+                  type: string
+                  format: uuid
+                version_number:
+                  type: integer
+              required: [waiver_version_id, version_number]
+
+    ParentWaiverSummary:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        player_name:
+          type: string
+        waiver_id:
+          type: string
+          format: uuid
+        waiver_name:
+          type: string
+        version_number:
+          type: integer
+        status:
+          type: string
+      required: [player_id, player_name, waiver_id, waiver_name, version_number, status]
+
+    ParentWaiverListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ParentWaiverSummary'
+
+    AcceptWaiverRequest:
+      type: object
+      required: [player_id, waiver_version_id, accepted]
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        waiver_version_id:
+          type: string
+          format: uuid
+        accepted:
+          type: boolean
+
+    WaiverAcceptanceResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                acceptance_id:
+                  type: string
+                  format: uuid
+                accepted_at:
+                  type: string
+                  format: date-time
+              required: [acceptance_id, accepted_at]
+
+    EvaluationTemplateSummary:
+      type: object
+      properties:
+        template_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+      required: [template_id, name, status]
+
+    EvaluationTemplateListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/EvaluationTemplateSummary'
+
+    CreateEvaluationTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    UpdateEvaluationTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+
+    EvaluationTemplateDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/EvaluationTemplateSummary'
+
+    EvaluationCriterion:
+      type: object
+      properties:
+        criterion_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        label:
+          type: string
+        sort_order:
+          type: integer
+        min_score:
+          type: number
+          format: float
+        max_score:
+          type: number
+          format: float
+      required: [criterion_id, code, label, sort_order, min_score, max_score]
+
+    EvaluationCriteriaListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/EvaluationCriterion'
+
+    CreateEvaluationCriterionRequest:
+      type: object
+      required: [code, label, sort_order, min_score, max_score]
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        sort_order:
+          type: integer
+        min_score:
+          type: number
+          format: float
+        max_score:
+          type: number
+          format: float
+
+    UpdateEvaluationCriterionRequest:
+      type: object
+      properties:
+        label:
+          type: string
+        sort_order:
+          type: integer
+        min_score:
+          type: number
+          format: float
+        max_score:
+          type: number
+          format: float
+
+    EvaluationCriterionResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/EvaluationCriterion'
+
+    PositionWeightInput:
+      type: object
+      required: [criterion_code, weight]
+      properties:
+        criterion_code:
+          type: string
+        weight:
+          type: number
+          format: float
+
+    CreatePositionWeightProfileRequest:
+      type: object
+      required: [position_code, effective_from, weights]
+      properties:
+        position_code:
+          $ref: '#/components/schemas/PositionCode'
+        effective_from:
+          type: string
+          format: date
+        weights:
+          type: array
+          items:
+            $ref: '#/components/schemas/PositionWeightInput'
+
+    PositionWeightProfile:
+      type: object
+      properties:
+        profile_id:
+          type: string
+          format: uuid
+        position_code:
+          $ref: '#/components/schemas/PositionCode'
+        effective_from:
+          type: string
+          format: date
+        weights:
+          type: array
+          items:
+            $ref: '#/components/schemas/PositionWeightInput'
+      required: [profile_id, position_code, effective_from, weights]
+
+    PositionWeightProfileListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PositionWeightProfile'
+
+    PositionWeightProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PositionWeightProfile'
+
+    EvaluationCycleSummary:
+      type: object
+      properties:
+        cycle_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cycle_type:
+          $ref: '#/components/schemas/EvaluationCycleType'
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+      required: [cycle_id, name, cycle_type, starts_at, ends_at]
+
+    EvaluationCycleListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/EvaluationCycleSummary'
+
+    CreateEvaluationCycleRequest:
+      type: object
+      required: [name, cycle_type, starts_at, ends_at]
+      properties:
+        season_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cycle_type:
+          $ref: '#/components/schemas/EvaluationCycleType'
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+
+    UpdateEvaluationCycleRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateEvaluationCycleRequest'
+        - type: object
+          properties:
+            status:
+              type: string
+
+    EvaluationCycleResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/EvaluationCycleSummary'
+
+    EvaluationScoreInput:
+      type: object
+      required: [criterion_code, raw_score]
+      properties:
+        criterion_code:
+          type: string
+        raw_score:
+          type: number
+          format: float
+
+    CreatePlayerEvaluationRequest:
+      type: object
+      required: [team_id, evaluation_cycle_id, template_id, position_code, scores]
+      properties:
+        team_id:
+          type: string
+          format: uuid
+        evaluation_cycle_id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        position_code:
+          $ref: '#/components/schemas/PositionCode'
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationScoreInput'
+        summary_comment:
+          type: string
+        coach_only_notes:
+          type: string
+        parent_visible_notes:
+          type: string
+
+    UpdatePlayerEvaluationRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreatePlayerEvaluationRequest'
+
+    PlayerEvaluationScore:
+      type: object
+      properties:
+        criterion_code:
+          type: string
+        raw_score:
+          type: number
+          format: float
+        weighted_score:
+          type: number
+          format: float
+      required: [criterion_code, raw_score, weighted_score]
+
+    PlayerEvaluationSummary:
+      type: object
+      properties:
+        evaluation_id:
+          type: string
+          format: uuid
+        evaluation_cycle:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+          required: [id, name]
+        overall_score:
+          type: number
+          format: float
+        rank_in_scope:
+          type: integer
+          nullable: true
+        bucket_label:
+          type: string
+          nullable: true
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerEvaluationScore'
+      required: [evaluation_id, evaluation_cycle, overall_score]
+
+    PlayerEvaluationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlayerEvaluationSummary'
+
+    CreatePlayerEvaluationResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                evaluation_id:
+                  type: string
+                  format: uuid
+                overall_score:
+                  type: number
+                  format: float
+                rank_in_scope:
+                  type: integer
+                  nullable: true
+                bucket_label:
+                  type: string
+                  nullable: true
+              required: [evaluation_id, overall_score]
+
+    EvaluationLeaderboardRow:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        position_code:
+          $ref: '#/components/schemas/PositionCode'
+        metric_value:
+          type: number
+          format: float
+        rank:
+          type: integer
+        bucket_label:
+          type: string
+          nullable: true
+      required: [player_id, display_name, position_code, metric_value, rank]
+
+    EvaluationLeaderboardResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/EvaluationLeaderboardRow'
+
+    RadarComparisonPlayer:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        values:
+          type: array
+          items:
+            type: number
+            format: float
+      required: [player_id, display_name, values]
+
+    RadarComparisonPayload:
+      type: object
+      properties:
+        criteria:
+          type: array
+          items:
+            type: string
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/RadarComparisonPlayer'
+      required: [criteria, players]
+
+    RadarComparisonResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RadarComparisonPayload'
+
+    DevelopmentGoalSummary:
+      type: object
+      properties:
+        goal_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        status:
+          type: string
+        visibility:
+          $ref: '#/components/schemas/DevelopmentGoalVisibility'
+        target_date:
+          type: string
+          format: date
+          nullable: true
+      required: [goal_id, title, status, visibility]
+
+    DevelopmentGoalListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/DevelopmentGoalSummary'
+
+    CreateDevelopmentGoalRequest:
+      type: object
+      required: [title, visibility]
+      properties:
+        team_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        visibility:
+          $ref: '#/components/schemas/DevelopmentGoalVisibility'
+        target_date:
+          type: string
+          format: date
+
+    UpdateDevelopmentGoalRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateDevelopmentGoalRequest'
+        - type: object
+          properties:
+            status:
+              type: string
+
+    DevelopmentGoalResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DevelopmentGoalSummary'
+
+    DevelopmentGoalUpdateSummary:
+      type: object
+      properties:
+        update_id:
+          type: string
+          format: uuid
+        progress_status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required: [update_id, progress_status, created_at]
+
+    DevelopmentGoalUpdateListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/DevelopmentGoalUpdateSummary'
+
+    CreateDevelopmentGoalUpdateRequest:
+      type: object
+      required: [progress_status]
+      properties:
+        progress_status:
+          type: string
+        notes:
+          type: string
+
+    DevelopmentGoalUpdateResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DevelopmentGoalUpdateSummary'
+
+    ParentDashboardChild:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        teams:
+          type: array
+          items:
+            type: object
+            properties:
+              team_id:
+                type: string
+                format: uuid
+              team_name:
+                type: string
+            required: [team_id, team_name]
+      required: [player_id, display_name, teams]
+
+    ParentDashboardSummary:
+      type: object
+      properties:
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParentDashboardChild'
+        upcoming_events:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParentScheduleItem'
+        unread_messages_count:
+          type: integer
+        open_invoices_count:
+          type: integer
+        pending_waivers_count:
+          type: integer
+      required: [children, upcoming_events, unread_messages_count, open_invoices_count, pending_waivers_count]
+
+    ParentDashboardResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ParentDashboardSummary'
+
+    NotificationItem:
+      type: object
+      properties:
+        notification_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+          nullable: true
+        status:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+      required: [notification_id, type, title, status]
+
+    NotificationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/NotificationItem'
+            meta:
+              $ref: '#/components/schemas/PaginationMeta'
+
+    NotificationReadResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                read_at:
+                  type: string
+                  format: date-time
+              required: [success, read_at]
+
+    NotificationPreferences:
+      type: object
+      properties:
+        email_enabled:
+          type: boolean
+        push_enabled:
+          type: boolean
+        sms_enabled:
+          type: boolean
+        billing_notifications_enabled:
+          type: boolean
+        schedule_notifications_enabled:
+          type: boolean
+      required: [email_enabled, push_enabled, sms_enabled, billing_notifications_enabled, schedule_notifications_enabled]
+
+    NotificationPreferencesResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/NotificationPreferences'
+
+    UpdateNotificationPreferencesRequest:
+      allOf:
+        - $ref: '#/components/schemas/NotificationPreferences'
+
+    AIDraftAnnouncementRequest:
+      type: object
+      required: [prompt]
+      properties:
+        club_id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        prompt:
+          type: string
+        tone:
+          type: string
+
+    AIDraftAnnouncementResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                draft_title:
+                  type: string
+                draft_body:
+                  type: string
+              required: [draft_title, draft_body]
+
+    AITeamRecapRequest:
+      type: object
+      required: [team_id, event_id]
+      properties:
+        team_id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        focus:
+          type: string
+
+    AITrainingPlanRequest:
+      type: object
+      required: [team_id, age_group, focus_area, duration_minutes]
+      properties:
+        team_id:
+          type: string
+          format: uuid
+        age_group:
+          type: string
+        focus_area:
+          type: string
+        duration_minutes:
+          type: integer
+
+    AIPlayerSummaryRequest:
+      type: object
+      required: [player_id, audience]
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        evaluation_cycle_id:
+          type: string
+          format: uuid
+        include_development_goals:
+          type: boolean
+        audience:
+          type: string
+          enum: [PARENT, COACH, CLUB_ADMIN]
+
+    AIPaymentReminderRequest:
+      type: object
+      required: [club_id]
+      properties:
+        club_id:
+          type: string
+          format: uuid
+        filter:
+          type: object
+          additionalProperties: true
+        tone:
+          type: string
+
+    AITextResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                summary:
+                  type: string
+              required: [summary]
+
+    AttendanceSummaryRow:
+      type: object
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        present_count:
+          type: integer
+        late_count:
+          type: integer
+        absent_count:
+          type: integer
+      required: [player_id, display_name, present_count, late_count, absent_count]
+
+    AttendanceSummaryPayload:
+      type: object
+      properties:
+        team_attendance_rate:
+          type: number
+          format: float
+        player_rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceSummaryRow'
+      required: [team_attendance_rate, player_rows]
+
+    AttendanceSummaryResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AttendanceSummaryPayload'
+
+    GenericReportResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: true
+
+    StatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
